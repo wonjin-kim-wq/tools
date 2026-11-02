@@ -49,6 +49,7 @@ test('admin password rotation rejects unauthorized requests, replaces fallback, 
     assert.equal((await invoke('queue',{token:legacyToken})).statusCode,401);
     assert.equal((await invoke('session',{token:oldToken})).data.role,null);
     assert.equal((await invoke('login',{method:'POST',body:{kind:'uploader',password:oldPassword}})).statusCode,401);
+    delete process.env.UPLOAD_PASSWORD;
     const fresh=await invoke('login',{method:'POST',body:{kind:'uploader',password:newPassword}});
     assert.equal(fresh.statusCode,200);
     const freshToken=fresh.headers['Set-Cookie'].split(';')[0].split('=')[1];

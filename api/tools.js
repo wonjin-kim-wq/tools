@@ -5,7 +5,7 @@ const BUCKET = 'chamcoding-screenshots';
 const COOKIE = 'chamcoding_session';
 const members = require('../lib/member-auth');
 const config = () => ({ url: process.env.SUPABASE_URL?.replace(/\/$/, ''), key: process.env.SUPABASE_SERVICE_ROLE_KEY, secret: process.env.SESSION_SECRET });
-const isConfigured = () => Object.values(config()).every(Boolean) && !!process.env.UPLOAD_PASSWORD;
+const isConfigured = () => Object.values(config()).every(Boolean);
 
 async function db(path, { method = 'GET', body, headers = {}, raw = false } = {}) {
   const { url, key } = config();
