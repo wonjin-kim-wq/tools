@@ -57,7 +57,27 @@ button{cursor:pointer}
 .grid{position:relative;margin-bottom:56px}
 .card{position:absolute;display:flex;align-items:center;gap:4px;padding:0 20px 0 6px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);cursor:pointer;outline:none;
   transition:box-shadow .25s,border-color .25s,transform .25s}
-.grid.ready .card{transition:left .8s cubic-bezier(.65,0,.25,1),top .8s cubic-bezier(.65,0,.25,1),box-shadow .25s,border-color .25s,transform .25s}
+.grid.ready .card{transition:left .8s cubic-bezier(.65,0,.25,1),top .8s cubic-bezier(.65,0,.25,1),box-shadow .25s,border-color .25s,transform .25s,opacity .3s}
+.card.hide{opacity:0;pointer-events:none;transform:scale(.96)}
+.empty{text-align:center;color:var(--sub);font-size:14px;padding:48px 0 80px}
+
+/* 검색 */
+.search{flex:1;max-width:440px;display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;background:var(--chip);border-radius:12px;color:var(--mute);border:1px solid transparent;transition:border-color .15s,background .15s}
+.search:focus-within{background:#fff;border-color:var(--ink);color:var(--ink)}
+.search input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:14px;color:var(--ink)}
+.search input::placeholder{color:var(--mute)}
+
+/* 카테고리 위젯 */
+.cats{display:flex;gap:10px;margin-bottom:18px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.cats::-webkit-scrollbar{display:none}
+.cat{flex:1 0 auto;min-width:150px;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:16px;text-align:left;transition:border-color .2s,box-shadow .2s,background .2s,color .2s}
+.cat:hover{border-color:var(--line2);box-shadow:var(--shadow-h)}
+.cat .ic{width:38px;height:38px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--chip)}
+.cat b{display:block;font-size:14.5px;font-weight:700}
+.cat small{display:block;font-size:12px;color:var(--mute);margin-top:2px}
+.cat.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.cat.on .ic{background:rgba(255,255,255,.14)}
+.cat.on small{color:rgba(255,255,255,.65)}
 .card:hover{box-shadow:var(--shadow-h);border-color:var(--line2);transform:translateY(-2px)}
 .card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .pod{position:relative;flex:none;width:104px;height:120px}
@@ -158,7 +178,11 @@ button{cursor:pointer}
 
 /* 모바일 */
 @media (max-width:640px){
-  .top-in{height:56px;padding:0 16px}
+  .top-in{height:auto;padding:10px 16px;flex-wrap:wrap;row-gap:10px}
+  .search{order:3;flex-basis:100%;max-width:none}
+  .search input{font-size:16px}
+  .cat{min-width:0;flex:none;padding:10px 14px}
+  .cat .ic{width:32px;height:32px;font-size:17px}
   .logo small{display:none}
   .logo b{font-size:16px}
   .logo .mark{width:34px;height:28px}
@@ -198,6 +222,10 @@ button{cursor:pointer}
 <header class="top">
   <div class="top-in">
     <div class="logo" id="logo"><div><b>참쌤 코딩자료</b><small>연구회가 만든 코딩 수업 도구</small></div></div>
+    <label class="search" role="search">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="어떤 도구를 찾으세요?" aria-label="도구 검색" autocomplete="off">
+    </label>
     <div class="auth">
       <button class="btn ghost buddy-toggle" id="buddyToggle" aria-pressed="true" title="커서를 따라다니는 캐릭터 켜기/끄기">캐릭터 <span class="sw"></span></button>
       <button class="btn ghost" data-auth="login">로그인</button>
@@ -219,7 +247,9 @@ button{cursor:pointer}
       <button data-k="updated" role="tab">업데이트순</button>
     </div>
   </div>
+  <div class="cats" id="cats" role="tablist" aria-label="카테고리"></div>
   <div class="grid" id="grid"></div>
+  <p class="empty" id="empty" hidden>찾는 도구가 없어요. 다른 검색어나 카테고리를 골라 보세요.</p>
 </main>
 
 <div class="dim" id="dim"></div>
@@ -232,43 +262,43 @@ const CHAR = {"legL": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADHCAY
 </script>
 <script>
 const apps = [
-  {id:1,name:"코드 퀴즈왕",icon:"🏆",color:"#ffd84d",cat:"평가",grade:"5-6학년",created:"2026-10-28",updated:"2026-10-30",
+  {id:1,name:"코드 퀴즈왕",icon:"🏆",color:"#ffd84d",cat:"교과 교육",grade:"5-6학년",created:"2026-10-28",updated:"2026-10-30",
    short:"파이썬·블록코딩 개념을 퀴즈쇼처럼 맞히는 실시간 대결",
    desc:"교사가 문제 세트를 고르면 학생들이 QR로 입장해 실시간으로 답을 맞힙니다. 순위판이 화면에 바로 표시돼요.",
    notes:["모둠 대항전 모드 추가","문제 은행 120개 → 200개"]},
-  {id:2,name:"블록 미로탈출",icon:"🧩",color:"#8fd3ff",cat:"게임",grade:"3-4학년",created:"2026-09-12",updated:"2026-10-31",
+  {id:2,name:"블록 미로탈출",icon:"🧩",color:"#8fd3ff",cat:"교실놀이",grade:"3-4학년",created:"2026-09-12",updated:"2026-10-31",
    short:"순차·반복 블록으로 로봇을 미로 밖으로 탈출시키기",
    desc:"명령 블록을 쌓아 로봇을 움직이는 단계형 퍼즐입니다. 30개 스테이지에서 순차, 반복, 조건을 차례로 익혀요.",
    notes:["조건문 스테이지 10개 추가","힌트 버튼 개선"]},
-  {id:3,name:"랜덤 모둠뽑기",icon:"🎲",color:"#c9b6ff",cat:"학급운영",grade:"전학년",created:"2026-08-03",updated:"2026-09-20",
+  {id:3,name:"랜덤 모둠뽑기",icon:"🎲",color:"#c9b6ff",cat:"교실놀이",grade:"전학년",created:"2026-08-03",updated:"2026-09-20",
    short:"성별·역할 균형을 맞춰 모둠을 자동으로 짜주는 도구",
    desc:"학생 명단을 붙여넣으면 조건에 맞게 모둠을 짜고, 슬롯머신 애니메이션으로 발표합니다.",
    notes:["지난 모둠과 겹치지 않게 옵션"]},
-  {id:4,name:"타이핑 레이스",icon:"⌨️",color:"#ffb38a",cat:"게임",grade:"3-6학년",created:"2026-10-15",updated:"2026-10-16",
+  {id:4,name:"타이핑 레이스",icon:"⌨️",color:"#ffb38a",cat:"아침활동",grade:"3-6학년",created:"2026-10-15",updated:"2026-10-16",
    short:"한글 타자 연습을 자동차 경주로 즐기는 반 대항전",
    desc:"문장을 빠르고 정확하게 칠수록 자동차가 앞으로 나갑니다. 학급 기록을 저장해 성장 그래프로 보여줘요.",
    notes:["영문 모드 추가"]},
-  {id:5,name:"픽셀 아트 메이커",icon:"🎨",color:"#ff9ec4",cat:"수업도구",grade:"3-6학년",created:"2026-06-21",updated:"2026-10-25",
+  {id:5,name:"픽셀 아트 메이커",icon:"🎨",color:"#ff9ec4",cat:"교과 교육",grade:"3-6학년",created:"2026-06-21",updated:"2026-10-25",
    short:"좌표와 색 코드로 그림을 그리며 배우는 데이터 표현",
    desc:"16×16 격자에 색을 칠하면 그림이 숫자 데이터로 바뀌는 과정을 보여줍니다. 디지털 이미지의 원리를 체험해요.",
    notes:["좌표 모드 추가","작품 갤러리 공유"]},
-  {id:6,name:"알고리즘 카드",icon:"🃏",color:"#9be3b4",cat:"수업도구",grade:"5-6학년",created:"2026-05-10",updated:"2026-07-02",
+  {id:6,name:"알고리즘 카드",icon:"🃏",color:"#9be3b4",cat:"교과 교육",grade:"5-6학년",created:"2026-05-10",updated:"2026-07-02",
    short:"정렬·탐색 알고리즘을 카드 뒤집기로 눈으로 보기",
    desc:"버블 정렬, 선택 정렬, 이진 탐색을 카드가 움직이는 애니메이션으로 한 단계씩 보여줍니다.",
    notes:["단계별 일시정지 기능"]},
-  {id:7,name:"센서 실험실",icon:"📡",color:"#7fe0dc",cat:"피지컬",grade:"5-6학년",created:"2026-10-02",updated:"2026-10-29",
+  {id:7,name:"센서 실험실",icon:"📡",color:"#7fe0dc",cat:"교과 교육",grade:"5-6학년",created:"2026-10-02",updated:"2026-10-29",
    short:"마이크로비트 센서 값을 실시간 그래프로 기록·분석",
    desc:"블루투스로 마이크로비트를 연결하면 빛·온도·소리 값이 실시간 그래프로 그려지고 CSV로 내려받을 수 있어요.",
    notes:["가속도 센서 지원","그래프 확대/축소"]},
-  {id:8,name:"학급 타이머",icon:"⏱️",color:"#ffe39c",cat:"학급운영",grade:"전학년",created:"2026-04-01",updated:"2026-08-18",
+  {id:8,name:"학급 타이머",icon:"⏱️",color:"#ffe39c",cat:"아침활동",grade:"전학년",created:"2026-04-01",updated:"2026-08-18",
    short:"활동별 시간 배분과 신호음을 한 화면에서",
    desc:"수업 흐름을 블록으로 나눠 등록하면 순서대로 타이머가 돌아가고, 전환 시점에 알림음이 울립니다.",
    notes:["전체화면 모드"]},
-  {id:9,name:"AI 분류놀이",icon:"🤖",color:"#b3c7ff",cat:"AI",grade:"4-6학년",created:"2026-09-28",updated:"2026-10-05",
+  {id:9,name:"AI 분류놀이",icon:"🤖",color:"#b3c7ff",cat:"계기 교육",grade:"4-6학년",created:"2026-09-28",updated:"2026-10-05",
    short:"직접 사진을 학습시켜 나만의 분류 모델 만들기",
    desc:"웹캠으로 예시 사진을 찍어 학습시키면 AI가 새 물건을 분류합니다. 데이터 양과 정확도의 관계를 실험해요.",
    notes:["학습 데이터 저장/불러오기"]},
-  {id:10,name:"스크래치 챌린지",icon:"🐱",color:"#ffc56e",cat:"게임",grade:"3-6학년",created:"2026-07-14",updated:"2026-10-12",
+  {id:10,name:"스크래치 챌린지",icon:"🐱",color:"#ffc56e",cat:"계기 교육",grade:"3-6학년",created:"2026-07-14",updated:"2026-10-12",
    short:"주간 미션을 풀고 배지를 모으는 스크래치 과제판",
    desc:"매주 새 미션이 열리고, 학생들이 작품 링크를 제출하면 배지와 경험치를 얻습니다.",
    notes:["11월 미션 공개","배지 디자인 개편"]},
@@ -292,8 +322,29 @@ $('#logo').insertAdjacentHTML('afterbegin', mark());
 
 /* ===== 카드 ===== */
 const grid = $('#grid'), seg = $('#seg'), knob = seg.querySelector('.knob');
-let key = 'created';
-$('#count').textContent = `${apps.length}개`;
+let key = 'created', cat = 'all', query = '';
+const CATS = [
+  {k:'all', name:'전체', icon:'✨'},
+  {k:'교과 교육', name:'교과 교육', icon:'📚'},
+  {k:'계기 교육', name:'계기 교육', icon:'🗓️'},
+  {k:'아침활동', name:'아침활동', icon:'🌅'},
+  {k:'교실놀이', name:'교실놀이', icon:'🎲'},
+];
+const catsEl = $('#cats');
+catsEl.innerHTML = CATS.map(c=>{
+  const n = c.k==='all' ? apps.length : apps.filter(a=>a.cat===c.k).length;
+  return `<button class="cat${c.k==='all'?' on':''}" data-cat="${c.k}" role="tab"><span class="ic">${c.icon}</span><span><b>${c.name}</b><small>${n}개</small></span></button>`;
+}).join('');
+catsEl.addEventListener('click', e=>{
+  const b = e.target.closest('.cat'); if (!b || b.dataset.cat===cat) return;
+  catsEl.querySelectorAll('.cat').forEach(x=>x.classList.toggle('on', x===b));
+  cat = b.dataset.cat; layout();
+});
+const readQuery = () => { query = $('#q').value.trim().toLowerCase(); };
+readQuery();   // 뒤로가기 등으로 브라우저가 입력값을 복원한 경우에도 맞춰 둔다
+$('#q').addEventListener('input', ()=>{ readQuery(); layout(); });
+const matches = a => (cat==='all' || a.cat===cat) &&
+  (!query || [a.name,a.short,a.desc,a.cat,a.grade].join(' ').toLowerCase().includes(query));
 
 apps.forEach(a=>{
   const el = document.createElement('div');
@@ -319,15 +370,24 @@ function layout(){
   const mobile = mobileMQ.matches;
   const gap = mobile ? 12 : 16;
   const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(280+gap)), 2, 5);
-  const rows = Math.ceil(apps.length/cols);
   const cw = (W - gap*(cols-1))/cols;
+  const shown = apps.filter(matches);
+  apps.forEach(a => a.el.classList.toggle('hide', !shown.includes(a)));
+  // 숨긴 카드가 예전(넓은 화면) 자리에 남아 화면 밖으로 삐져나가지 않게 안쪽으로 당겨 둔다
+  apps.filter(a => !shown.includes(a)).forEach(a => {
+    a.el.style.width = cw+'px';
+    a.el.style.left = Math.min(parseFloat(a.el.style.left)||0, W - cw)+'px';
+  });
+  $('#count').textContent = `${shown.length}개`;
+  $('#empty').hidden = shown.length > 0;
+  const rows = Math.max(1, Math.ceil(shown.length/cols));
   let ch = 116;
   if (!mobile){
     // 데스크톱은 남은 화면 높이를 채우도록 카드 높이를 맞춘다
     const avail = innerHeight - (grid.getBoundingClientRect().top + scrollY) - 32;
     ch = clamp((avail - gap*(rows-1))/rows, 150, 220);
   }
-  const sorted = [...apps].sort((x,y)=> key==='popular' ? y.uses - x.uses : y[key].localeCompare(x[key]));
+  const sorted = [...shown].sort((x,y)=> key==='popular' ? y.uses - x.uses : y[key].localeCompare(x[key]));
   sorted.forEach((a,i)=>{
     const r = Math.floor(i/cols), c = i%cols;
     Object.assign(a.el.style, {
@@ -337,7 +397,7 @@ function layout(){
     });
     a.el.querySelector('.date').textContent = key==='popular' ? `사용 ${a.uses.toLocaleString()}회` : `${key==='created'?'등록':'업데이트'} ${fmt(a[key])}`;
   });
-  grid.style.height = (rows*ch + (rows-1)*gap) + 'px';
+  grid.style.height = shown.length ? (rows*ch + (rows-1)*gap) + 'px' : '0px';
   moveKnob();
 }
 function moveKnob(){
