@@ -222,6 +222,7 @@ button{cursor:pointer}
   .desc{padding:0 20px 28px}
 }
 </style>
+<link rel="stylesheet" href="/tools.css">
 </head>
 <body>
 <header class="top">
@@ -233,8 +234,9 @@ button{cursor:pointer}
     </label>
     <div class="auth">
       <button class="btn ghost buddy-toggle" id="buddyToggle" aria-pressed="true" title="커서를 따라다니는 캐릭터 켜기/끄기">캐릭터 <span class="sw"></span></button>
-      <button class="btn ghost" data-auth="login">로그인</button>
-      <button class="btn solid" data-auth="signup">회원가입</button>
+      <button class="btn ghost" id="queueButton">대기 목록</button>
+      <button class="btn ghost" id="adminButton">관리자</button>
+      <button class="btn solid" id="uploadButton">업로드 요청</button>
     </div>
   </div>
 </header>
@@ -334,10 +336,6 @@ const CATS = [
 ];
 $('#total').textContent = apps.length;   // 업로드된 웹앱 전체 개수
 const catsEl = $('#cats');
-catsEl.innerHTML = CATS.map(c=>{
-  const n = c.k==='all' ? apps.length : apps.filter(a=>a.cat===c.k).length;
-  return `<button class="cat${c.k==='all'?' on':''}" data-cat="${c.k}" role="tab"><span class="ic">${c.icon}</span><span><b>${c.name}</b><small>${n}개</small></span></button>`;
-}).join('');
 catsEl.addEventListener('click', e=>{
   const b = e.target.closest('.cat'); if (!b || b.dataset.cat===cat) return;
   catsEl.querySelectorAll('.cat').forEach(x=>x.classList.toggle('on', x===b));
@@ -349,23 +347,29 @@ $('#q').addEventListener('input', ()=>{ readQuery(); layout(); });
 const matches = a => (cat==='all' || a.cat===cat) &&
   (!query || [a.name,a.short,a.desc,a.cat,a.grade].join(' ').toLowerCase().includes(query));
 
-apps.forEach(a=>{
-  const el = document.createElement('div');
-  el.className = 'card'; el.tabIndex = 0; el.setAttribute('role','button');
-  el.setAttribute('aria-label', `${a.name} 자세히 보기`);
-  el.dataset.id = a.id;
-  el.style.setProperty('--c', a.color);
-  el.style.setProperty('--d', `${-a.id*0.9}s`);
-  el.innerHTML = `
-    <div class="pod"><div class="scene"><div class="tile">${stack(12,`<span class="glyph">${a.icon}</span>`)}</div></div></div>
-    <div class="txt">
-      <div class="when"><span class="m-cat">${a.cat} · </span><span class="date"></span></div>
-      <h2>${a.name}</h2>
-      <p>${a.short}</p>
-      <span class="chip">${a.cat}</span>
-    </div>`;
-  grid.appendChild(el); a.el = el;
-});
+function renderCatalog(){
+  grid.replaceChildren();
+  $('#total').textContent = apps.length;
+  catsEl.innerHTML = CATS.map(c=>{
+    const n = c.k==='all' ? apps.length : apps.filter(a=>a.cat===c.k).length;
+    return `<button class="cat${c.k===cat?' on':''}" data-cat="${c.k}" role="tab" aria-selected="${c.k===cat}"><span class="ic">${c.icon}</span><span><b>${c.name}</b><small>${n}개</small></span></button>`;
+  }).join('');
+  apps.forEach(a=>{
+    const el = document.createElement('div');
+    el.className = 'card'; el.tabIndex = 0; el.setAttribute('role','button');
+    el.setAttribute('aria-label', `${a.name} 자세히 보기`);
+    el.dataset.id = a.id;
+    el.style.setProperty('--c', a.color);
+    el.style.setProperty('--d', `${-Math.random()*9}s`);
+    el.innerHTML = `
+      <div class="pod"><div class="scene"><div class="tile">${stack(12,`<span class="glyph">${escapeHtml(a.icon)}</span>`)}</div></div></div>
+      <div class="txt"><div class="when"><span class="m-cat">${escapeHtml(a.cat)} · </span><span class="date"></span></div>
+      <h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p><span class="chip">${escapeHtml(a.cat)}</span></div>`;
+    grid.appendChild(el); a.el = el;
+  });
+}
+function escapeHtml(value){return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+renderCatalog();
 
 const mobileMQ = matchMedia('(max-width:640px)');
 function layout(){
@@ -456,60 +460,22 @@ function shot(a, n){
   return `<div class="shot"><div class="bar" style="background:${a.color}">${a.icon} ${a.name}</div><div class="body">${layouts[n]}</div><div class="cap">${caps[n]}</div></div>`;
 }
 function openApp(id){
-  const a = apps.find(x=>x.id==id);
+  const source = apps.find(x=>x.id==id);
+  if (!source) return;
+  const a = Object.fromEntries(Object.entries(source).map(([k,v])=>[k,typeof v==='string'?escapeHtml(v):v]));
+  const link = (url,label,kind) => url ? `<a class="btn ${kind} app-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>` : '';
+  const images = (source.screenshots || []).map(s=>s.url?`<figure class="real-shot"><img src="${escapeHtml(s.url)}" alt="${escapeHtml(s.caption)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${escapeHtml(s.caption)}</figcaption></figure>`:'').join('');
   appSheet.innerHTML = `
     <button class="x" aria-label="닫기">✕</button>
-    <div class="hd">
-      <div class="bigicon" style="--c:${a.color}">${a.icon}</div>
-      <div><h3>${a.name}</h3><div class="sub">${a.short}</div><div class="acts"><button class="btn solid" data-soon="앱 연결은 준비 중이에요">열기</button><button class="btn line" data-soon="체험하기는 준비 중이에요">체험하기</button></div></div>
+    <div class="hd"><div class="bigicon" style="--c:${a.color}">${a.icon}</div>
+      <div><h3>${a.name}</h3><div class="sub">${a.short}</div><div class="acts">${link(source.web_url,'열기','solid')}${link(source.demo_url,'체험하기','line')}${!source.web_url?'<span class="example-label">예시 앱 · 연결 준비 중</span>':''}</div></div>
     </div>
-    <div class="facts">
-      <div><span>분류</span><b>${a.cat}</b></div>
-      <div><span>대상</span><b>${a.grade}</b></div>
-      <div><span>등록</span><b>${fmt(a.created)}</b></div>
-      <div><span>업데이트</span><b>${fmt(a.updated)}</b></div>
-    </div>
-    <div class="shots">${[0,1,2].map(n=>shot(a,n)).join('')}</div>
-    <div class="desc">
-      <p>${a.desc}</p>
-      <h4>새로운 기능</h4>
-      <ul>${a.notes.map(n=>`<li>${n}</li>`).join('')}</ul>
-    </div>`;
+    <div class="facts"><div><span>분류</span><b>${a.cat}</b></div><div><span>대상</span><b>${a.grade}</b></div><div><span>등록</span><b>${fmt(a.created)}</b></div><div><span>업데이트</span><b>${fmt(a.updated)}</b></div></div>
+    ${images?`<div class="shots real-shots">${images}</div>`:source.is_example?`<div class="shots">${[0,1,2].map(n=>shot(a,n)).join('')}</div>`:''}
+    <div class="desc"><p class="multiline">${a.desc}</p>${a.author_name?`<p class="creator">제작 · ${a.author_name}</p>`:''}
+      ${a.notes.length?`<h4>새로운 기능</h4><ul>${a.notes.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ul>`:''}</div>`;
   show(appSheet);
 }
-
-/* 로그인 · 회원가입 (화면만 — 실제 인증은 아직 없음) */
-function renderAuth(mode){
-  const login = mode === 'login';
-  const fields = login ? `
-      <label class="field"><span>이메일</span><input type="email" name="email" autocomplete="email" placeholder="teacher@school.kr" required></label>
-      <label class="field"><span>비밀번호</span><input type="password" name="password" autocomplete="current-password" placeholder="비밀번호" required></label>`
-    : `
-      <label class="field"><span>이름</span><input type="text" name="name" autocomplete="name" placeholder="홍길동" required></label>
-      <label class="field"><span>이메일</span><input type="email" name="email" autocomplete="email" placeholder="teacher@school.kr" required></label>
-      <label class="field"><span>비밀번호</span><input type="password" name="password" autocomplete="new-password" placeholder="8자 이상" minlength="8" required></label>
-      <label class="field"><span>소속 학교 <small style="color:var(--mute);font-weight:500">(선택)</small></span><input type="text" name="school" autocomplete="organization" placeholder="참쌤초등학교"></label>
-      <label class="check"><input type="checkbox" required> 이용약관과 개인정보 처리방침에 동의해요</label>`;
-  authSheet.innerHTML = `
-    <button class="x" aria-label="닫기">✕</button>
-    ${mark()}
-    <h3>${login ? '다시 만나서 반가워요' : '참코딩 회원가입'}</h3>
-    <p class="lead">${login ? '로그인하고 즐겨찾기한 도구를 이어서 써 보세요.' : '가입하면 도구를 저장하고 새 소식을 받아볼 수 있어요.'}</p>
-    <div class="tabs">
-      <button type="button" data-mode="login" class="${login?'on':''}">로그인</button>
-      <button type="button" data-mode="signup" class="${login?'':'on'}">회원가입</button>
-    </div>
-    <form>${fields}<button class="btn solid submit">${login ? '로그인' : '가입하기'}</button></form>
-    <p class="soon">로그인·회원가입 기능은 준비 중이에요. 지금은 화면만 미리 볼 수 있어요.</p>
-    <p class="switch">${login ? '아직 계정이 없나요? <button type="button" data-mode="signup">회원가입</button>'
-                              : '이미 계정이 있나요? <button type="button" data-mode="login">로그인</button>'}</p>`;
-}
-document.addEventListener('click', e=>{
-  const a = e.target.closest('[data-auth]'); if (a){ renderAuth(a.dataset.auth); show(authSheet); }
-  const s = e.target.closest('[data-soon]'); if (s) toast(s.dataset.soon);
-});
-authSheet.addEventListener('click', e=>{ const m = e.target.closest('[data-mode]'); if (m) renderAuth(m.dataset.mode); });
-authSheet.addEventListener('submit', e=>{ e.preventDefault(); toast('아직 준비 중인 기능이에요'); });
 
 let toastTimer;
 function toast(msg){
@@ -631,5 +597,6 @@ const Buddy = (()=>{
   return api;
 })();
 </script>
+<script src="/tools.js"></script>
 </body>
 </html>
