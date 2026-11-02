@@ -97,7 +97,10 @@ button{cursor:pointer}
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),0 6px 0 color-mix(in srgb,var(--c) 74%,#1f2937),0 14px 24px rgba(16,24,40,.12)}
 .hd h3{font-size:24px;font-weight:700;letter-spacing:-.03em}
 .hd .sub{font-size:14px;color:var(--sub);margin-top:4px;line-height:1.5}
-.hd .btn{margin-top:14px;border-radius:999px;padding:0 22px;height:36px}
+.hd .acts{display:flex;gap:8px;margin-top:14px}
+.hd .btn{border-radius:999px;padding:0 22px;height:36px}
+.btn.line{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
+.btn.line:hover{background:var(--chip)}
 .facts{display:grid;grid-template-columns:repeat(4,1fr);margin:0 32px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .facts div{padding:14px 4px;text-align:center}
 .facts div+div{border-left:1px solid var(--line)}
@@ -396,7 +399,7 @@ function openApp(id){
     <button class="x" aria-label="닫기">✕</button>
     <div class="hd">
       <div class="bigicon" style="--c:${a.color}">${a.icon}</div>
-      <div><h3>${a.name}</h3><div class="sub">${a.short}</div><button class="btn solid" data-soon="앱 연결은 준비 중이에요">열기</button></div>
+      <div><h3>${a.name}</h3><div class="sub">${a.short}</div><div class="acts"><button class="btn solid" data-soon="앱 연결은 준비 중이에요">열기</button><button class="btn line" data-soon="체험하기는 준비 중이에요">체험하기</button></div></div>
     </div>
     <div class="facts">
       <div><span>분류</span><b>${a.cat}</b></div>
