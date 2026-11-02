@@ -169,7 +169,7 @@ button{cursor:pointer}
 @keyframes ray{from{transform:rotate(var(--a)) translateY(6px) scaleY(.3);opacity:1}to{transform:rotate(var(--a)) translateY(26px) scaleY(1);opacity:0}}
 
 /* ㅊ 캐릭터 (데스크톱 전용) */
-#buddy{position:fixed;left:0;top:0;width:58px;height:48px;pointer-events:none;z-index:9;opacity:0;transition:opacity .4s;will-change:transform}
+#buddy{position:fixed;left:0;top:0;width:58px;height:48px;pointer-events:none;z-index:9;opacity:0;transition:opacity .1s;will-change:transform}
 #buddy.on{opacity:1}
 #buddy .shadow{position:absolute;left:18.5px;top:45px;width:26px;height:6px;border-radius:50%;background:rgba(16,24,40,.14)}
 #buddy .bd,#buddy .flip{position:absolute;inset:0}
@@ -531,10 +531,19 @@ const Buddy = (()=>{
     s.hasMouse = true;
   }
 
+  // 튀어나오는 크기 변화: 0에서 살짝 크게 지나쳤다가 제자리로
+  const popOut = x => { const c1 = 2.2, c3 = c1 + 1; return 1 + c3*Math.pow(x-1,3) + c1*Math.pow(x-1,2); };
+
   function tick(t){
+    // 페이지를 열고 1초 동안은 숨어 있다가 왼쪽 위에서 '뽕!' 하고 나타난다
+    if (t < s.bornAt){ raf = requestAnimationFrame(tick); return; }
+    if (!s.born){ s.born = true; el.classList.add('on'); burst(s.x, s.y - 24); }
+    const age = t - s.bornAt;
+    const popS = age < 450 ? popOut(age/450) : 1;
+    const ready = s.hasMouse && age > 350;          // 나타난 모습을 잠깐 보여준 뒤 커서로 출발
     s.sideS = lerp(s.sideS, s.side, .06);
     // 커서를 아직 모르면 처음 자리(왼쪽 위)에 서 있다가, 커서가 보이면 그쪽으로 뛰어간다
-    const tx = s.hasMouse ? s.mx - s.sideS*30 : s.x, ty = s.hasMouse ? s.my + 26 : s.y;
+    const tx = ready ? s.mx - s.sideS*30 : s.x, ty = ready ? s.my + 26 : s.y;
     const dx = tx - s.x, dy = ty - s.y, dist = Math.hypot(dx,dy);
     // 멀수록 강하게 끌려와서 커서가 빠르면 빨리 따라온다
     const k = .03 + Math.min(dist,700)/700*.11;
@@ -574,12 +583,12 @@ const Buddy = (()=>{
     const legA = sw*30*s.amp + kick;
 
     el.style.transform = `translate3d(${s.x-31.4}px,${s.y-47.8}px,0)`;
-    bd.style.transform = `translateY(${bob+s.jy}px) rotate(${s.lean + rock + wiggle}deg) scale(${sx},${sy})`;
+    bd.style.transform = `translateY(${bob+s.jy}px) rotate(${s.lean + rock + wiggle}deg) scale(${sx*popS},${sy*popS})`;
     flip.style.transform = `scaleX(${s.faceS})`;
     chieut.style.transform = `scaleX(${s.faceS < 0 ? -1 : 1})`;
     legL.style.transform = `rotate(${legA}deg)`;
     legR.style.transform = `rotate(${-legA}deg)`;
-    sh.style.transform = `scale(${1 + s.jy/50 - s.amp*.08})`;
+    sh.style.transform = `scale(${(1 + s.jy/50 - s.amp*.08)*popS})`;
     sh.style.opacity = 1 + s.jy/70;
     raf = requestAnimationFrame(tick);
   }
@@ -591,11 +600,10 @@ const Buddy = (()=>{
     document.body.appendChild(el);
     [bd, flip, legL, legR, chieut, sh] = ['.bd','.flip','.legL','.legR','.chieut','.shadow'].map(q=>el.querySelector(q));
     // 처음엔 화면 왼쪽 위(로고 아래)에서 등장한다
-    s = { mx:0, my:0, hasMouse:false, x:56, y:118, vx:0, vy:0, side:1, sideS:1, face:1, faceS:1, lean:0,
+    s = { mx:0, my:0, hasMouse:false, born:false, bornAt:performance.now()+1000, x:56, y:118, vx:0, vy:0, side:1, sideS:1, face:1, faceS:1, lean:0,
           phase:0, amp:0, squash:0, prev:0, jy:0, jv:0, cheer:0 };
     addEventListener('mousemove', onMove);
     raf = requestAnimationFrame(tick);
-    requestAnimationFrame(()=>el.classList.add('on'));
     api.active = true;
   }
   function unmount(){
