@@ -35,7 +35,7 @@ function session(req) {
 }
 function setSession(res, role, version) {
   const lifetime = role === 'admin' ? 2 * 60 * 60 : 8 * 60 * 60;
-  const data = { role, sid: randomUUID(), exp: Date.now() + lifetime * 1000, ...(version ? { av: version } : {}) };
+  const data = { role, sid: randomUUID(), exp: Date.now() + lifetime * 1000, ...(version ? (role === 'uploader' ? { uv: version } : { av: version }) : {}) };
   const secure = process.env.NODE_ENV !== 'development' ? '; Secure' : '';
   res.setHeader('Set-Cookie', `${COOKIE}=${signSession(data, config().secret)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${lifetime}${secure}`);
   return data;
@@ -43,9 +43,25 @@ function setSession(res, role, version) {
 async function adminAccount() {
   return (await db('/rest/v1/tools_admins?id=eq.1&select=*&limit=1'))[0];
 }
+function uploaderVersion(account) {
+  return account?.upload_password_salt || 'environment-v1';
+}
+function validUploaderSession(actor, account) {
+  return actor?.role === 'uploader' && (actor.uv || 'environment-v1') === uploaderVersion(account);
+}
+function uploaderPasswordMatches(password, account) {
+  if (account?.upload_password_hash || account?.upload_password_salt) {
+    return verifyPassword(password, {salt: account.upload_password_salt, password_hash: account.upload_password_hash});
+  }
+  return equal(password, process.env.UPLOAD_PASSWORD);
+}
 async function requireRole(req, adminOnly = false) {
   const actor = session(req);
   if (!actor) throw new AppError('다시 로그인해 주세요.', 401);
+  if (adminOnly && actor.role !== 'admin') throw new AppError('관리자만 사용할 수 있어요.', 403);
+  if (actor.role === 'uploader' && !validUploaderSession(actor, await adminAccount())) {
+    throw new AppError('업로드 비밀번호가 변경됐어요. 새 비밀번호로 다시 입장해 주세요.', 401);
+  }
   if (adminOnly) {
     if (actor.role !== 'admin') throw new AppError('관리자만 사용할 수 있어요.', 403);
     const account = await adminAccount();
@@ -99,7 +115,7 @@ async function handler(req, res) {
     }
     if (req.method === 'GET' && action === 'session') {
       const actor = session(req), account = await adminAccount();
-      const role = actor?.role === 'admin' ? account?.salt === actor.av ? 'admin' : null : actor?.role || null;
+      const role = actor?.role === 'admin' ? account?.salt === actor.av ? 'admin' : null : validUploaderSession(actor, account) ? 'uploader' : null;
       return send({ role, configured: true, adminReady: !!account, member: await members.member(req) });
     }
     if (req.method === 'GET' && action === 'apps') {
@@ -114,6 +130,36 @@ async function handler(req, res) {
       return send({ apps: admin ? await withImages(rows, true) : rows });
     }
     const body = req.body || {};
+    if (req.method === 'GET' && action === 'upload-password') {
+      await requireRole(req, true);
+      const account = await adminAccount();
+      return send({ updatedAt: account.upload_password_changed_at || null, customPassword: !!account.upload_password_hash });
+    }
+    if (req.method === 'POST' && action === 'upload-password') {
+      await requireRole(req, true);
+      await rate(req, 'upload-password', 5, 900);
+      const account = await adminAccount();
+      if (!verifyPassword(text(body.adminPassword, '현재 관리자 비밀번호', 256, true), account)) {
+        throw new AppError('현재 관리자 비밀번호가 맞지 않아요.', 403);
+      }
+      const password = body.newPassword;
+      if (typeof password !== 'string' || password.length < 8 || password.length > 256 || password !== password.trim()) {
+        throw new AppError('새 비밀번호는 앞뒤 공백 없이 8~256자로 입력해 주세요.');
+      }
+      if (password !== body.confirmPassword) throw new AppError('새 비밀번호 확인이 일치하지 않아요.');
+      if (uploaderPasswordMatches(password, account)) throw new AppError('현재 업로드 비밀번호와 다른 비밀번호를 입력해 주세요.');
+      if ((body.expectedUpdatedAt || null) !== (account.upload_password_changed_at || null)) {
+        throw new AppError('다른 창에서 비밀번호가 변경됐어요. 설정을 다시 열어 주세요.', 409);
+      }
+      const {salt, hash} = hashPassword(password);
+      const filter = account.upload_password_changed_at ? `eq.${encodeURIComponent(account.upload_password_changed_at)}` : 'is.null';
+      const rows = await db(`/rest/v1/tools_admins?id=eq.1&upload_password_changed_at=${filter}`, {
+        method: 'PATCH', headers: {Prefer: 'return=representation'},
+        body: {upload_password_hash: hash, upload_password_salt: salt, upload_password_changed_at: new Date().toISOString()}
+      });
+      if (!rows.length) throw new AppError('다른 창에서 비밀번호가 변경됐어요. 설정을 다시 열어 주세요.', 409);
+      return send({ ok: true, updatedAt: rows[0].upload_password_changed_at });
+    }
     if(req.method==='POST' && action==='member-signup') {
       await rate(req,'member-signup',5,3600);
       return send(await members.signup(body,res,`${process.env.NODE_ENV==='development'?'http':'https'}://${req.headers.host}`),201);
@@ -131,8 +177,9 @@ async function handler(req, res) {
       await rate(req, 'login', 10, 900);
       const password = text(body.password, '비밀번호', 256, true);
       if (body.kind === 'uploader') {
-        if (!equal(password, process.env.UPLOAD_PASSWORD)) throw new AppError('공통 비밀번호가 맞지 않아요.', 401);
-        setSession(res, 'uploader');
+        const account = await adminAccount();
+        if (!uploaderPasswordMatches(password, account)) throw new AppError('공통 비밀번호가 맞지 않아요.', 401);
+        setSession(res, 'uploader', uploaderVersion(account));
         return send({ role: 'uploader' });
       }
       if (body.kind !== 'admin') throw new AppError('로그인 종류를 확인해 주세요.');

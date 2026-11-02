@@ -30,6 +30,9 @@ create table if not exists public.tools_admins (
   username text not null unique,
   password_hash text not null,
   salt text not null,
+  upload_password_hash text,
+  upload_password_salt text,
+  upload_password_changed_at timestamptz,
   created_at timestamptz not null default now()
 );
 create table if not exists public.tools_uploads (

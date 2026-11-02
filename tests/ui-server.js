@@ -8,7 +8,10 @@ Object.assign(process.env,{SUPABASE_URL:'https://ui-fixture.invalid',SUPABASE_SE
 global.fetch=async(input,options={})=>{
   const url=new URL(input),body=options.body&&!Buffer.isBuffer(options.body)?JSON.parse(options.body):{};
   let data;
-  if(url.pathname==='/rest/v1/tools_admins')data=[admin];
+  if(url.pathname==='/rest/v1/tools_admins'){
+    if(options.method==='PATCH')Object.assign(admin,body);
+    data=[admin];
+  }
   else if(url.pathname==='/rest/v1/rpc/tools_check_rate')data=true;
   else if(url.pathname==='/rest/v1/tools_uploads'){
     if(options.method==='POST'){uploads.push(body);data=null;}
