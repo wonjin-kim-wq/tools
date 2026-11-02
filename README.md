@@ -38,3 +38,13 @@ npm run dev
 - 업로드하지 못하고 남은 스크린샷은 비공개 버킷에 남을 수 있습니다. 운영 중 정리할 때 `tools_apps.screenshots`에 참조되지 않는 오래된 `tools_uploads` 경로만 선별합니다.
 
 `npm test`에는 권한 분리, 세션 변조·만료, URL·이미지 검증, 검토 수정과 승인 후 공개, 동시 수정 충돌 테스트가 포함됩니다. 실제 관리자 계정은 테스트 과정에서 생성하지 않습니다.
+
+## 일반 회원 로그인
+
+일반 회원은 Supabase Auth의 이메일·비밀번호 가입과 인증을 사용합니다. 기존 업로더·관리자 쿠키와 분리한 `chamcoding_member` HttpOnly 쿠키를 사용하며 세션 유효시간은 최대 1시간입니다. 비밀번호와 Supabase 토큰은 프런트엔드 응답이나 로컬 저장소에 보관하지 않습니다.
+
+서버가 가입 시 `app_metadata.chamcoding_member`, `app_metadata.chamcoding_content_access`를 설정합니다. 사용자 수정이 가능한 `user_metadata`는 접근 권한으로 사용하지 않습니다. `/api/tools?action=member-content`는 실제 Supabase 사용자 검증과 회원 권한 확인 후 응답합니다. 현재 콘텐츠 목록은 비어 있으며 향후 전용 콘텐츠 API에도 같은 검사를 적용합니다. `chamcoding_content_access=false`로 이용 권한을 중지할 수 있습니다. 일반 회원 자격은 업로드 승인·관리자 권한을 부여하지 않습니다.
+
+Supabase의 이메일 인증 설정과 SMTP 발송 제한을 적용합니다. 운영용 회원가입에는 Supabase의 발송 설정을 확인해야 합니다. 기존 mono 앱의 인증 설정을 일괄 변경하지 않습니다.
+
+대표 썸네일은 업로드한 첫 번째 이미지이며 기존 JSON 스크린샷 구조를 그대로 사용합니다. 대표 사진 교체와 순서 변경은 관리자 수정 화면에서 처리할 수 있습니다.

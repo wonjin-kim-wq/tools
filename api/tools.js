@@ -3,6 +3,7 @@ const { AppError, equal, text, validateApp, signSession, readSession, hashPasswo
 
 const BUCKET = 'chamcoding-screenshots';
 const COOKIE = 'chamcoding_session';
+const members = require('../lib/member-auth');
 const config = () => ({ url: process.env.SUPABASE_URL?.replace(/\/$/, ''), key: process.env.SUPABASE_SERVICE_ROLE_KEY, secret: process.env.SESSION_SECRET });
 const isConfigured = () => Object.values(config()).every(Boolean) && !!process.env.UPLOAD_PASSWORD;
 
@@ -99,7 +100,7 @@ async function handler(req, res) {
     if (req.method === 'GET' && action === 'session') {
       const actor = session(req), account = await adminAccount();
       const role = actor?.role === 'admin' ? account?.salt === actor.av ? 'admin' : null : actor?.role || null;
-      return send({ role, configured: true, adminReady: !!account });
+      return send({ role, configured: true, adminReady: !!account, member: await members.member(req) });
     }
     if (req.method === 'GET' && action === 'apps') {
       const rows = await db('/rest/v1/tools_apps?status=eq.approved&select=*&order=created_at.desc&limit=500');
@@ -113,6 +114,19 @@ async function handler(req, res) {
       return send({ apps: admin ? await withImages(rows, true) : rows });
     }
     const body = req.body || {};
+    if(req.method==='POST' && action==='member-signup') {
+      await rate(req,'member-signup',5,3600);
+      return send(await members.signup(body,res,`${process.env.NODE_ENV==='development'?'http':'https'}://${req.headers.host}`),201);
+    }
+    if(req.method==='POST' && action==='member-login') {
+      await rate(req,'member-login',10,900);
+      return send(await members.login(body,res));
+    }
+    if(req.method==='POST' && action==='member-logout') {members.clearMember(res);return send({ok:true});}
+    if(req.method==='GET' && action==='member-content') {
+      const account=await members.member(req,true);
+      return send({member:account,items:[]});
+    }
     if (req.method === 'POST' && action === 'login') {
       await rate(req, 'login', 10, 900);
       const password = text(body.password, '비밀번호', 256, true);

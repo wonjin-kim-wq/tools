@@ -1,7 +1,7 @@
 /* Upload requests and review workspace. Credentials and database writes stay on the server. */
 (() => {
   const esc = escapeHtml;
-  const state = { role: null, configured: false, adminReady: false, queue: [], filter: 'pending', shots: [], edit: null, busy: false, setupToken: '' };
+  const state = { role: null, member: null, configured: false, adminReady: false, queue: [], filter: 'pending', shots: [], edit: null, busy: false, setupToken: '' };
   const labels = { pending: '승인 대기', approved: '승인 완료', changes_requested: '수정 요청', rejected: '반려', archived: '공개 중지' };
   const workspace = document.createElement('dialog');
   workspace.id = 'workspace'; workspace.className = 'workspace'; workspace.setAttribute('aria-labelledby','workspaceTitle');
@@ -67,6 +67,7 @@
   async function refreshSession() {
     const session = await api('session'); Object.assign(state,session);
     $('#adminButton').textContent = state.role === 'admin' ? '관리 중' : '관리자';
+    $('#memberButton').textContent = state.member ? '내 계정' : '로그인';
     return session;
   }
   async function enter(view) {
@@ -96,6 +97,25 @@
     }); });
     form.querySelector('input')?.focus();
   }
+  async function memberEntry(mode='login') {
+    try {await refreshSession();} catch(error){toast(error.message);return;}
+    if(state.member){
+      openShell('내 계정','참코딩 회원 정보와 콘텐츠 이용 권한을 확인해요.','member');
+      $('#workspaceBody').innerHTML=`<div class="entry-form"><div class="entry-icon">👤</div><h3>${esc(state.member.name)}님</h3><p class="field-help">${esc(state.member.email)}</p><p class="membership-state">${state.member.contentAccess?'회원 전용 콘텐츠 이용 권한이 있어요.':'콘텐츠 이용 권한 확인이 필요해요.'}</p><p class="field-help">회원 전용 콘텐츠는 준비되는 대로 추가돼요.</p><button type="button" class="btn line" id="memberLogout">회원 로그아웃</button></div>`;
+      $('#memberLogout').onclick=async()=>{try{await api('member-logout',{method:'POST',body:{}});state.member=null;await refreshSession();closeWorkspace();toast('로그아웃했어요.');}catch(error){toast(error.message);}};
+      return;
+    }
+    const signup=mode==='signup';
+    openShell(signup?'회원가입':'회원 로그인','참코딩 회원으로 로그인하고 회원 전용 콘텐츠를 이용하세요.','member');
+    $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form"><div class="tabs"><button type="button" data-member-mode="login" class="${!signup?'on':''}">로그인</button><button type="button" data-member-mode="signup" class="${signup?'on':''}">회원가입</button></div>${signup?field('이름','name','',{max:60}):''}${field('이메일','email','',{type:'email',max:254})}<label class="field"><span>비밀번호 *</span><input type="password" name="password" minlength="8" maxlength="256" autocomplete="${signup?'new-password':'current-password'}" required></label>${signup?'<label class="field"><span>비밀번호 확인 *</span><input type="password" name="confirm" minlength="8" maxlength="256" autocomplete="new-password" required></label><p class="field-help">가입 후 받은 인증 메일의 링크를 눌러 이메일을 확인해 주세요.</p>':''}<p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">${signup?'회원가입':'로그인'}</button></form>`;
+    $('#memberForm').onsubmit=e=>{e.preventDefault();const form=e.target;withBusy(form,async()=>{
+      const data=Object.fromEntries(new FormData(form));
+      if(signup&&data.password!==data.confirm)throw new Error('비밀번호 확인이 일치하지 않아요.');
+      const result=await api(signup?'member-signup':'member-login',{method:'POST',body:data});form.reset();
+      if(signup&&result.needsConfirmation){$('#workspaceBody').innerHTML='<div class="success-state"><span>✉️</span><h3>이메일을 확인해 주세요</h3><p>인증 메일의 링크를 누른 뒤 다시 로그인해 주세요.</p><button class="btn solid" data-member-mode="login">로그인으로 이동</button></div>';}
+      else{await refreshSession();await memberEntry();}
+    });};
+  }
   function loadDraft() { try { return JSON.parse(sessionStorage.getItem(draftKey) || '{}'); } catch { return {}; } }
   function saveDraft(form) {
     if (state.edit) return;
@@ -116,11 +136,12 @@
       ${field('체험하기 주소','demo_url',value.demo_url,{required:false,type:'url',max:2000,placeholder:'https://…',help:'체험용 주소가 따로 있는 경우에만 입력해 주세요.'})}
       <div class="form-grid"><label class="field"><span>분류 <b class="required">*</b></span><select name="cat" required>${CATS.filter(c=>c.k!=='all').map(c=>`<option value="${c.k}" ${value.cat===c.k?'selected':''}>${c.icon} ${c.name}</option>`).join('')}</select></label>
       ${field('대상 학년','grade',value.grade,{max:80,placeholder:'예: 3-6학년, 전학년'})}</div>
-      <div class="form-grid">${field('아이콘','icon',value.icon||'🧩',{max:16,placeholder:'이모지 1개'})}${field('대표 색상','color',value.color||'#ffd23f',{type:'color',max:7})}</div>
+      ${field('대표 색상','color',value.color||'#ffd23f',{type:'color',max:7})}
+      <label class="file-drop thumbnail-drop"><span>대표 썸네일 사진 *</span><small>정사각형 3D 카드에 표시돼요. 첫 번째 이미지가 대표 썸네일이에요.</small><input id="thumbnailFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
       ${field('한 줄 소개','short',value.short,{max:160,placeholder:'어떤 수업에서 어떻게 쓰는 앱인지 짧게 알려 주세요.'})}
       <label class="field"><span>상세 설명 <b class="required">*</b></span><textarea name="description" rows="6" maxlength="6000" required placeholder="앱의 목적, 사용 방법, 준비물과 수업 활용 팁을 적어 주세요.">${esc(value.description||'')}</textarea></label>
       <label class="field"><span>새로운 기능 · 변경 사항</span><textarea name="notes" rows="3" maxlength="3000" placeholder="한 줄에 한 가지씩 적어 주세요. 최대 12개">${esc(value.notes||'')}</textarea></label>
-      <div class="form-intro"><span>02</span><div><h3>스크린샷과 설명</h3><p>시작·진행·결과 화면 등을 1~6장 등록해 주세요. 학생의 개인정보는 가려 주세요.</p></div></div>
+      <div class="form-intro"><span>02</span><div><h3>스크린샷과 설명</h3><p>썸네일을 포함해 최대 6장을 등록해 주세요. 첫 사진을 대표 썸네일로 사용해요. 학생의 개인정보는 가려 주세요.</p></div></div>
       <div id="shotEditor" class="shot-editor"></div>
       <label class="file-drop"><span>＋ 스크린샷 추가</span><small>PNG · JPG · WebP / 한 번에 최대 6장 / 자동 크기 조정</small><input id="screenshotFiles" name="screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>
       <div class="form-intro"><span>03</span><div><h3>연락과 검토</h3><p>연락 이메일은 관리자에게만 보여요.</p></div></div>
@@ -134,6 +155,7 @@
     const form = $('#appForm');
     form.addEventListener('input',()=>saveDraft(form));
     $('#screenshotFiles').addEventListener('change', e => addFiles(e.target.files));
+    $('#thumbnailFile').addEventListener('change', e => addThumbnail(e.target.files[0]));
     form.addEventListener('submit',e=>{
       e.preventDefault();
       const decision = e.submitter?.value;
@@ -143,7 +165,14 @@
   }
   function revokePreview(shot) { if (shot.preview?.startsWith('blob:')) URL.revokeObjectURL(shot.preview); }
   function renderShotEditor() {
-    $('#shotEditor').innerHTML = state.shots.map((s,i)=>`<article class="shot-edit" data-shot="${s.key}"><img src="${esc(s.preview||s.url||'')}" alt="스크린샷 ${i+1} 미리보기"><div><label class="field"><span>스크린샷 ${i+1} 설명 <b class="required">*</b></span><textarea data-caption="${s.key}" rows="2" maxlength="250" required placeholder="예: 학생 이름을 입력하고 모둠 수를 선택하는 시작 화면">${esc(s.caption||'')}</textarea></label><div class="shot-controls"><button type="button" data-shot-move="${s.key}" data-direction="-1" ${i===0?'disabled':''} aria-label="스크린샷 ${i+1} 앞으로">↑</button><button type="button" data-shot-move="${s.key}" data-direction="1" ${i===state.shots.length-1?'disabled':''} aria-label="스크린샷 ${i+1} 뒤로">↓</button><button type="button" data-shot-remove="${s.key}">삭제</button></div></div></article>`).join('');
+    $('#shotEditor').innerHTML = state.shots.map((s,i)=>`<article class="shot-edit" data-shot="${s.key}"><img src="${esc(s.preview||s.url||'')}" alt="스크린샷 ${i+1} 미리보기"><div><label class="field"><span>${i===0?'대표 썸네일 설명':`스크린샷 ${i+1} 설명`} <b class="required">*</b></span><textarea data-caption="${s.key}" rows="2" maxlength="250" required placeholder="예: 학생 이름을 입력하고 모둠 수를 선택하는 시작 화면">${esc(s.caption||'')}</textarea></label><div class="shot-controls"><button type="button" data-shot-move="${s.key}" data-direction="-1" ${i===0?'disabled':''} aria-label="스크린샷 ${i+1} 앞으로">↑</button><button type="button" data-shot-move="${s.key}" data-direction="1" ${i===state.shots.length-1?'disabled':''} aria-label="스크린샷 ${i+1} 뒤로">↓</button><button type="button" data-shot-remove="${s.key}">삭제</button></div></div></article>`).join('');
+  }
+  function addThumbnail(file) {
+    if(!file)return;
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024)return errorIn($('#appForm'),new Error('15MB 이하의 이미지 사진을 선택해 주세요.'));
+    if(state.shots.length)revokePreview(state.shots.shift());
+    state.shots.unshift({file,preview:URL.createObjectURL(file),key:crypto.randomUUID(),caption:'대표 썸네일'});
+    renderShotEditor();
   }
   async function addFiles(files) {
     const form = $('#appForm');
@@ -212,7 +241,7 @@
   function preview() {
     const form=$('#appForm'), data=values(form);
     const preview=document.createElement('dialog'); preview.className='preview-dialog';
-    preview.innerHTML=`<button type="button" class="x" aria-label="미리보기 닫기">✕</button><div class="preview-inner"><span class="eyebrow">공개 전 미리보기</span><div class="preview-title"><span style="background:${esc(data.color)}">${esc(data.icon)}</span><div><h2>${esc(data.name||'앱 이름')}</h2><p>${esc(data.short||'한 줄 소개')}</p></div></div><p class="preview-meta">${esc(data.cat)} · ${esc(data.grade||'대상 학년')} · 제작 ${esc(data.author_name||'제작자')}</p><div class="preview-shots">${state.shots.map(s=>`<figure><img src="${esc(s.preview||s.url||'')}" alt="${esc(s.caption)}"><figcaption>${esc(s.caption||'스크린샷 설명')}</figcaption></figure>`).join('')}</div><p class="multiline">${esc(data.description||'상세 설명')}</p>${data.notes.length?`<h3>새로운 기능</h3><ul>${data.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`;
+    preview.innerHTML=`<button type="button" class="x" aria-label="미리보기 닫기">✕</button><div class="preview-inner"><span class="eyebrow">공개 전 미리보기</span><div class="preview-title"><span style="background:${esc(data.color)}">${state.shots[0]?`<img class="preview-thumb" src="${esc(state.shots[0].preview||state.shots[0].url||'')}" alt="대표 썸네일">`:'사진'}</span><div><h2>${esc(data.name||'앱 이름')}</h2><p>${esc(data.short||'한 줄 소개')}</p></div></div><p class="preview-meta">${esc(data.cat)} · ${esc(data.grade||'대상 학년')} · 제작 ${esc(data.author_name||'제작자')}</p><div class="preview-shots">${state.shots.map(s=>`<figure><img src="${esc(s.preview||s.url||'')}" alt="${esc(s.caption)}"><figcaption>${esc(s.caption||'스크린샷 설명')}</figcaption></figure>`).join('')}</div><p class="multiline">${esc(data.description||'상세 설명')}</p>${data.notes.length?`<h3>새로운 기능</h3><ul>${data.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`;
     workspace.append(preview); preview.showModal();
     preview.querySelector('button').onclick=()=>preview.close();preview.addEventListener('close',()=>preview.remove());
   }
@@ -239,6 +268,7 @@
     if(button.matches('.logout')){
       try{await api('logout',{method:'POST',body:{}});state.role=null;closeWorkspace();$('#adminButton').textContent='관리자';toast('로그아웃했어요.');}catch(error){toast(error.message);}return;
     }
+    if(button.dataset.memberMode){await memberEntry(button.dataset.memberMode);return;}
     if(button.dataset.view){
       if(button.dataset.view==='upload')uploadForm();else await queueView();return;
     }
@@ -248,8 +278,12 @@
     if(button.dataset.shotRemove){const index=state.shots.findIndex(s=>s.key===button.dataset.shotRemove);if(index>=0){revokePreview(state.shots[index]);state.shots.splice(index,1);renderShotEditor();}return;}
     if(button.dataset.shotMove){const index=state.shots.findIndex(s=>s.key===button.dataset.shotMove),target=index+Number(button.dataset.direction);if(target>=0&&target<state.shots.length){[state.shots[index],state.shots[target]]=[state.shots[target],state.shots[index]];renderShotEditor();}}
   });
-  $('#uploadButton').onclick=()=>enter('upload');$('#queueButton').onclick=()=>enter('queue');$('#adminButton').onclick=()=>enter('admin');
-  const setupToken=new URLSearchParams(location.hash.slice(1)).get('setup');
+  $('#uploadButton').onclick=()=>enter('upload');$('#memberButton').onclick=()=>memberEntry();$('#adminButton').onclick=()=>enter('admin');
+  const authHash=new URLSearchParams(location.hash.slice(1));
+  if(authHash.has('access_token')||authHash.has('error'))history.replaceState(null,'',location.pathname+location.search);
+  if(new URLSearchParams(location.search).has('email-confirmed'))memberEntry();
+  const setupToken=authHash.get('setup');
   if(setupToken){history.replaceState(null,'',location.pathname+location.search);setup(setupToken);}
   loadApps();
+  refreshSession().catch(()=>{});
 })();

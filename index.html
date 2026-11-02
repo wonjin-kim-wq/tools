@@ -234,7 +234,7 @@ button{cursor:pointer}
     </label>
     <div class="auth">
       <button class="btn ghost buddy-toggle" id="buddyToggle" aria-pressed="true" title="커서를 따라다니는 캐릭터 켜기/끄기">캐릭터 <span class="sw"></span></button>
-      <button class="btn ghost" id="queueButton">대기 목록</button>
+      <button class="btn ghost" id="memberButton">로그인</button>
       <button class="btn ghost" id="adminButton">관리자</button>
       <button class="btn solid" id="uploadButton">업로드 요청</button>
     </div>
@@ -362,7 +362,7 @@ function renderCatalog(){
     el.style.setProperty('--c', a.color);
     el.style.setProperty('--d', `${-Math.random()*9}s`);
     el.innerHTML = `
-      <div class="pod"><div class="scene"><div class="tile">${stack(12,`<span class="glyph">${escapeHtml(a.icon)}</span>`)}</div></div></div>
+      <div class="pod"><div class="photo-card">${a.screenshots?.[0]?.url?`<img src="${escapeHtml(a.screenshots[0].url)}" alt="${escapeHtml(a.name)} 썸네일" loading="lazy">`:`<span>${escapeHtml(a.name.slice(0,2))}<small>썸네일 준비 중</small></span>`}</div></div>
       <div class="txt"><div class="when"><span class="m-cat">${escapeHtml(a.cat)} · </span><span class="date"></span></div>
       <h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p><span class="chip">${escapeHtml(a.cat)}</span></div>`;
     grid.appendChild(el); a.el = el;
@@ -467,7 +467,7 @@ function openApp(id){
   const images = (source.screenshots || []).map(s=>s.url?`<figure class="real-shot"><img src="${escapeHtml(s.url)}" alt="${escapeHtml(s.caption)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${escapeHtml(s.caption)}</figcaption></figure>`:'').join('');
   appSheet.innerHTML = `
     <button class="x" aria-label="닫기">✕</button>
-    <div class="hd"><div class="bigicon" style="--c:${a.color}">${a.icon}</div>
+    <div class="hd"><div class="bigicon thumbnail-big" style="--c:${a.color}">${source.screenshots?.[0]?.url?`<img src="${escapeHtml(source.screenshots[0].url)}" alt="${a.name} 썸네일">`:`<span>${a.name.slice(0,2)}</span>`}</div>
       <div><h3>${a.name}</h3><div class="sub">${a.short}</div><div class="acts">${link(source.web_url,'열기','solid')}${link(source.demo_url,'체험하기','line')}${!source.web_url?'<span class="example-label">예시 앱 · 연결 준비 중</span>':''}</div></div>
     </div>
     <div class="facts"><div><span>분류</span><b>${a.cat}</b></div><div><span>대상</span><b>${a.grade}</b></div><div><span>등록</span><b>${fmt(a.created)}</b></div><div><span>업데이트</span><b>${fmt(a.updated)}</b></div></div>
