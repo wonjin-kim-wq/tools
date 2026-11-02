@@ -528,22 +528,26 @@ const Buddy = (()=>{
     const dx = e.clientX - s.mx;
     if (Math.abs(dx) > 2) s.side = dx > 0 ? 1 : -1;      // 커서가 가는 방향의 뒤쪽에 선다
     s.mx = e.clientX; s.my = e.clientY;
-    if (!s.started){ s.started = true; s.x = s.mx - s.side*30; s.y = s.my + 26; el.classList.add('on'); }
+    s.hasMouse = true;
   }
 
   function tick(t){
     s.sideS = lerp(s.sideS, s.side, .06);
-    const tx = s.mx - s.sideS*30, ty = s.my + 26;
+    // 커서를 아직 모르면 처음 자리(왼쪽 위)에 서 있다가, 커서가 보이면 그쪽으로 뛰어간다
+    const tx = s.hasMouse ? s.mx - s.sideS*30 : s.x, ty = s.hasMouse ? s.my + 26 : s.y;
     const dx = tx - s.x, dy = ty - s.y, dist = Math.hypot(dx,dy);
     // 멀수록 강하게 끌려와서 커서가 빠르면 빨리 따라온다
     const k = .03 + Math.min(dist,700)/700*.11;
     s.vx = (s.vx + dx*k)*.76; s.vy = (s.vy + dy*k)*.76;
+    // 순간이동처럼 보이지 않게 최고 속도를 두어, 멀리서는 달려오는 모습이 보이게 한다
+    const v = Math.hypot(s.vx, s.vy), MAXV = 16;
+    if (v > MAXV){ s.vx *= MAXV/v; s.vy *= MAXV/v; }
     s.x += s.vx; s.y += s.vy;
     const speed = Math.hypot(s.vx, s.vy);
 
     // 방향 전환: 움직이면 진행 방향, 멈추면 커서 쪽. 폭이 줄었다 늘며 몸을 돌린다
     if (Math.abs(s.vx) > .6) s.face = Math.sign(s.vx);
-    else if (Math.abs(s.mx - s.x) > 30) s.face = Math.sign(s.mx - s.x);
+    else if (s.hasMouse && Math.abs(s.mx - s.x) > 30) s.face = Math.sign(s.mx - s.x);
     s.faceS = lerp(s.faceS, s.face, .22);
 
     // 걷기: 다리를 번갈아 앞뒤로, 몸은 통통 튀며 살짝 뒤뚱
@@ -586,10 +590,12 @@ const Buddy = (()=>{
     el.innerHTML = `<div class="shadow"></div><div class="bd"><div class="flip">${charLayers()}</div></div>`;
     document.body.appendChild(el);
     [bd, flip, legL, legR, chieut, sh] = ['.bd','.flip','.legL','.legR','.chieut','.shadow'].map(q=>el.querySelector(q));
-    s = { mx:innerWidth/2, my:innerHeight/2, x:0, y:0, vx:0, vy:0, side:1, sideS:1, face:1, faceS:1, lean:0,
-          phase:0, amp:0, squash:0, prev:0, jy:0, jv:0, cheer:0, started:false };
+    // 처음엔 화면 왼쪽 위(로고 아래)에서 등장한다
+    s = { mx:0, my:0, hasMouse:false, x:56, y:118, vx:0, vy:0, side:1, sideS:1, face:1, faceS:1, lean:0,
+          phase:0, amp:0, squash:0, prev:0, jy:0, jv:0, cheer:0 };
     addEventListener('mousemove', onMove);
     raf = requestAnimationFrame(tick);
+    requestAnimationFrame(()=>el.classList.add('on'));
     api.active = true;
   }
   function unmount(){
