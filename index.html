@@ -467,15 +467,14 @@ function shot(a, n){
     `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${Array.from({length:9},(_,i)=>`<div class="blk" style="aspect-ratio:1;${i%4==0?`background:${a.color}`:''}"></div>`).join('')}</div><div class="blk" style="height:40px;background:${a.color}"></div>`,
     `${[80,55,95,40,70].map(w=>`<div style="display:flex;gap:8px;align-items:center"><div class="blk" style="width:26px;height:26px;border-radius:50%;flex:none"></div><div class="blk" style="height:12px;width:${w}%;background:${a.color}aa"></div></div>`).join('')}<div class="blk" style="flex:1"></div>`
   ];
-  const caps = ['시작 화면','진행 화면','결과 확인'];
-  return `<div class="shot"><div class="bar" style="background:${a.color}">${a.icon} ${a.name}</div><div class="body">${layouts[n]}</div><div class="cap">${caps[n]}</div></div>`;
+  return `<div class="shot"><div class="bar" style="background:${a.color}">${a.icon} ${a.name}</div><div class="body">${layouts[n]}</div></div>`;
 }
 function openApp(id){
   const source = apps.find(x=>x.id==id);
   if (!source) return;
   const a = Object.fromEntries(Object.entries(source).map(([k,v])=>[k,typeof v==='string'?escapeHtml(v):v]));
   const link = (url,label,kind) => url ? `<a class="btn ${kind} app-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>` : '';
-  const images = (source.screenshots || []).map(s=>s.url?`<figure class="real-shot"><img src="${escapeHtml(s.url)}" alt="${escapeHtml(s.caption)}" loading="lazy" referrerpolicy="no-referrer"><figcaption>${escapeHtml(s.caption)}</figcaption></figure>`:'').join('');
+  const images = (source.screenshots || []).map(s=>s.url?`<figure class="real-shot"><img src="${escapeHtml(s.url)}" alt="${escapeHtml(s.caption)}" loading="lazy" referrerpolicy="no-referrer"></figure>`:'').join('');
   appSheet.innerHTML = `
     <button class="x" aria-label="닫기">✕</button>
     <div class="hd"><div class="bigicon thumbnail-big" style="--c:${a.color}">${source.screenshots?.[0]?.url?`<img src="${escapeHtml(source.screenshots[0].url)}" alt="${a.name} 썸네일">`:`<span>${a.name.slice(0,2)}</span>`}</div>
