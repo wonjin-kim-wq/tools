@@ -133,8 +133,23 @@ async function handler(req, res) {
       return send({ role, configured: true, adminReady: !!account, member });
     }
     if (req.method === 'GET' && action === 'apps') {
-      const rows = await db('/rest/v1/tools_apps?status=eq.approved&select=*&order=created_at.desc&limit=500');
-      return send({ apps: await withImages(rows) });
+      const [rows, extras] = await Promise.all([
+        db('/rest/v1/tools_apps?status=eq.approved&select=*&order=created_at.desc&limit=500'),
+        // 별점·순위는 부가 정보라서 실패해도 목록은 그대로 보여준다.
+        Promise.allSettled([
+          db('/rest/v1/tools_reviews?hidden=eq.false&rating=not.is.null&select=app_id,rating&limit=20000'),
+          db('/rest/v1/rpc/tools_rank_snapshot', { method: 'POST', body: {} })
+        ])
+      ]);
+      const ratings = extras[0].status === 'fulfilled' ? extras[0].value : [];
+      const ranks = extras[1].status === 'fulfilled' && extras[1].value ? extras[1].value : {};
+      const stats = new Map();
+      for (const r of ratings) { const s = stats.get(r.app_id) || { sum: 0, count: 0 }; s.sum += r.rating; s.count++; stats.set(r.app_id, s); }
+      const apps = (await withImages(rows)).map(app => {
+        const s = stats.get(app.id), rank = ranks[app.id];
+        return { ...app, rating_avg: s ? Math.round(s.sum / s.count * 10) / 10 : 0, rating_count: s?.count || 0, rank: rank?.rank || null, rank_prev: rank?.prev ?? null };
+      });
+      return send({ apps });
     }
     if (req.method === 'GET' && action === 'queue') {
       const actor = await requireRole(req, session(req)?.role === 'admin');
@@ -261,29 +276,47 @@ async function handler(req, res) {
       if (!rows.length) throw new AppError('다른 창에서 수정된 요청이에요. 목록을 새로 불러와 주세요.', 409);
       return send({ app: (await withImages(rows, true))[0] });
     }
-    // 회원 리뷰: 누구나 읽고, 참코딩 회원만 앱마다 한 개씩 쓰고 고친다. 관리자는 숨길 수 있다.
+    // 리뷰: 누구나 별점(1~5)과 함께 익명으로 남긴다. 회원은 앱마다 1개를 고쳐 쓰고, 관리자는 숨길 수 있다.
     if (req.method === 'GET' && action === 'reviews') {
       const appId = uuid(url.searchParams.get('app'), '앱 번호');
       const [rows, member, admin] = await Promise.all([
-        db(`/rest/v1/tools_reviews?app_id=eq.${appId}&hidden=eq.false&select=id,member_id,member_name,body,created_at,updated_at&order=updated_at.desc&limit=50`),
+        db(`/rest/v1/tools_reviews?app_id=eq.${appId}&hidden=eq.false&select=id,member_id,rating,body,created_at,updated_at&order=updated_at.desc&limit=200`),
         members.member(req), isAdmin(req)
       ]);
+      const rated = rows.filter(r => r.rating);
+      const dist = [1, 2, 3, 4, 5].map(n => rated.filter(r => r.rating === n).length);
       const mine = member ? rows.find(r => r.member_id === member.id) : null;
-      return send({ reviews: rows.map(({ member_id, ...r }) => ({ ...r, mine: !!member && member_id === member.id })), member: member ? { name: member.name } : null, mine: mine?.body || '', admin });
+      return send({
+        reviews: rows.slice(0, 50).map(({ member_id, ...r }) => ({ ...r, name: '익명', mine: !!member && member_id === member.id })),
+        summary: { count: rated.length, average: rated.length ? Math.round(rated.reduce((a, r) => a + r.rating, 0) / rated.length * 10) / 10 : 0, dist },
+        member: !!member, mine: mine ? { body: mine.body, rating: mine.rating } : null, admin
+      });
     }
     if (req.method === 'POST' && action === 'app-review') {
-      const member = await members.member(req, true);
-      await rate(req, 'app-review', 10, 3600);
+      const member = await members.member(req);
+      await rate(req, member ? 'app-review' : 'app-review-anon', member ? 10 : 5, 3600);
       const appId = uuid(body.appId, '앱 번호');
+      const rating = Number(body.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new AppError('별점을 1~5점 중에서 골라 주세요.');
       const value = text(body.body, '리뷰', 1000, true);
       const app = await db(`/rest/v1/tools_apps?id=eq.${appId}&status=eq.approved&select=id&limit=1`);
       if (!app.length) throw new AppError('리뷰를 남길 수 있는 앱을 찾지 못했어요.', 404);
-      // 같은 회원이 다시 쓰면 기존 리뷰를 고친다. 숨김 여부는 관리자가 정한 값을 유지한다.
-      await db('/rest/v1/tools_reviews?on_conflict=app_id,member_id', {
-        method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: { app_id: appId, member_id: member.id, member_name: member.name, body: value }
-      });
+      const review = { app_id: appId, member_name: '익명', rating, body: value };
+      if (member) {
+        // 같은 회원이 다시 쓰면 기존 리뷰를 고친다. 숨김 여부는 관리자가 정한 값을 유지한다.
+        await db('/rest/v1/tools_reviews?on_conflict=app_id,member_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: { ...review, member_id: member.id } });
+      } else {
+        await db('/rest/v1/tools_reviews', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: review });
+      }
       return send({ ok: true }, 201);
+    }
+    // 사용하기·체험하기를 누르면 사용 횟수를 센다. 같은 접속에서 같은 앱은 10분에 한 번만 센다.
+    if (req.method === 'POST' && action === 'use') {
+      const appId = uuid(body.appId, '앱 번호');
+      try { await rate(req, `use:${appId}`, 1, 600); }
+      catch (error) { if (error.status === 429) return send({ ok: true, counted: false }); throw error; }
+      await db('/rest/v1/rpc/tools_use_app', { method: 'POST', body: { p_app: appId } });
+      return send({ ok: true, counted: true });
     }
     if (req.method === 'PATCH' && action === 'app-review') {
       await requireRole(req, true);

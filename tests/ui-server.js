@@ -20,6 +20,12 @@ global.fetch=async(input,options={})=>{
   }
   else if(url.pathname==='/rest/v1/rpc/tools_visit_counts'){if(body.p_increment)visits++;data={total:visits,today:visits,day:'2026-11-03'};}
   else if(url.pathname==='/rest/v1/rpc/tools_check_rate')data=true;
+  else if(url.pathname==='/rest/v1/rpc/tools_use_app'){const row=rows.find(r=>r.id===body.p_app);if(row)row.uses++;data=null;}
+  else if(url.pathname==='/rest/v1/rpc/tools_rank_snapshot'){
+    // 시드 데이터에서는 순위 변동이 보이도록 '어제 순위'를 조금 섞어 둔다
+    const ranked=rows.filter(r=>r.status==='approved').sort((a,b)=>b.uses-a.uses||a.created_at.localeCompare(b.created_at));
+    data=Object.fromEntries(ranked.map((r,i)=>[r.id,{rank:i+1,prev:i===4?null:Math.max(1,i+1+[2,-1,0,1,0,-2,3,0,-1,1][i%10])}]));
+  }
   else if(url.pathname==='/auth/v1/token'){
     if(body.email!==fixtureMember.email||body.password!=='local-member-test-only')return new Response(JSON.stringify({error_code:'invalid_credentials'}),{status:400,headers:{'content-type':'application/json'}});
     data={access_token:'fixture-member-token',expires_in:3600,user:fixtureMember};
@@ -35,12 +41,12 @@ global.fetch=async(input,options={})=>{
   }
   else if(url.pathname==='/rest/v1/tools_reviews'){
     if(options.method==='POST'){
-      const existing=reviews.find(r=>r.app_id===body.app_id&&r.member_id===body.member_id);
+      const existing=body.member_id&&reviews.find(r=>r.app_id===body.app_id&&r.member_id===body.member_id);
       if(existing)Object.assign(existing,body,{updated_at:new Date().toISOString()});
       else reviews.unshift({...body,id:randomUUID(),hidden:false,created_at:new Date().toISOString(),updated_at:new Date().toISOString()});
       data=null;
     }else if(options.method==='PATCH'){const row=reviews.find(r=>r.id===url.searchParams.get('id')?.slice(3));if(row)Object.assign(row,body);data=row?[row]:[];}
-    else data=reviews.filter(r=>r.app_id===url.searchParams.get('app_id')?.slice(3)&&!r.hidden);
+    else data=reviews.filter(r=>(!url.searchParams.has('app_id')||r.app_id===url.searchParams.get('app_id').slice(3))&&!r.hidden&&(!url.searchParams.has('rating')||r.rating));
   }
   else if(url.pathname==='/rest/v1/tools_uploads'){
     if(options.method==='POST'){uploads.push(body);data=null;}

@@ -370,27 +370,31 @@
     if(badge){badge.className=`status-badge dev-status-${status}`;badge.textContent=devLabels[status];}
   }
 
-  /* 상세 화면 리뷰: 누구나 읽고, 참코딩 회원은 앱마다 한 개씩 쓰고 고칠 수 있다. 평점은 받지 않는다. */
+  /* 상세 화면 리뷰: 누구나 별점(5점 만점)과 함께 익명으로 남긴다. 회원은 자기 리뷰를 고칠 수 있다. */
   let reviewRevision=0;
+  const stars=n=>`<span class="stars" aria-label="5점 만점에 ${n}점">${[1,2,3,4,5].map(i=>`<i class="${i<=Math.round(n)?'on':''}">★</i>`).join('')}</span>`;
   async function mountReviews(box, app) {
     const target=box.querySelector('.review-body'),revision=++reviewRevision;
     if(!/^[a-f0-9-]{36}$/.test(String(app.id))){target.innerHTML='<p class="muted">예시 앱에는 리뷰를 남길 수 없어요.</p>';return;}
     try {
       const data=await api(`reviews&app=${app.id}`);
       if(revision!==reviewRevision||!box.isConnected)return;
-      box.querySelector('h4').innerHTML=`리뷰 <small>${data.reviews.length}개</small>`;
-      target.innerHTML=`${data.reviews.length?`<div class="review-list">${data.reviews.map(r=>`<article class="review-item"><header><b>${esc(r.member_name)}</b>${r.mine?'<span class="mine">내 리뷰</span>':''}${data.admin?`<button type="button" class="hide-review" data-hide-review="${r.id}">숨기기</button>`:''}<time datetime="${esc(r.updated_at)}">${date(r.updated_at)}</time></header><p>${esc(r.body)}</p></article>`).join('')}</div>`:'<p class="muted">아직 리뷰가 없어요. 수업에 써 본 경험을 처음으로 남겨 주세요.</p>'}
-        ${data.member?`<form class="review-form"><label class="sr-only" for="reviewText">리뷰 내용</label><textarea id="reviewText" maxlength="1000" required placeholder="수업에서 써 본 경험, 좋았던 점, 바라는 점을 적어 주세요.">${esc(data.mine)}</textarea><footer><small>${esc(data.member.name)} 이름으로 공개돼요</small><button type="submit" class="btn solid">${data.mine?'리뷰 수정':'리뷰 남기기'}</button></footer></form>`
-          :'<p class="muted review-login">리뷰는 참코딩 회원만 남길 수 있어요. <button type="button" class="btn line" data-review-login>로그인하고 리뷰 쓰기</button></p>'}`;
-      target.querySelector('[data-review-login]')?.addEventListener('click',()=>memberEntry());
+      const {summary}=data,max=Math.max(1,...summary.dist);
+      box.querySelector('h4').innerHTML=`평가 및 리뷰 <small>${summary.count}개</small>`;
+      target.innerHTML=`<div class="rating-summary"><div class="rating-big"><b>${summary.count?summary.average.toFixed(1):'—'}</b><small>5점 만점</small></div>
+          <div class="rating-bars" aria-label="별점 분포">${[5,4,3,2,1].map(n=>`<div><span>${'★'.repeat(n)}</span><i><em style="width:${summary.dist[n-1]/max*100}%"></em></i></div>`).join('')}<small>${summary.count}개의 평가</small></div></div>
+        ${data.reviews.length?`<div class="review-list">${data.reviews.map(r=>`<article class="review-item"><header>${r.rating?stars(r.rating):''}<b>${esc(r.name)}</b>${r.mine?'<span class="mine">내 리뷰</span>':''}${data.admin?`<button type="button" class="hide-review" data-hide-review="${r.id}">숨기기</button>`:''}<time datetime="${esc(r.updated_at)}">${date(r.updated_at)}</time></header><p>${esc(r.body)}</p></article>`).join('')}</div>`:'<p class="muted">아직 리뷰가 없어요. 수업에 써 본 경험을 처음으로 남겨 주세요.</p>'}
+        <form class="review-form"><fieldset class="star-pick"><legend>별점</legend><span class="star-row">${[5,4,3,2,1].map(n=>`<input type="radio" id="star${n}" name="rating" value="${n}" ${data.mine?.rating===n?'checked':''} required><label for="star${n}" title="${n}점" aria-label="${n}점">★</label>`).join('')}</span></fieldset>
+          <label class="sr-only" for="reviewText">리뷰 내용</label><textarea id="reviewText" maxlength="1000" required placeholder="수업에서 써 본 경험, 좋았던 점, 바라는 점을 적어 주세요.">${esc(data.mine?.body||'')}</textarea>
+          <footer><small>${data.member?'익명으로 공개돼요. 내 리뷰는 다시 쓰면 고쳐져요.':'로그인하지 않아도 익명으로 남길 수 있어요.'}</small><button type="submit" class="btn solid">${data.mine?'리뷰 수정':'리뷰 남기기'}</button></footer></form>`;
       target.querySelectorAll('[data-hide-review]').forEach(button=>button.addEventListener('click',async()=>{
         button.disabled=true;
         try{await api('app-review',{method:'PATCH',body:{id:button.dataset.hideReview,hidden:true}});toast('리뷰를 숨겼어요.');mountReviews(box,app);}catch(error){button.disabled=false;toast(error.message);}
       }));
       const form=target.querySelector('.review-form');
-      form?.addEventListener('submit',async e=>{
-        e.preventDefault();const button=form.querySelector('button');button.disabled=true;
-        try{await api('app-review',{method:'POST',body:{appId:app.id,body:form.querySelector('textarea').value}});toast('리뷰를 남겼어요.');mountReviews(box,app);}
+      form.addEventListener('submit',async e=>{
+        e.preventDefault();const button=form.querySelector('button[type=submit]');button.disabled=true;
+        try{await api('app-review',{method:'POST',body:{appId:app.id,rating:Number(form.elements.rating.value),body:form.querySelector('textarea').value}});toast('리뷰를 남겼어요.');mountReviews(box,app);}
         catch(error){button.disabled=false;toast(error.message);}
       });
     } catch(error) {

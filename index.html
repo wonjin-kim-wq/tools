@@ -133,6 +133,33 @@ body{padding-left:var(--side)}
 .voice small{display:block;font-size:12px;color:var(--mute);margin-top:1px}
 @media (prefers-reduced-motion:reduce){.voices-row{animation:none!important}.voices-track{overflow-x:auto;-webkit-mask-image:none;mask-image:none}}
 
+/* 별점 · 순위 변동 */
+.card-rating{display:inline-block;margin:10px 0 0 6px;font-size:12px;font-weight:700;color:#e8a100}
+.card-rating small{color:var(--mute);font-weight:500}
+.rank-move{position:absolute;right:12px;top:10px;z-index:2;font-size:11.5px;font-weight:800;padding:2px 7px;border-radius:7px;font-variant-numeric:tabular-nums}
+.rank-move.up{color:#d63c2f;background:#fff0ee}
+.rank-move.down{color:#1b64da;background:#e8f1fd}
+.rank-move.same{color:var(--mute);background:var(--chip)}
+.rank-move.new{color:#1f8a4c;background:#e6f6ec}
+.stars{display:inline-flex;gap:1px;font-size:13px;letter-spacing:0}
+.stars i{font-style:normal;color:#dfe2e7}.stars i.on{color:#ffb400}
+.rating-summary{display:flex;align-items:center;gap:22px;margin-bottom:16px}
+.rating-big b{display:block;font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.rating-big small{display:block;font-size:12.5px;color:var(--sub);margin-top:6px;font-weight:600}
+.rating-bars{flex:1;display:flex;flex-direction:column;gap:3px}
+.rating-bars div{display:flex;align-items:center;gap:8px}
+.rating-bars span{width:52px;text-align:right;font-size:8px;letter-spacing:-1px;color:#8b95a1}
+.rating-bars i{flex:1;height:4px;border-radius:2px;background:#eceef1;overflow:hidden}
+.rating-bars em{display:block;height:100%;background:#4e5968;border-radius:2px}
+.rating-bars small{align-self:flex-end;font-size:12px;color:var(--mute);margin-top:4px}
+.star-pick{border:0;padding:0;margin:4px 0 8px;display:flex;align-items:center;gap:10px}
+.star-row{display:inline-flex;flex-direction:row-reverse;gap:2px}
+.star-pick legend{float:left;font-size:13px;font-weight:600;color:#4e5968;margin-right:10px;padding:0;line-height:24px}
+.star-pick input{position:absolute;opacity:0;width:1px;height:1px}
+.star-pick label{font-size:24px;line-height:1;color:#dfe2e7;cursor:pointer;transition:color .1s}
+.star-pick input:checked ~ label,.star-pick label:hover,.star-pick label:hover ~ label{color:#ffb400}
+.star-pick input:focus-visible + label{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+
 /* 상세 스크린샷 좌우 스크롤 버튼 (마우스가 있는 화면) */
 .shots-wrap{position:relative}
 .shot-nav{position:absolute;top:50%;z-index:2;width:40px;height:40px;margin-top:-20px;border:1px solid var(--line);border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 4px 14px rgba(16,24,40,.14);font-size:18px;color:var(--ink);display:grid;place-items:center;transition:opacity .15s}
@@ -204,7 +231,7 @@ body{padding-left:var(--side)}
 .cat.on small{color:rgba(255,255,255,.65)}
 .card:hover{box-shadow:var(--shadow-h);border-color:var(--line2);transform:translateY(-2px)}
 .card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.pod{position:relative;flex:none;width:148px;height:150px}
+.pod{position:relative;flex:none;width:126px;height:140px}
 .pod::after{content:"";position:absolute;left:50%;top:86px;width:60px;height:14px;margin-left:-30px;border-radius:50%;
   background:radial-gradient(closest-side,rgba(16,24,40,.18),transparent);animation:shade 4.8s ease-in-out infinite;animation-delay:var(--d)}
 .scene{position:absolute;left:50%;top:76px;width:0;height:0;transform-style:preserve-3d;transform:rotateX(58deg) rotateZ(-45deg)}
@@ -329,7 +356,7 @@ body{padding-left:var(--side)}
   .seg button{flex:1}
   .card{padding:0 16px 0 0}
   .card:hover{transform:none}
-  .pod{width:108px;height:120px}
+  .pod{width:90px;height:112px}
   .scene{top:64px;scale:.8}
   .pod::after{top:78px;width:48px;margin-left:-24px}
   .m-cat{display:inline}
@@ -522,10 +549,10 @@ function renderCatalog(){
     el.style.setProperty('--c', a.color);
     el.style.setProperty('--d', `${-Math.random()*9}s`);
     el.innerHTML = `
-      <span class="rank-badge" hidden aria-hidden="true"></span>
+      <span class="rank-badge" hidden aria-hidden="true"></span><span class="rank-move" hidden></span>
       <div class="pod"><div class="photo-card">${a.screenshots?.[0]?.url?`<img src="${escapeHtml(a.screenshots[0].url)}" alt="${escapeHtml(a.name)} 썸네일" loading="lazy">`:`<span>${escapeHtml(a.name.slice(0,2))}<small>썸네일 준비 중</small></span>`}</div></div>
       <div class="txt"><div class="when"><span class="m-cat">${escapeHtml(a.cat)} · </span><span class="date"></span></div>
-      <h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p><span class="chip">${escapeHtml(a.cat)}</span></div>`;
+      <h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p><span class="chip">${escapeHtml(a.cat)}</span>${a.rating_count?`<span class="card-rating" aria-label="평균 별점 5점 만점에 ${a.rating_avg}점, ${a.rating_count}개의 평가">★ ${a.rating_avg.toFixed(1)} <small>(${a.rating_count})</small></span>`:''}</div>`;
     grid.appendChild(el); a.el = el;
   });
   renderHero();
@@ -587,13 +614,14 @@ function layout(){
   const W = grid.clientWidth;
   const mobile = mobileMQ.matches;
   const gap = mobile ? 12 : 16;
-  const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(320+gap)), 2, 5);
+  const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(300+gap)), 2, 5);
   const cw = (W - gap*(cols-1))/cols;
   const shown = apps.filter(matches);
   const shownSet=new Set(shown);
   apps.forEach(a => {
     a.el.classList.toggle('hide', !shownSet.has(a));
     a.el.querySelector('.rank-badge').hidden=true;
+    a.el.querySelector('.rank-move').hidden=true;
     a.el.setAttribute('aria-label',`${a.name} 자세히 보기`);
   });
   // 숨긴 카드가 예전(넓은 화면) 자리에 남아 화면 밖으로 삐져나가지 않게 안쪽으로 당겨 둔다
@@ -603,19 +631,28 @@ function layout(){
   });
   $('#empty').hidden = shown.length > 0;
   const rows = Math.max(1, Math.ceil(shown.length/cols));
-  let ch = 136;
+  let ch = 124;
   if (!mobile){
     // 데스크톱은 남은 화면 높이를 채우도록 카드 높이를 맞춘다
     const avail = innerHeight - (grid.getBoundingClientRect().top + scrollY) - 32;
-    ch = clamp((avail - gap*(rows-1))/rows, 176, 230);
+    ch = clamp((avail - gap*(rows-1))/rows, 164, 230);
   }
-  const sorted = [...shown].sort((x,y)=> key==='popular' ? y.uses - x.uses : y[key].localeCompare(x[key]));
+  // 인기순은 서버가 매긴 전체 순위를 따르고, 순위가 없으면(예시 목록) 사용 횟수로 정렬한다
+  const sorted = [...shown].sort((x,y)=> key==='popular' ? ((x.rank||1e9)-(y.rank||1e9) || y.uses - x.uses) : y[key].localeCompare(x[key]));
   sorted.forEach((a,i)=>{
     const r = Math.floor(i/cols), c = i%cols;
     if(key==='popular' && i<3){
       const badge=a.el.querySelector('.rank-badge');
       badge.hidden=false;badge.dataset.rank=String(i+1);badge.textContent=`🏆 ${i+1}등`;
       a.el.setAttribute('aria-label',`인기순 ${i+1}등 · ${a.name} 자세히 보기`);
+    }
+    // 인기순에서는 어제(직전 기록일)와 비교한 순위 변동을 블록 안에 표시한다
+    if (key==='popular' && a.rank){
+      const move = a.el.querySelector('.rank-move'), diff = a.rank_prev ? a.rank_prev - a.rank : null;
+      move.hidden = false;
+      move.className = `rank-move ${diff===null?'new':diff>0?'up':diff<0?'down':'same'}`;
+      move.textContent = diff===null ? 'NEW' : diff>0 ? `▲ ${diff}` : diff<0 ? `▼ ${-diff}` : '–';
+      move.setAttribute('aria-label', diff===null ? '새로 순위에 오름' : diff>0 ? `순위 ${diff}계단 상승` : diff<0 ? `순위 ${-diff}계단 하락` : '순위 변동 없음');
     }
     Object.assign(a.el.style, {
       width: cw+'px', height: ch+'px',
@@ -689,7 +726,7 @@ function openApp(id){
   const source = apps.find(x=>x.id==id);
   if (!source) return;
   const a = Object.fromEntries(Object.entries(source).map(([k,v])=>[k,typeof v==='string'?escapeHtml(v):v]));
-  const link = (url,label,kind) => url ? `<a class="btn ${kind} app-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>` : '';
+  const link = (url,label,kind) => url ? `<a class="btn ${kind} app-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" data-use-app="${escapeHtml(source.id)}">${label} ↗</a>` : '';
   const images = (source.screenshots || []).map(s=>s.url?`<figure class="real-shot"><img src="${escapeHtml(s.url)}" alt="${escapeHtml(s.caption)}" loading="lazy" referrerpolicy="no-referrer"></figure>`:'').join('');
   appSheet.innerHTML = `
     <button class="x" aria-label="닫기">✕</button>
@@ -759,6 +796,12 @@ function moreAppsSection(app){
     : `<p class="muted">${escapeHtml(app.author_name)}님이 올린 다른 앱이 아직 없어요.</p>`}</section>`;
 }
 appSheet.addEventListener('click', e=>{ const other = e.target.closest('.more-app'); if (other) openApp(other.dataset.openApp); });
+// 사용하기·체험하기를 누르면 사용 횟수를 센다(인기순의 기준). 새 창이 열려도 요청이 끝나도록 keepalive로 보낸다.
+appSheet.addEventListener('click', e=>{
+  const use = e.target.closest('[data-use-app]');
+  if (!use || !/^[a-f0-9-]{36}$/.test(use.dataset.useApp)) return;
+  fetch('/api/tools?action=use', {method:'POST', credentials:'same-origin', keepalive:true, headers:{'Content-Type':'application/json'}, body:JSON.stringify({appId:use.dataset.useApp})}).catch(()=>{});
+});
 
 let toastTimer;
 function toast(msg){

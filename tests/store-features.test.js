@@ -45,8 +45,11 @@ function stub(store) {
       else data = store.devRequests;
     } else if (url.pathname === '/rest/v1/tools_reviews') {
       if (options.method === 'PATCH') { const row = store.reviews.find(r=>r.id===url.searchParams.get('id').slice(3)); if (row) Object.assign(row, body); data = row ? [row] : []; }
+      else if (options.method === 'POST') { store.reviews.unshift({...body,id:randomUUID(),hidden:false,created_at:'2026-11-04T01:00:00Z',updated_at:'2026-11-04T01:00:00Z'}); data = null; }
       else data = store.reviews.filter(r=>!r.hidden).map(({hidden,app_id,...r})=>r);
-    } else throw new Error(`Unexpected route ${url.pathname}`);
+    } else if (url.pathname === '/rest/v1/tools_apps') data = [{id:url.searchParams.get('id').slice(3)}];
+    else if (url.pathname === '/rest/v1/rpc/tools_use_app') { store.uses = (store.uses||0) + 1; data = null; }
+    else throw new Error(`Unexpected route ${url.pathname}`);
     return new Response(JSON.stringify(data), {status:200,headers:{'content-type':'application/json'}});
   };
 }
@@ -78,24 +81,33 @@ test('development requests: anyone can send, only admins can read and update', a
   } finally { global.fetch = originalFetch; }
 });
 
-test('reviews: public list hides member ids, writing needs a member, hiding needs an admin', async () => {
+test('reviews: anyone can post an anonymous star review, ids stay private, hiding needs an admin', async () => {
   const originalFetch = global.fetch, secret = 'store-test-secret';
   Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret,UPLOAD_PASSWORD:'test-upload'});
   const credential = hashPassword('local-test-only-password');
   const appId = randomUUID(), reviewId = randomUUID();
   const store = {admin:{id:1,username:'local-test-admin',salt:credential.salt,password_hash:credential.hash},devRequests:[],
-    reviews:[{id:reviewId,app_id:appId,member_id:randomUUID(),member_name:'회원',body:'좋아요',hidden:false,created_at:'2026-11-04T00:00:00Z',updated_at:'2026-11-04T00:00:00Z'}]};
+    reviews:[{id:reviewId,app_id:appId,member_id:randomUUID(),member_name:'익명',rating:4,body:'좋아요',hidden:false,created_at:'2026-11-04T00:00:00Z',updated_at:'2026-11-04T00:00:00Z'}]};
   global.fetch = stub(store);
   const call = async options => { const res = response(); await handler(request(options), res); return res; };
   const admin = `chamcoding_session=${signSession({sid,role:'admin',exp:Date.now()+100000,av:credential.salt},secret)}`;
   try {
     const list = await call({action:'reviews',query:`&app=${appId}`});
     assert.equal(list.statusCode,200); assert.equal(list.data.reviews[0].body,'좋아요');
-    assert.equal(list.data.reviews[0].member_id,undefined); assert.equal(list.data.member,null); assert.equal(list.data.admin,false);
+    assert.equal(list.data.reviews[0].member_id,undefined); assert.equal(list.data.reviews[0].name,'익명');
+    assert.equal(list.data.member,false); assert.equal(list.data.admin,false); assert.deepEqual(list.data.summary,{count:1,average:4,dist:[0,0,0,1,0]});
     assert.equal((await call({action:'reviews',query:'&app=1'})).statusCode,400);
-    assert.equal((await call({method:'POST',action:'app-review',body:{appId,body:'최고예요'}})).statusCode,401);
+    for (const rating of [0,6,3.5,'다섯',undefined]) assert.equal((await call({method:'POST',action:'app-review',body:{appId,rating,body:'최고예요'}})).statusCode,400);
+    assert.equal((await call({method:'POST',action:'app-review',body:{appId,rating:5,body:''}})).statusCode,400);
+    assert.equal((await call({method:'POST',action:'app-review',body:{appId,rating:5,body:'최고예요'}})).statusCode,201);
+    assert.equal(store.reviews[0].member_id,undefined); assert.equal(store.reviews[0].member_name,'익명'); assert.equal(store.reviews[0].rating,5);
+    const summary = (await call({action:'reviews',query:`&app=${appId}`})).data.summary;
+    assert.equal(summary.count,2); assert.equal(summary.average,4.5);
     assert.equal((await call({method:'PATCH',action:'app-review',body:{id:reviewId,hidden:true}})).statusCode,401);
     assert.equal((await call({method:'PATCH',action:'app-review',cookie:admin,body:{id:reviewId,hidden:true}})).statusCode,200);
-    assert.equal((await call({action:'reviews',query:`&app=${appId}`})).data.reviews.length,0);
+    assert.equal((await call({action:'reviews',query:`&app=${appId}`})).data.reviews.length,1);
+    const used = await call({method:'POST',action:'use',body:{appId}});
+    assert.equal(used.statusCode,200); assert.equal(store.uses,1);
+    assert.equal((await call({method:'POST',action:'use',body:{appId:'not-an-id'}})).statusCode,400);
   } finally { global.fetch = originalFetch; }
 });
