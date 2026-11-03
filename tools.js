@@ -49,7 +49,7 @@
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role && !['login','member','setup','devreq'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">엑셀 업로드</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup','devreq'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">업로드 요청(Excel)</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
     return revision;
   }
@@ -186,7 +186,7 @@
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
     state.shots = (row?.screenshots || []).map(s=>({...s,key:crypto.randomUUID()}));
     openShell(row?'요청 검토 · 내용 수정':'웹앱 업로드 요청',row?'내용을 확인하고 상태를 선택해 저장해 주세요.':'만든 웹앱을 소개해 주세요. 승인 후 참코딩에 함께 올라가요.','upload');
-    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':`<div class="bulk-entry"><div><b>엑셀로 여러 개 한 번에 올리기</b><p>양식을 받아 AI에게 작성을 맡기고, 작성된 엑셀과 이미지를 함께 올리면 바로 승인 대기로 등록돼요.</p></div><a class="btn line" href="${TEMPLATE_URL}" download>양식 받기</a><button type="button" class="btn solid" data-view="bulk">엑셀로 올리기</button></div>`}
+    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':`<div class="bulk-entry"><div><b>엑셀로 여러 개 한 번에 올리기</b><p>양식을 받아 AI에게 작성을 맡기고, 작성된 엑셀과 이미지를 함께 올리면 바로 승인 대기로 등록돼요.</p></div><a class="btn line" href="${TEMPLATE_URL}" download>양식 받기</a><button type="button" class="btn solid" data-view="bulk">업로드 요청(Excel)</button></div>`}
       <div class="form-intro"><span>01</span><div><h3>기본 정보</h3><p>예시 앱의 카드와 상세 화면에 표시될 내용이에요.</p></div></div>
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
@@ -315,6 +315,11 @@
      '이미지 파일' 열에 적힌 이름과 함께 고른 이미지 파일을 짝지어 한 줄씩 업로드 요청을 보낸다. 서버 검증은 일반 요청과 같다. */
   const TEMPLATE_URL='/assets/chamcoding-upload-template.xlsx';
   const BULK_COLUMNS={'앱 이름':'name','제작자 이름':'author_name','웹앱 주소':'web_url','체험하기 주소':'demo_url','소개 영상 주소':'video_url','카테고리':'cat','교과':'subjects','적용 학년':'grade','대표 색상':'color','한 줄 소개':'short','상세 설명':'description','새로운 소식':'notes','연락 이메일':'contact_email','이미지 파일':'images','이미지 설명':'captions'};
+  // 양식의 '작성 안내' 시트(scripts/make-upload-template.py)에 넣은 안내문과 같은 내용
+  const AI_PROMPT=`첨부한 엑셀 양식의 ‘웹앱 목록’ 시트를 채워 줘. 앱 하나당 한 줄이고, 1행의 열 이름과 열 순서는 바꾸지 마. ‘작성 안내’ 시트의 규칙을 지켜 줘: 필수 열(*)은 모두 채우고, 주소는 https://로 시작해야 해. 카테고리는 ${CATS.filter(c=>c.k!=='all').map(c=>c.k).join(', ')} 중 하나, 교과는 ${SUBJECTS.join(', ')} 중에서 쉼표로 구분해 골라. 이미지 파일은 실제로 함께 올릴 파일 이름을 | 로 구분해 최대 6개 적고(첫 번째가 대표 썸네일), 이미지 설명도 같은 순서로 | 로 구분해 적어. 학생 이름 등 개인정보는 넣지 마. 2번째 줄 (예시)는 지워도 돼. 완성한 파일은 .xlsx로 저장해서 줘.
+
+[앱 정보]
+(여기에 앱 주소, 소개, 사용 방법, 이미지 파일 이름 등을 붙여 넣으세요)`;
   const BULK_MAX_APPS=12, BULK_MAX_IMAGES=36;   // 서버의 시간당 요청 제한(제출 12회·이미지 36장)에 맞춘다
 
   // .xlsx는 zip 안의 XML이다. 외부 라이브러리 없이 필요한 시트만 풀어서 읽는다.
@@ -388,10 +393,11 @@
   }
   function bulkView(){
     state.bulk={raw:[],rows:[],images:new Map(),sheet:'',sending:false};
-    openShell('엑셀로 한 번에 올리기','양식에 적은 웹앱들을 한 번에 승인 대기로 보내요. 관리자 승인 후 공개돼요.','bulk');
+    openShell('업로드 요청(Excel)','양식에 적은 웹앱들을 한 번에 승인 대기로 보내요. 관리자 승인 후 공개돼요.','bulk');
     $('#workspaceBody').innerHTML=`<div class="app-form bulk-form">
       <div class="form-intro"><span>01</span><div><h3>양식 받기</h3><p>‘작성 안내’ 시트에 AI에게 그대로 줄 수 있는 안내문이 있어요.</p></div></div>
       <a class="btn line" href="${TEMPLATE_URL}" download>📄 참코딩 업로드 양식 받기 (.xlsx)</a>
+      <div class="prompt-box"><div class="prompt-head"><b>AI에게 함께 줄 프롬프트</b><button type="button" class="btn line" id="copyPrompt">프롬프트 복사</button></div><textarea id="aiPrompt" readonly rows="7" aria-label="AI에게 함께 줄 프롬프트">${esc(AI_PROMPT)}</textarea></div>
       <div class="form-intro"><span>02</span><div><h3>작성한 엑셀 올리기</h3><p>앱 하나가 한 줄이에요. 한 번에 ${BULK_MAX_APPS}개 앱, 이미지 ${BULK_MAX_IMAGES}장까지 보낼 수 있어요.</p></div></div>
       <label class="file-drop"><span>엑셀 파일 선택</span><small id="bulkSheetName">.xlsx 파일</small><input id="bulkSheet" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
       <div class="form-intro"><span>03</span><div><h3>이미지 함께 올리기</h3><p>엑셀 ‘이미지 파일’ 열에 적은 이름의 이미지를 한꺼번에 선택해 주세요. PNG · JPG · WebP</p></div></div>
@@ -415,6 +421,11 @@
       $('#bulkImageCount').textContent=`이미지 ${state.bulk.images.size}장 선택됨`;e.target.value='';checkBulk();
     });
     $('#bulkConsent').addEventListener('change',renderBulk);
+    $('#copyPrompt').addEventListener('click',async()=>{
+      const box=$('#aiPrompt');
+      try{await navigator.clipboard.writeText(AI_PROMPT);}catch{box.select();document.execCommand('copy');}
+      toast('프롬프트를 복사했어요. 양식 파일과 함께 AI에게 붙여 넣어 주세요.');
+    });
     $('#bulkSend').addEventListener('click',sendBulk);
     renderBulk();
   }

@@ -145,7 +145,7 @@ Supabase의 이메일 인증 설정과 SMTP 발송 제한을 적용합니다. �
 
 ## 엑셀 일괄 업로드
 
-- 양식: `assets/chamcoding-upload-template.xlsx` (사이트에서는 `/assets/chamcoding-upload-template.xlsx`). 업로드 요청 화면 맨 위의 '양식 받기' 또는 작업 창의 '엑셀 업로드' 탭에서 내려받습니다.
+- 양식: `assets/chamcoding-upload-template.xlsx` (사이트에서는 `/assets/chamcoding-upload-template.xlsx`). 업로드 요청 화면 맨 위의 '양식 받기' 또는 작업 창의 '업로드 요청(Excel)' 탭에서 내려받습니다. 같은 탭의 양식 받기 버튼 아래에서 AI에게 함께 줄 프롬프트를 바로 복사할 수 있습니다(`tools.js`의 `AI_PROMPT`, 양식의 안내문과 같은 내용).
 - 양식은 `scripts/make-upload-template.py`로 만듭니다(`pip install openpyxl` 후 `python3 scripts/make-upload-template.py`). 열 이름은 `tools.js`의 `BULK_COLUMNS`와 같아야 하므로 한쪽을 바꾸면 둘 다 고칩니다.
 - '웹앱 목록' 시트에 앱 하나를 한 줄로 적습니다. 앱 이름이 `(예시)`로 시작하는 줄은 읽지 않습니다. '작성 안내' 시트에 열별 규칙과 AI에게 그대로 줄 안내문이 있습니다.
 - 이미지는 엑셀에 넣지 않고 '이미지 파일' 열에 파일 이름을 `|`로 구분해 적은 뒤(첫 번째가 대표 썸네일), 업로드 화면에서 엑셀과 함께 이미지 파일들을 선택합니다. 파일 이름은 대소문자를 구분하지 않습니다.
