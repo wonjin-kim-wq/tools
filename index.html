@@ -215,10 +215,9 @@ body{padding-left:var(--side)}
 .btn.line:hover{background:var(--chip)}
 .facts{display:grid;grid-template-columns:repeat(4,1fr);margin:0 32px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .facts div{padding:14px 8px;text-align:center;min-width:0}
-.facts i{display:block;font-style:normal;font-size:22px;line-height:1;margin-top:8px;filter:grayscale(.15)}
 .facts div+div{border-left:1px solid var(--line)}
 .facts span{display:block;font-size:11.5px;color:var(--mute)}
-.facts b{display:block;font-size:13.5px;margin-top:8px;font-weight:600;color:#4e5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.facts b{display:block;font-size:15px;margin-top:6px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shots{display:flex;gap:12px;overflow-x:auto;padding:24px 32px;scroll-padding-inline:32px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .shots::-webkit-scrollbar{display:none}
 .shot{flex:none;width:220px;height:390px;border-radius:18px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;scroll-snap-align:start;background:#fafbfc}
@@ -659,13 +658,12 @@ function openApp(id){
   if (window.ChamTools) window.ChamTools.mountReviews($('#reviewBox'), source);
   else $('#reviewBox .review-body').innerHTML = '<p class="muted">리뷰를 불러오지 못했어요.</p>';
 }
-// 앱스토어 정보 줄처럼: 제목 · 아이콘 · 값 (교과 · 카테고리 · 개발자 · 적용 학년)
+// 앱스토어 정보 줄처럼: 제목 · 값 (교과 · 카테고리 · 개발자 · 적용 학년)
 function factsRow(app){
   const subjects = app.subjects || [];
   const subjectText = subjects.length > 2 ? `${subjects.slice(0,2).join('·')} 외 ${subjects.length-2}` : subjects.join('·');
-  const catIcon = CATS.find(c=>c.k===app.cat)?.icon || '🗂️';
-  const cell = (label, icon, value, title=value) => `<div><span>${label}</span><i aria-hidden="true">${icon}</i><b title="${escapeHtml(title)}">${escapeHtml(value || '—')}</b></div>`;
-  return `<div class="facts">${cell('교과','📖',subjectText,subjects.join(', '))}${cell('카테고리',catIcon,app.cat)}${cell('개발자','👤',app.author_name||'참쌤스쿨')}${cell('적용 학년','🎓',app.grade)}</div>`;
+  const cell = (label, value, title=value) => `<div><span>${label}</span><b title="${escapeHtml(title)}">${escapeHtml(value || '—')}</b></div>`;
+  return `<div class="facts">${cell('교과',subjectText,subjects.join(', '))}${cell('카테고리',app.cat)}${cell('개발자',app.author_name||'참쌤스쿨')}${cell('적용 학년',app.grade)}</div>`;
 }
 // 유튜브·비메오 주소는 화면 안에서 재생하고, 그 밖의 영상 주소는 새 창 링크로 연다
 function videoEmbed(url){
