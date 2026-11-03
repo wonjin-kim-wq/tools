@@ -9,16 +9,18 @@
   const banner = document.createElement('p'); banner.className = 'sync-notice'; banner.hidden = true;
   document.querySelector('main.wrap').prepend(banner);
   const draftKey = 'chamcoding-upload-draft';
-  let lastFocus;
+  let lastFocus, viewRevision=0, sessionFlight=null, sessionCheckedAt=0, sessionEpoch=0;
+  function invalidateSession(){sessionEpoch++;sessionCheckedAt=0;sessionFlight=null;}
 
   async function api(action, { method = 'GET', body } = {}) {
     const response = await fetch(`/api/tools?action=${action}`, { method, credentials: 'same-origin', cache: 'no-store', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
     let data;
     try { data = await response.json(); } catch { throw new Error('서버 응답을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
     if (!response.ok) {
-      if (response.status === 401) state.role = null;
+      if (response.status === 401) {state.role = null;invalidateSession();}
       throw new Error(data.error || '요청을 처리하지 못했어요.');
     }
+    if(['login','logout','setup','member-login','member-signup','member-logout'].includes(action))invalidateSession();
     return data;
   }
   function date(value) { return new Date(value).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'}); }
@@ -38,6 +40,7 @@
     }
   }
   function openShell(title, subtitle, active) {
+    const revision=++viewRevision;
     const adminView=state.role==='admin' && state.area==='admin';
     hideAll();
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
@@ -45,13 +48,14 @@
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
       ${state.role && !['login','member','setup'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
+    return revision;
   }
   function closeWorkspace() {
     if (state.busy) return;
     workspace.close(); document.body.style.overflow = ''; lastFocus?.focus();
   }
   workspace.addEventListener('cancel', e => { if (state.busy) e.preventDefault(); });
-  workspace.addEventListener('close', () => { document.body.style.overflow = ''; state.shots.forEach(revokePreview); state.shots = []; });
+  workspace.addEventListener('close', () => { viewRevision++; document.body.style.overflow = ''; state.shots.forEach(revokePreview); state.shots = []; });
   function errorIn(form, error) {
     const target = form.querySelector('.form-error');
     if (target) { target.textContent = error.message; target.hidden = false; target.scrollIntoView({block:'nearest'}); }
@@ -61,24 +65,38 @@
     if (state.busy) return;
     state.busy = true;
     form.setAttribute('aria-busy','true');
-    const buttons = [...form.querySelectorAll('button[type="submit"]')]; buttons.forEach(b => b.disabled = true);
+    const buttons = [...form.querySelectorAll('button[type="submit"]')], labels=buttons.map(b=>b.textContent); buttons.forEach(b => {b.disabled = true;b.textContent='처리 중…';});
     try { await task(); } catch (error) { errorIn(form,error); }
-    finally { state.busy = false; form.removeAttribute('aria-busy'); buttons.forEach(b => b.disabled = false); }
+    finally { state.busy = false; form.removeAttribute('aria-busy'); buttons.forEach((b,i) => {b.disabled = false;b.textContent=labels[i];}); }
   }
-  async function refreshSession() {
-    const session = await api('session'); Object.assign(state,session);
-    $('#adminButton').textContent = state.role === 'admin' ? '관리 중' : '관리자';
-    $('#memberButton').textContent = state.member ? '내 계정' : '로그인';
-    return session;
+  function refreshSession(force=false) {
+    if(!force && sessionCheckedAt && Date.now()-sessionCheckedAt<15000)return Promise.resolve(state);
+    if(sessionFlight)return sessionFlight;
+    const epoch=sessionEpoch;
+    const flight=api('session').then(session=>{
+      if(epoch!==sessionEpoch)return refreshSession();
+      Object.assign(state,session);sessionCheckedAt=Date.now();
+      $('#adminButton').textContent=state.role==='admin'?'관리 중':'관리자';
+      $('#memberButton').textContent=state.member?'내 계정':'로그인';
+      return session;
+    }).finally(()=>{if(sessionFlight===flight)sessionFlight=null;});
+    sessionFlight=flight;return flight;
+  }
+  function loadingShell(title,active='loading'){
+    const revision=openShell(title,'잠시만 기다려 주세요.',active);
+    $('#workspaceBody').innerHTML='<p class="loading-state" role="status">접속 상태를 확인하고 있어요…</p><p class="form-error" role="alert" hidden></p>';
+    return revision;
   }
   async function enter(view) {
+    state.area=view==='admin'?'admin':'uploader';
+    const revision=loadingShell(view==='admin'?'관리자':'업로드 요청','login');
     try {
       await refreshSession();
-      state.area=view==='admin'?'admin':'uploader';
-      if (view === 'admin' && state.role !== 'admin') return login('admin','queue');
-      if (!state.role) return login('uploader',view);
-      if (view === 'upload') uploadForm(); else await queueView();
-    } catch (error) { toast(error.message); }
+      if(revision!==viewRevision||!workspace.open)return;
+      if(view==='admin'&&state.role!=='admin')return login('admin','queue');
+      if(!state.role)return login('uploader',view);
+      if(view==='upload')uploadForm();else await queueView();
+    } catch(error){if(revision===viewRevision)errorIn($('#workspaceBody'),error);}
   }
   function login(kind, next) {
     const admin = kind === 'admin';
@@ -100,7 +118,9 @@
     form.querySelector('input')?.focus();
   }
   async function memberEntry(mode='login') {
-    try {await refreshSession();} catch(error){toast(error.message);return;}
+    const revision=loadingShell(mode==='signup'?'회원가입':'회원 로그인','member');
+    try {await refreshSession();} catch(error){if(revision===viewRevision)errorIn($('#workspaceBody'),error);return;}
+    if(revision!==viewRevision||!workspace.open)return;
     if(state.member){
       openShell('내 계정','참코딩 회원 정보와 콘텐츠 이용 권한을 확인해요.','member');
       $('#workspaceBody').innerHTML=`<div class="entry-form"><div class="entry-icon">👤</div><h3>${esc(state.member.name)}님</h3><p class="field-help">${esc(state.member.email)}</p><p class="membership-state">${state.member.contentAccess?'회원 전용 콘텐츠 이용 권한이 있어요.':'콘텐츠 이용 권한 확인이 필요해요.'}</p><p class="field-help">회원 전용 콘텐츠는 준비되는 대로 추가돼요.</p><button type="button" class="btn line" id="memberLogout">회원 로그아웃</button></div>`;
@@ -120,10 +140,11 @@
   }
   async function passwordSettings() {
     if(state.role!=='admin'||state.area!=='admin')return;
-    openShell('업로드 비밀번호 변경','업로더가 요청 폼에 입장할 때 사용하는 공통 비밀번호를 관리해요.','settings');
+    const revision=openShell('업로드 비밀번호 변경','업로더가 요청 폼에 입장할 때 사용하는 공통 비밀번호를 관리해요.','settings');
     $('#workspaceBody').innerHTML='<p class="loading-state" role="status">설정을 불러오고 있어요…</p>';
     try {
       const settings=await api('upload-password');
+      if(revision!==viewRevision||!workspace.open)return;
       $('#workspaceBody').innerHTML=`<form id="uploadPasswordForm" class="entry-form"><div class="entry-icon">🔐</div><p class="field-help">${settings.updatedAt?`마지막 변경: ${esc(new Date(settings.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}`:'아직 웹앱에서 비밀번호를 변경하지 않았어요.'}</p>
         <label class="field"><span>현재 관리자 비밀번호</span><input name="adminPassword" type="password" autocomplete="current-password" maxlength="256" required></label>
         <label class="field"><span>새 업로드 비밀번호</span><input name="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="256" required><small class="field-help">앞뒤 공백 없이 8자 이상 입력해 주세요.</small></label>
@@ -139,6 +160,7 @@
         toast('업로드 비밀번호를 변경했어요.');
       });});
     } catch(error) {
+      if(revision!==viewRevision||!workspace.open)return;
       $('#workspaceBody').innerHTML=`<p class="form-error" role="alert">${esc(error.message)}</p><button type="button" data-view="settings" class="btn line">다시 불러오기</button>`;
     }
   }
@@ -251,12 +273,15 @@
   }
   async function queueView() {
     const admin=state.role==='admin' && state.area==='admin';
-    openShell(admin?'요청 검토 · 앱 관리':'업로드 대기 목록',admin?'요청을 열어 설명과 스크린샷을 수정하고 승인해 주세요.':'업로드 요청의 처리 상태를 확인해요. 승인된 앱은 공개 목록에서 볼 수 있어요.','queue');
+    const revision=openShell(admin?'요청 검토 · 앱 관리':'업로드 대기 목록',admin?'요청을 열어 설명과 스크린샷을 수정하고 승인해 주세요.':'업로드 요청의 처리 상태를 확인해요. 승인된 앱은 공개 목록에서 볼 수 있어요.','queue');
     $('#workspaceBody').innerHTML='<p class="loading-state" role="status">목록을 불러오고 있어요…</p>';
     try {
-      const data=await api('queue'); state.queue=admin?data.apps:data.apps.filter(r=>!r.is_example);
+      const data=await api('queue');
+      if(revision!==viewRevision||!workspace.open)return;
+      state.queue=admin?data.apps:data.apps.filter(r=>!r.is_example);
       renderQueue();
     } catch(error) {
+      if(revision!==viewRevision||!workspace.open)return;
       $('#workspaceBody').innerHTML=`<div class="error-state" role="alert">${esc(error.message)}<button type="button" data-view="queue" class="btn line">다시 불러오기</button></div>`;
     }
   }

@@ -40,8 +40,9 @@ function setSession(res, role, version) {
   res.setHeader('Set-Cookie', `${COOKIE}=${signSession(data, config().secret)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${lifetime}${secure}`);
   return data;
 }
-async function adminAccount() {
-  return (await db('/rest/v1/tools_admins?id=eq.1&select=*&limit=1'))[0];
+function adminAccount(req) {
+  // Reuse only within this HTTP request; never cache authorization across users.
+  return req.toolsAccountPromise ||= db('/rest/v1/tools_admins?id=eq.1&select=*&limit=1').then(rows=>rows[0]);
 }
 function uploaderVersion(account) {
   return account?.upload_password_salt || 'environment-v1';
@@ -59,12 +60,12 @@ async function requireRole(req, adminOnly = false) {
   const actor = session(req);
   if (!actor) throw new AppError('다시 로그인해 주세요.', 401);
   if (adminOnly && actor.role !== 'admin') throw new AppError('관리자만 사용할 수 있어요.', 403);
-  if (actor.role === 'uploader' && !validUploaderSession(actor, await adminAccount())) {
+  if (actor.role === 'uploader' && !validUploaderSession(actor, await adminAccount(req))) {
     throw new AppError('업로드 비밀번호가 변경됐어요. 새 비밀번호로 다시 입장해 주세요.', 401);
   }
   if (adminOnly) {
     if (actor.role !== 'admin') throw new AppError('관리자만 사용할 수 있어요.', 403);
-    const account = await adminAccount();
+    const account = await adminAccount(req);
     if (!account || actor.av !== account.salt) throw new AppError('관리자 로그인이 만료됐어요.', 401);
   }
   return actor;
@@ -94,11 +95,11 @@ async function withImages(rows, admin = false) {
 }
 async function verifyUploads(shots, actor, existing) {
   const previous = new Set((existing?.screenshots || []).map(s => s.path));
-  for (const shot of shots) {
-    if (actor.role === 'admin' && previous.has(shot.path)) continue;
+  await Promise.all(shots.map(async shot => {
+    if (actor.role === 'admin' && previous.has(shot.path)) return;
     const rows = await db(`/rest/v1/tools_uploads?path=eq.${encodeURIComponent(shot.path)}&session_id=eq.${actor.sid}&select=path&limit=1`);
     if (!rows.length) throw new AppError('스크린샷을 다시 업로드해 주세요.');
-  }
+  }));
 }
 async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -114,9 +115,10 @@ async function handler(req, res) {
       throw new AppError('저장소 연결을 준비하고 있어요. 연결을 마치면 사용할 수 있어요.', 503);
     }
     if (req.method === 'GET' && action === 'session') {
-      const actor = session(req), account = await adminAccount();
+      const actor = session(req);
+      const [account, member] = await Promise.all([adminAccount(req), members.member(req)]);
       const role = actor?.role === 'admin' ? account?.salt === actor.av ? 'admin' : null : validUploaderSession(actor, account) ? 'uploader' : null;
-      return send({ role, configured: true, adminReady: !!account, member: await members.member(req) });
+      return send({ role, configured: true, adminReady: !!account, member });
     }
     if (req.method === 'GET' && action === 'apps') {
       const rows = await db('/rest/v1/tools_apps?status=eq.approved&select=*&order=created_at.desc&limit=500');
@@ -132,13 +134,13 @@ async function handler(req, res) {
     const body = req.body || {};
     if (req.method === 'GET' && action === 'upload-password') {
       await requireRole(req, true);
-      const account = await adminAccount();
+      const account = await adminAccount(req);
       return send({ updatedAt: account.upload_password_changed_at || null, customPassword: !!account.upload_password_hash });
     }
     if (req.method === 'POST' && action === 'upload-password') {
       await requireRole(req, true);
       await rate(req, 'upload-password', 5, 900);
-      const account = await adminAccount();
+      const account = await adminAccount(req);
       if (!verifyPassword(text(body.adminPassword, '현재 관리자 비밀번호', 256, true), account)) {
         throw new AppError('현재 관리자 비밀번호가 맞지 않아요.', 403);
       }
@@ -177,13 +179,13 @@ async function handler(req, res) {
       await rate(req, 'login', 10, 900);
       const password = text(body.password, '비밀번호', 256, true);
       if (body.kind === 'uploader') {
-        const account = await adminAccount();
+        const account = await adminAccount(req);
         if (!uploaderPasswordMatches(password, account)) throw new AppError('공통 비밀번호가 맞지 않아요.', 401);
         setSession(res, 'uploader', uploaderVersion(account));
         return send({ role: 'uploader' });
       }
       if (body.kind !== 'admin') throw new AppError('로그인 종류를 확인해 주세요.');
-      const account = await adminAccount();
+      const account = await adminAccount(req);
       const username = text(body.username, '아이디', 80, true);
       const correct = verifyPassword(password, account);
       if (!account || !equal(username, account.username) || !correct) throw new AppError('관리자 아이디 또는 비밀번호가 맞지 않아요.', 401);
@@ -197,7 +199,7 @@ async function handler(req, res) {
     if (req.method === 'POST' && action === 'setup') {
       await rate(req, 'setup', 5, 900);
       if (!process.env.ADMIN_SETUP_TOKEN || !equal(body.setupToken, process.env.ADMIN_SETUP_TOKEN)) throw new AppError('관리자 등록 전용 링크가 필요해요.', 403);
-      if (await adminAccount()) throw new AppError('관리자 계정이 이미 등록되어 있어요.', 409);
+      if (await adminAccount(req)) throw new AppError('관리자 계정이 이미 등록되어 있어요.', 409);
       const username = text(body.username, '관리자 아이디', 80, true);
       const password = text(body.password, '관리자 비밀번호', 256, true);
       if (!/^[A-Za-z0-9@._+-]{3,80}$/.test(username)) throw new AppError('아이디는 영문·숫자·@._+-를 사용해 3자 이상 입력해 주세요.');

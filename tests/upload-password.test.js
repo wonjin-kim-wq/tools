@@ -9,6 +9,7 @@ test('admin password rotation rejects unauthorized requests, replaces fallback, 
   const adminSecret='fixture-admin-password',oldPassword='fixture-original-upload',newPassword='fixture-replacement-upload';
   const salt=hashPassword(adminSecret);
   let admin={id:1,username:'fixture-admin',salt:salt.salt,password_hash:salt.hash};
+  let adminReads=0;
   Object.assign(process.env,{SUPABASE_URL:'https://rotation.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture-key',SESSION_SECRET:'fixture-session-secret',UPLOAD_PASSWORD:oldPassword});
   global.fetch=async(input,options={})=>{
     const url=new URL(input);let data;
@@ -17,7 +18,7 @@ test('admin password rotation rejects unauthorized requests, replaces fallback, 
         const filter=url.searchParams.get('upload_password_changed_at');
         if(filter==='is.null'?!!admin.upload_password_changed_at:filter!==`eq.${admin.upload_password_changed_at}`)data=[];
         else {Object.assign(admin,JSON.parse(options.body));data=[admin];}
-      }else data=[admin];
+      }else {adminReads++;data=[admin];}
     }else if(url.pathname==='/rest/v1/rpc/tools_check_rate')data=true;
     else if(url.pathname==='/rest/v1/tools_apps')data=[];
     else throw new Error('Unexpected test request');
@@ -54,9 +55,13 @@ test('admin password rotation rejects unauthorized requests, replaces fallback, 
     assert.equal(fresh.statusCode,200);
     const freshToken=fresh.headers['Set-Cookie'].split(';')[0].split('=')[1];
     assert.equal((await invoke('queue',{token:freshToken})).statusCode,200);
+    const readsBeforeSettings=adminReads;
     const settings=await invoke('upload-password',{token:adminToken});
+    assert.equal(adminReads-readsBeforeSettings,1,'authorization and settings share a single database read');
     assert.deepEqual(Object.keys(settings.data).sort(),['customPassword','updatedAt']);
     assert.equal((await invoke('upload-password',{method:'POST',token:adminToken,body:{...body,newPassword:'second-upload-password',confirmPassword:'second-upload-password'}})).statusCode,409);
     assert.equal((await invoke('session',{token:adminToken})).data.role,'admin');
+    admin={...admin,salt:'rotated-admin-salt'};
+    assert.equal((await invoke('upload-password',{token:adminToken})).statusCode,401,'a new request must recheck current administrator credentials');
   }finally{global.fetch=original;}
 });

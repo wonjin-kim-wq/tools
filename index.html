@@ -52,13 +52,13 @@ button{cursor:pointer}
 .seg{position:relative;display:flex;background:#eaecef;border-radius:12px;padding:4px;flex:none}
 .seg button{position:relative;z-index:1;border:0;background:none;height:34px;padding:0 16px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--sub);transition:color .2s}
 .seg button.on{color:var(--ink)}
-.seg .knob{position:absolute;top:4px;bottom:4px;left:0;border-radius:9px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.12);transition:transform .3s cubic-bezier(.3,.7,.2,1),width .3s}
+.seg .knob{position:absolute;top:4px;bottom:4px;left:0;border-radius:9px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.12);transition:transform .15s ease-out,width .15s}
 
 /* 카드 그리드 */
 .grid{position:relative;margin-bottom:56px}
 .card{position:absolute;display:flex;align-items:center;gap:4px;padding:0 20px 0 6px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);cursor:pointer;outline:none;
   transition:box-shadow .25s,border-color .25s,transform .25s}
-.grid.ready .card{transition:left .8s cubic-bezier(.65,0,.25,1),top .8s cubic-bezier(.65,0,.25,1),box-shadow .25s,border-color .25s,transform .25s,opacity .3s}
+.grid.ready .card{transition:left .18s ease-out,top .18s ease-out,box-shadow .25s,border-color .25s,transform .25s,opacity .12s}
 .card.hide{opacity:0;pointer-events:none;transform:scale(.96)}
 .empty{text-align:center;color:var(--sub);font-size:14px;padding:48px 0 80px}
 
@@ -104,10 +104,10 @@ button{cursor:pointer}
 .chip{display:inline-block;margin-top:10px;font-size:11.5px;font-weight:600;color:#4e5968;background:var(--chip);padding:3px 8px;border-radius:6px}
 
 /* 모달 공통 */
-.dim{position:fixed;inset:0;background:rgba(17,24,39,.42);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
+.dim{position:fixed;inset:0;background:rgba(17,24,39,.42);opacity:0;pointer-events:none;transition:opacity .12s;z-index:20}
 .dim.show{opacity:1;pointer-events:auto}
 .sheet{position:fixed;left:50%;top:50%;z-index:21;background:#fff;border-radius:24px;box-shadow:0 24px 64px rgba(16,24,40,.18);
-  opacity:0;pointer-events:none;transform:translate(-50%,-48%) scale(.98);transition:opacity .25s,transform .3s cubic-bezier(.2,.8,.2,1);
+  opacity:0;pointer-events:none;transform:translate(-50%,-48%) scale(.98);transition:opacity .12s,transform .14s cubic-bezier(.2,.8,.2,1);
   max-height:88vh;overflow:auto;overscroll-behavior:contain}
 .sheet.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
 .app-sheet{width:min(760px,calc(100% - 48px))}
@@ -381,13 +381,14 @@ function layout(){
   const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(280+gap)), 2, 5);
   const cw = (W - gap*(cols-1))/cols;
   const shown = apps.filter(matches);
+  const shownSet=new Set(shown);
   apps.forEach(a => {
-    a.el.classList.toggle('hide', !shown.includes(a));
+    a.el.classList.toggle('hide', !shownSet.has(a));
     a.el.querySelector('.rank-badge').hidden=true;
     a.el.setAttribute('aria-label',`${a.name} 자세히 보기`);
   });
   // 숨긴 카드가 예전(넓은 화면) 자리에 남아 화면 밖으로 삐져나가지 않게 안쪽으로 당겨 둔다
-  apps.filter(a => !shown.includes(a)).forEach(a => {
+  apps.filter(a => !shownSet.has(a)).forEach(a => {
     a.el.style.width = cw+'px';
     a.el.style.left = Math.min(parseFloat(a.el.style.left)||0, W - cw)+'px';
   });
@@ -410,7 +411,7 @@ function layout(){
     Object.assign(a.el.style, {
       width: cw+'px', height: ch+'px',
       left: c*(cw+gap)+'px', top: r*(ch+gap)+'px',
-      transitionDelay: `${i*30}ms,${i*30}ms,0s,0s,0s`
+      transitionDelay: '0s'
     });
     a.el.querySelector('.date').textContent = key==='popular' ? `사용 ${a.uses.toLocaleString()}회` : `${key==='created'?'등록':'업데이트'} ${fmt(a[key])}`;
   });
@@ -424,9 +425,12 @@ function moveKnob(){
 }
 layout();
 requestAnimationFrame(()=>grid.classList.add('ready'));
-addEventListener('resize', layout);
-mobileMQ.addEventListener('change', layout);
-new ResizeObserver(layout).observe(grid);   // 화면 폭이 바뀌는 모든 경우(회전·창 크기·확대)에 다시 배치
+let layoutFrame=0;
+function scheduleLayout(){if(!layoutFrame)layoutFrame=requestAnimationFrame(()=>{layoutFrame=0;layout();});}
+addEventListener('resize', scheduleLayout);
+mobileMQ.addEventListener('change', scheduleLayout);
+let observedWidth=grid.clientWidth;
+new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(width!==observedWidth){observedWidth=width;scheduleLayout();}}).observe(grid);   // 화면 폭이 바뀌는 모든 경우(회전·창 크기·확대)에 다시 배치
 
 seg.addEventListener('click', e=>{
   const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
@@ -439,7 +443,7 @@ grid.addEventListener('click', e=>{
   if (Buddy.active){
     burst(e.clientX, e.clientY);
     Buddy.cheer();
-    setTimeout(()=>openApp(card.dataset.id), 420);
+    openApp(card.dataset.id);
   } else openApp(card.dataset.id);
 });
 grid.addEventListener('keydown', e=>{
