@@ -336,6 +336,11 @@
   if(new URLSearchParams(location.search).has('email-confirmed'))memberEntry();
   const setupToken=authHash.get('setup');
   if(setupToken){history.replaceState(null,'',location.pathname+location.search);setup(setupToken);}
+  // Count once per page load, independently of catalogue rendering and login.
+  api('visits',{method:'POST',body:{}}).then(data=>{
+    $('#visitTotal').textContent=Number(data.total).toLocaleString('ko-KR');
+    $('#visitToday').textContent=Number(data.today).toLocaleString('ko-KR');
+  }).catch(()=>{const status=$('#visitStatus');status.hidden=false;status.textContent='방문 통계를 불러오지 못했어요.';});
   loadApps();
   refreshSession().catch(()=>{});
 })();

@@ -114,6 +114,9 @@ async function handler(req, res) {
       if (action === 'session' && req.method === 'GET') return send({ role: null, configured: false, adminReady: false });
       throw new AppError('저장소 연결을 준비하고 있어요. 연결을 마치면 사용할 수 있어요.', 503);
     }
+    if (action === 'visits' && ['GET','POST'].includes(req.method)) {
+      return send(await db('/rest/v1/rpc/tools_visit_counts', {method:'POST',body:{p_increment:req.method==='POST'}}));
+    }
     if (req.method === 'GET' && action === 'session') {
       const actor = session(req);
       const [account, member] = await Promise.all([adminAccount(req), members.member(req)]);

@@ -4,6 +4,7 @@ const {hashPassword}=require('../lib/tools-core');
 const credential=hashPassword('local-admin-test-only');
 const admin={id:1,username:'local-admin',salt:credential.salt,password_hash:credential.hash};
 const rows=[],uploads=[];
+let visits=0;
 Object.assign(process.env,{SUPABASE_URL:'https://ui-fixture.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture-key',SESSION_SECRET:'fixture-session-secret-only',UPLOAD_PASSWORD:'local-upload-test-only',PORT:'8742'});
 global.fetch=async(input,options={})=>{
   const url=new URL(input),body=options.body&&!Buffer.isBuffer(options.body)?JSON.parse(options.body):{};
@@ -12,6 +13,7 @@ global.fetch=async(input,options={})=>{
     if(options.method==='PATCH')Object.assign(admin,body);
     data=[admin];
   }
+  else if(url.pathname==='/rest/v1/rpc/tools_visit_counts'){if(body.p_increment)visits++;data={total:visits,today:visits,day:'2026-11-03'};}
   else if(url.pathname==='/rest/v1/rpc/tools_check_rate')data=true;
   else if(url.pathname==='/rest/v1/tools_uploads'){
     if(options.method==='POST'){uploads.push(body);data=null;}
