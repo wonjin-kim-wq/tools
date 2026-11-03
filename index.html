@@ -140,7 +140,10 @@ body{padding-left:var(--side)}
 @media (prefers-reduced-motion:reduce){.voices-row{animation:none!important}.voices-track{overflow-x:auto;-webkit-mask-image:none;mask-image:none}}
 
 /* 인기순 기간 보기: 위의 정렬 버튼(최신순·인기순·업데이트순)과 같은 크기로 오른쪽에 맞춘다 */
-.period{display:flex;background:#eaecef;border-radius:12px;padding:4px;margin:-6px 0 16px auto}
+.period{display:flex;background:#eaecef;border-radius:12px;margin:0 0 0 auto;padding:0 4px;max-height:0;opacity:0;overflow:hidden;transform:translateY(-8px);
+  transition:max-height .34s cubic-bezier(.2,.8,.2,1),padding .34s cubic-bezier(.2,.8,.2,1),margin .34s cubic-bezier(.2,.8,.2,1),opacity .24s ease-out,transform .34s cubic-bezier(.2,.8,.2,1)}
+/* 인기순을 고르면 접혀 있던 버튼이 펼쳐지며 아래로 내려오고, 카드 목록도 함께 자연스럽게 밀려 내려간다 */
+.period.show{max-height:50px;padding:4px;margin:-6px 0 16px auto;opacity:1;transform:none}
 .period button{flex:1;border:0;background:none;height:34px;padding:0;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--sub);transition:background .15s,color .15s}
 .period button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.12)}
 
@@ -437,7 +440,7 @@ body{padding-left:var(--side)}
     </div>
   </div>
   <div class="cats" id="cats" role="tablist" aria-label="카테고리"></div>
-  <div class="period" id="period" role="tablist" aria-label="인기순 기간" hidden>
+  <div class="period" id="period" role="tablist" aria-label="인기순 기간" inert>
     <button type="button" data-p="day" role="tab">일별</button><button type="button" data-p="week" class="on" role="tab">주별</button><button type="button" data-p="month" role="tab">월별</button>
   </div>
   <div class="grid" id="grid"></div>
@@ -537,9 +540,11 @@ function setCat(next){
     renderSideCats(); layout();
   } else setMenu(false);
 }
+// 학교급만 바꿀 때는 목록을 다시 그리지 않고 표시만 바꾼다(다시 그리면 펼침 애니메이션이 반복되어 다른 항목이 깜빡인다)
 function setLevel(next){
   level = level === next ? 'all' : next;
-  renderSideCats(); layout(); setMenu(false);
+  sideCats.querySelectorAll('[data-level]').forEach(b=>{ const on = b.dataset.level===level; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  layout(); setMenu(false);
 }
 catsEl.addEventListener('click', e=>{ const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat); });
 sideCats.addEventListener('click', e=>{
@@ -674,7 +679,7 @@ function layout(){
   }
   // 인기순은 서버가 매긴 전체 순위를 따르고, 순위가 없으면(예시 목록) 사용 횟수로 정렬한다
   // 인기순: 고른 기간(일별·주별·월별)의 사용 횟수로 정렬하고, 바로 앞 같은 길이의 기간과 순위를 비교한다
-  periodEl.hidden = key!=='popular';
+  periodEl.classList.toggle('show', key==='popular'); periodEl.inert = key!=='popular';
   if (key==='popular') periodEl.style.width = seg.offsetWidth+'px';
   const byCount = which => (x,y)=> popCount(y,which)-popCount(x,which) || y.uses-x.uses || String(x.created).localeCompare(String(y.created));
   const curRank = new Map([...apps].sort(byCount('cur')).map((a,i)=>[a,i+1]));
