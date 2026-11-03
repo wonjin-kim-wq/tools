@@ -5,6 +5,7 @@
   const labels = { pending: '승인 대기', approved: '승인 완료', changes_requested: '수정 요청', rejected: '반려', archived: '공개 중지' };
   // 서버(lib/tools-core.js SUBJECTS)와 같은 목록
   const SUBJECTS=['국어','수학','사회','과학','영어','도덕','실과(정보)','음악','미술','체육','통합교과','창의적 체험활동','교과 무관'];
+  const inquiryLabels = { pending: '접수', answered: '답변 완료', closed: '종료' };
   const devLabels = { pending: '접수', reviewing: '검토 중', in_progress: '개발 중', done: '완료', rejected: '보류' };
   const workspace = document.createElement('dialog');
   workspace.id = 'workspace'; workspace.className = 'workspace'; workspace.setAttribute('aria-labelledby','workspaceTitle');
@@ -49,7 +50,7 @@
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role && !['login','member','setup','devreq'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">업로드 요청(Excel)</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup','devreq','inquiry'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">업로드 요청(Excel)</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="inquiries" class="${active==='inquiries'?'active':''}">기타 문의</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
     return revision;
   }
@@ -526,6 +527,53 @@
     if(badge){badge.className=`status-badge dev-status-${status}`;badge.textContent=devLabels[status];}
   }
 
+  /* 기타 문의: 로그인 없이 보내고, 관리자는 작업 창의 '기타 문의' 탭에서 확인·처리한다. */
+  function inquiryForm() {
+    openShell('기타 문의','사이트 이용, 협업, 연수 등 궁금한 점을 남겨 주세요. 적어 주신 이메일로 답변드려요.','inquiry');
+    $('#workspaceBody').innerHTML=`<form id="inquiryForm" class="app-form inquiry-form">
+      <div class="form-grid">${field('이름','name','',{required:false,max:60,placeholder:'이름 또는 학교 (선택)'})}${field('연락 이메일','contact_email','',{type:'email',max:254,placeholder:'teacher@school.kr',help:'답변을 받을 주소예요. 관리자에게만 보여요.'})}</div>
+      ${field('제목','subject','',{max:100,placeholder:'예: 연수 자료로 소개해도 될까요?'})}
+      <label class="field"><span>문의 내용 <b class="required">*</b></span><textarea name="body" rows="7" maxlength="3000" required placeholder="궁금한 점을 자유롭게 적어 주세요."></textarea></label>
+      <label class="consent"><input name="consent" type="checkbox" required> 답변을 위해 연락 이메일을 관리자에게 전달하는 데 동의해요. 학생 개인정보는 적지 않았어요.</label>
+      <p class="form-error" role="alert" hidden></p>
+      <footer class="form-actions"><button type="submit" class="btn solid">문의 보내기</button></footer></form>`;
+    const form=$('#inquiryForm');
+    form.addEventListener('submit',e=>{e.preventDefault();withBusy(form,async()=>{
+      const data=Object.fromEntries(new FormData(form));data.consent=form.elements.consent.checked;
+      const result=await api('inquiry',{method:'POST',body:data});
+      openShell('문의를 보냈어요','관리자가 확인한 뒤 적어 주신 이메일로 답변드려요.','inquiry');
+      $('#workspaceBody').innerHTML=`<div class="success-state"><span>✓</span><h3>문의가 접수됐어요</h3><p>문의 번호 ${esc(result.id.slice(0,8).toUpperCase())}</p><button type="button" data-view="inquiry" class="btn line">다른 문의 남기기</button></div>`;
+    });});
+    form.querySelector('input')?.focus();
+  }
+  async function inquiryQueueView() {
+    if(state.role!=='admin'||state.area!=='admin')return;
+    const revision=openShell('기타 문의','방문자가 남긴 문의를 확인하고 처리 상태를 기록해요.','inquiries');
+    $('#workspaceBody').innerHTML='<p class="loading-state" role="status">문의를 불러오고 있어요…</p>';
+    try {
+      const {inquiries}=await api('inquiries');
+      if(revision!==viewRevision||!workspace.open)return;
+      $('#workspaceBody').innerHTML=`<div class="queue-heading"><p class="field-help">전체 ${inquiries.length}건 · ${Object.entries(inquiryLabels).map(([k,l])=>`${l} ${inquiries.filter(r=>r.status===k).length}`).join(' · ')}</p><button type="button" data-view="inquiries" class="btn line">새로고침</button></div>
+        <div class="queue-list">${inquiries.length?inquiries.map(r=>`<article class="request-row dev-row"><div class="request-main"><span class="status-badge inquiry-status-${r.status}">${inquiryLabels[r.status]}</span><h3>${esc(r.subject)}</h3><p>${esc(r.name||'이름 없음')} · ${date(r.created_at)}</p>
+          <dl class="dev-detail"><dt>연락 이메일</dt><dd><a href="mailto:${esc(r.contact_email)}">${esc(r.contact_email)}</a></dd><dt>문의 내용</dt><dd class="multiline">${esc(r.body)}</dd></dl>
+          <div class="dev-edit"><label class="field"><span>처리 상태</span><select data-inquiry-status="${r.id}">${Object.entries(inquiryLabels).map(([k,l])=>`<option value="${k}" ${r.status===k?'selected':''}>${l}</option>`).join('')}</select></label><label class="field"><span>관리자 메모</span><textarea data-inquiry-note="${r.id}" rows="2" maxlength="2000">${esc(r.admin_note)}</textarea></label><button type="button" class="btn solid" data-inquiry-save="${r.id}">저장</button></div></div></article>`).join(''):'<div class="empty-state"><span>💬</span><h3>아직 받은 문의가 없어요</h3><p>사이드바의 ‘기타 문의’로 남긴 내용이 이곳에 모여요.</p></div>'}</div>`;
+    } catch(error) {
+      if(revision!==viewRevision||!workspace.open)return;
+      $('#workspaceBody').innerHTML=`<div class="error-state" role="alert">${esc(error.message)}<button type="button" data-view="inquiries" class="btn line">다시 불러오기</button></div>`;
+    }
+  }
+  async function saveInquiry(button) {
+    const id=button.dataset.inquirySave,status=workspace.querySelector(`[data-inquiry-status="${id}"]`).value;
+    state.busy=true;button.disabled=true;button.textContent='저장 중…';
+    try{
+      await api('inquiry',{method:'PATCH',body:{id,status,admin_note:workspace.querySelector(`[data-inquiry-note="${id}"]`).value}});
+      const badge=button.closest('.dev-row')?.querySelector('.status-badge');
+      if(badge){badge.className=`status-badge inquiry-status-${status}`;badge.textContent=inquiryLabels[status];}
+      toast('문의 처리 상태를 저장했어요.');
+    }catch(error){toast(error.message);}
+    finally{state.busy=false;button.disabled=false;button.textContent='저장';}
+  }
+
   /* 상세 화면 리뷰: 누구나 별점(5점 만점)과 함께 익명으로 남긴다. 회원은 자기 리뷰를 고칠 수 있다. */
   let reviewRevision=0;
   const stars=n=>`<span class="stars" aria-label="5점 만점에 ${n}점">${[1,2,3,4,5].map(i=>`<i class="${i<=Math.round(n)?'on':''}">★</i>`).join('')}</span>`;
@@ -585,9 +633,10 @@
     if(button.dataset.memberMode){await memberEntry(button.dataset.memberMode);return;}
     if(button.hasAttribute('data-admin-login')){await enter('admin');return;}
     if(button.dataset.devSave){await saveDevRequest(button);return;}
+    if(button.dataset.inquirySave){await saveInquiry(button);return;}
     if(button.dataset.view){
       if(button.dataset.view==='bulk'){bulkView();return;}
-      if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
+      if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='inquiries')await inquiryQueueView();else if(button.dataset.view==='inquiry')inquiryForm();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
     }
     if(button.hasAttribute('data-preview'))return preview();
     if(button.dataset.filter){state.filter=button.dataset.filter;renderQueue();return;}
@@ -595,7 +644,7 @@
     if(button.dataset.shotRemove){const index=state.shots.findIndex(s=>s.key===button.dataset.shotRemove);if(index>=0){revokePreview(state.shots[index]);state.shots.splice(index,1);renderShotEditor();}return;}
     if(button.dataset.shotMove){const index=state.shots.findIndex(s=>s.key===button.dataset.shotMove),target=index+Number(button.dataset.direction);if(target>=0&&target<state.shots.length){[state.shots[index],state.shots[target]]=[state.shots[target],state.shots[index]];renderShotEditor();}}
   });
-  $('#uploadButton').onclick=()=>enter('upload');$('#memberButton').onclick=()=>memberEntry();$('#adminMenuButton').onclick=()=>enter('admin');$('#devRequestButton').onclick=()=>devRequestForm();
+  $('#uploadButton').onclick=()=>enter('upload');$('#memberButton').onclick=()=>memberEntry();$('#adminMenuButton').onclick=()=>enter('admin');$('#devRequestButton').onclick=()=>devRequestForm();$('#inquiryButton').onclick=()=>inquiryForm();
   const authHash=new URLSearchParams(location.hash.slice(1));
   if(authHash.has('access_token')||authHash.has('error'))history.replaceState(null,'',location.pathname+location.search);
   if(new URLSearchParams(location.search).has('email-confirmed'))memberEntry();

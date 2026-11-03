@@ -3,10 +3,11 @@ const {randomUUID}=require('node:crypto');
 const {hashPassword}=require('../lib/tools-core');
 const credential=hashPassword('local-admin-test-only');
 const admin={id:1,username:'local-admin',salt:credential.salt,password_hash:credential.hash};
-const rows=[],uploads=[],devRequests=[],reviews=[];
+const rows=[],uploads=[],devRequests=[],reviews=[],inquiries=[],useDaily=[];
 // UI_FIXTURE_SEED=1 이면 예시 앱을 승인 상태로 넣어 둔다. 테스트 회원: member@local.test / local-member-test-only
 const fixtureMember={id:'00000000-0000-4000-8000-000000000001',email:'member@local.test',email_confirmed_at:'2026-11-04T00:00:00Z',app_metadata:{chamcoding_member:true,chamcoding_content_access:true},user_metadata:{display_name:'테스트 회원'}};
 if(process.env.UI_FIXTURE_SEED){
+  setTimeout(()=>{for(const r of rows)for(let d=0;d<60;d++){const n=Math.max(0,Math.round((r.uses/900)*(1+Math.sin(d*0.7+r.name.length))));if(n)useDaily.push({app_id:r.id,day:new Date(Date.now()+9*3600e3-d*86400e3).toISOString().slice(0,10),count:n});}},0);
   require('../lib/examples.json').forEach((e,i)=>rows.push({id:randomUUID(),name:e.name,web_url:'https://example.com/',demo_url:'',video_url:i===0?'https://www.youtube.com/watch?v=dQw4w9WgXcQ':'',short:e.short,description:e.desc,category:e.cat,grade:e.grade,icon:e.icon,color:e.color,notes:e.notes,screenshots:[],author_name:i%3===0?'참쌤스쿨':'코딩 연구회',contact_email:'',status:'approved',review_note:'',subjects:[['수학'],['실과(정보)','수학'],['교과 무관'],['국어','실과(정보)'],['미술','실과(정보)','수학'],['실과(정보)'],['과학','실과(정보)'],['교과 무관'],['실과(정보)','사회'],['창의적 체험활동']][i]||[],uses:e.uses,is_example:true,featured:i<2,version:1,created_at:new Date(e.created).toISOString(),updated_at:new Date(e.updated).toISOString()}));
 }
 let visits=0;
@@ -20,7 +21,8 @@ global.fetch=async(input,options={})=>{
   }
   else if(url.pathname==='/rest/v1/rpc/tools_visit_counts'){if(body.p_increment)visits++;data={total:visits,today:visits,day:'2026-11-03'};}
   else if(url.pathname==='/rest/v1/rpc/tools_check_rate')data=true;
-  else if(url.pathname==='/rest/v1/rpc/tools_use_app'){const row=rows.find(r=>r.id===body.p_app);if(row)row.uses++;data=null;}
+  else if(url.pathname==='/rest/v1/rpc/tools_use_app'){const row=rows.find(r=>r.id===body.p_app);if(row){row.uses++;const day=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);const d=useDaily.find(x=>x.app_id===row.id&&x.day===day);if(d)d.count++;else useDaily.push({app_id:row.id,day,count:1});}data=null;}
+  else if(url.pathname==='/rest/v1/tools_use_daily')data=useDaily;
   else if(url.pathname==='/rest/v1/rpc/tools_rank_snapshot'){
     // 시드 데이터에서는 순위 변동이 보이도록 '어제 순위'를 조금 섞어 둔다
     const ranked=rows.filter(r=>r.status==='approved').sort((a,b)=>b.uses-a.uses||a.created_at.localeCompare(b.created_at));
@@ -38,6 +40,11 @@ global.fetch=async(input,options={})=>{
     if(options.method==='POST'){const row={...body,id:randomUUID(),status:'pending',admin_note:'',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};devRequests.unshift(row);data=[row];}
     else if(options.method==='PATCH'){const row=devRequests.find(r=>r.id===url.searchParams.get('id')?.slice(3));if(row)Object.assign(row,body,{updated_at:new Date().toISOString()});data=row?[row]:[];}
     else data=devRequests;
+  }
+  else if(url.pathname==='/rest/v1/tools_inquiries'){
+    if(options.method==='POST'){const row={...body,id:randomUUID(),status:'pending',admin_note:'',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};inquiries.unshift(row);data=[row];}
+    else if(options.method==='PATCH'){const row=inquiries.find(r=>r.id===url.searchParams.get('id')?.slice(3));if(row)Object.assign(row,body);data=row?[row]:[];}
+    else data=inquiries;
   }
   else if(url.pathname==='/rest/v1/tools_reviews'){
     if(options.method==='POST'){

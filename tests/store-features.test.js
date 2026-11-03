@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
-const { validateApp, validateDevRequest, signSession, hashPassword } = require('../lib/tools-core');
+const { validateApp, validateDevRequest, validateInquiry, signSession, hashPassword } = require('../lib/tools-core');
 const handler = require('../api/tools');
 
 const sid = randomUUID();
@@ -43,6 +43,10 @@ function stub(store) {
       if (options.method === 'POST') { const row = {...body,id:randomUUID(),status:'pending',admin_note:''}; store.devRequests.push(row); data = [row]; }
       else if (options.method === 'PATCH') { const row = store.devRequests.find(r=>r.id===url.searchParams.get('id').slice(3)); if (row) Object.assign(row, body); data = row ? [row] : []; }
       else data = store.devRequests;
+    } else if (url.pathname === '/rest/v1/tools_inquiries') {
+      if (options.method === 'POST') { const row = {...body,id:randomUUID(),status:'pending',admin_note:''}; store.inquiries.push(row); data = [row]; }
+      else if (options.method === 'PATCH') { const row = store.inquiries.find(r=>r.id===url.searchParams.get('id').slice(3)); if (row) Object.assign(row, body); data = row ? [row] : []; }
+      else data = store.inquiries;
     } else if (url.pathname === '/rest/v1/tools_reviews') {
       if (options.method === 'PATCH') { const row = store.reviews.find(r=>r.id===url.searchParams.get('id').slice(3)); if (row) Object.assign(row, body); data = row ? [row] : []; }
       else if (options.method === 'POST') { store.reviews.unshift({...body,id:randomUUID(),hidden:false,created_at:'2026-11-04T01:00:00Z',updated_at:'2026-11-04T01:00:00Z'}); data = null; }
@@ -109,5 +113,30 @@ test('reviews: anyone can post an anonymous star review, ids stay private, hidin
     const used = await call({method:'POST',action:'use',body:{appId}});
     assert.equal(used.statusCode,200); assert.equal(store.uses,1);
     assert.equal((await call({method:'POST',action:'use',body:{appId:'not-an-id'}})).statusCode,400);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('inquiries: anyone can send with consent and email, only admins can read and update', async () => {
+  for (const patch of [{contact_email:''},{contact_email:'nope'},{subject:''},{body:''},{consent:false}]) {
+    assert.throws(()=>validateInquiry({name:'',contact_email:'a@b.kr',subject:'제목',body:'내용',consent:true,...patch}));
+  }
+  assert.equal(validateInquiry({contact_email:'a@b.kr',subject:'제목',body:'내용',consent:true,status:'closed'}).status, undefined);
+  const originalFetch = global.fetch, secret = 'store-test-secret';
+  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret,UPLOAD_PASSWORD:'test-upload'});
+  const credential = hashPassword('local-test-only-password');
+  const store = {admin:{id:1,username:'local-test-admin',salt:credential.salt,password_hash:credential.hash},devRequests:[],reviews:[],inquiries:[]};
+  global.fetch = stub(store);
+  const call = async options => { const res = response(); await handler(request(options), res); return res; };
+  const admin = `chamcoding_session=${signSession({sid,role:'admin',exp:Date.now()+100000,av:credential.salt},secret)}`;
+  try {
+    const sent = await call({method:'POST',action:'inquiry',body:{name:'김선생',contact_email:'t@school.kr',subject:'협업 문의',body:'연수에서 소개하고 싶어요.',consent:true}});
+    assert.equal(sent.statusCode,201);
+    assert.equal((await call({action:'inquiries'})).statusCode,401);
+    const list = await call({action:'inquiries',cookie:admin});
+    assert.equal(list.data.inquiries[0].subject,'협업 문의');
+    assert.equal((await call({method:'PATCH',action:'inquiry',body:{id:sent.data.id,status:'answered'}})).statusCode,401);
+    assert.equal((await call({method:'PATCH',action:'inquiry',cookie:admin,body:{id:sent.data.id,status:'answered',admin_note:'메일로 답변'}})).statusCode,200);
+    assert.equal(store.inquiries[0].status,'answered');
+    assert.equal((await call({method:'PATCH',action:'inquiry',cookie:admin,body:{id:sent.data.id,status:'done'}})).statusCode,400);
   } finally { global.fetch = originalFetch; }
 });

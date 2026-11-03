@@ -1,5 +1,5 @@
 const { randomUUID, createHash } = require('node:crypto');
-const { AppError, DEV_STATUSES, equal, text, validateApp, validateDevRequest, signSession, readSession, hashPassword, verifyPassword, imageType } = require('../lib/tools-core');
+const { AppError, DEV_STATUSES, INQUIRY_STATUSES, equal, text, validateApp, validateDevRequest, validateInquiry, signSession, readSession, hashPassword, verifyPassword, imageType } = require('../lib/tools-core');
 
 const BUCKET = 'chamcoding-screenshots';
 const COOKIE = 'chamcoding_session';
@@ -74,6 +74,10 @@ async function isAdmin(req) {
   const actor = session(req);
   return actor?.role === 'admin' && (await adminAccount(req))?.salt === actor.av;
 }
+// 한국 날짜(YYYY-MM-DD), offset일 전후
+function kstDay(offset) {
+  return new Date(Date.now() + 9 * 3600 * 1000 + offset * 86400 * 1000).toISOString().slice(0, 10);
+}
 function uuid(value, label) {
   const id = text(value, label, 36, true);
   if (!/^[a-f0-9-]{36}$/.test(id)) throw new AppError(`${label}를 확인해 주세요.`);
@@ -138,16 +142,25 @@ async function handler(req, res) {
         // 별점·순위는 부가 정보라서 실패해도 목록은 그대로 보여준다.
         Promise.allSettled([
           db('/rest/v1/tools_reviews?hidden=eq.false&rating=not.is.null&select=app_id,rating&limit=20000'),
-          db('/rest/v1/rpc/tools_rank_snapshot', { method: 'POST', body: {} })
+          db('/rest/v1/rpc/tools_rank_snapshot', { method: 'POST', body: {} }),
+          db(`/rest/v1/tools_use_daily?day=gte.${kstDay(-59)}&select=app_id,day,count&limit=50000`)
         ])
       ]);
+      // 인기순 기간 보기: 오늘·어제, 최근 7일·그 전 7일, 최근 30일·그 전 30일 사용 횟수
+      const periods = new Map();
+      const bounds = { d0: [kstDay(0), kstDay(0)], d1: [kstDay(-1), kstDay(-1)], w0: [kstDay(-6), kstDay(0)], w1: [kstDay(-13), kstDay(-7)], m0: [kstDay(-29), kstDay(0)], m1: [kstDay(-59), kstDay(-30)] };
+      for (const r of extras[2].status === 'fulfilled' ? extras[2].value : []) {
+        const p = periods.get(r.app_id) || { d0: 0, d1: 0, w0: 0, w1: 0, m0: 0, m1: 0 };
+        for (const [key, [from, to]] of Object.entries(bounds)) if (r.day >= from && r.day <= to) p[key] += r.count;
+        periods.set(r.app_id, p);
+      }
       const ratings = extras[0].status === 'fulfilled' ? extras[0].value : [];
       const ranks = extras[1].status === 'fulfilled' && extras[1].value ? extras[1].value : {};
       const stats = new Map();
       for (const r of ratings) { const s = stats.get(r.app_id) || { sum: 0, count: 0 }; s.sum += r.rating; s.count++; stats.set(r.app_id, s); }
       const apps = (await withImages(rows)).map(app => {
         const s = stats.get(app.id), rank = ranks[app.id];
-        return { ...app, rating_avg: s ? Math.round(s.sum / s.count * 10) / 10 : 0, rating_count: s?.count || 0, rank: rank?.rank || null, rank_prev: rank?.prev ?? null };
+        return { ...app, use_periods: periods.get(app.id) || { d0: 0, d1: 0, w0: 0, w1: 0, m0: 0, m1: 0 }, rating_avg: s ? Math.round(s.sum / s.count * 10) / 10 : 0, rating_count: s?.count || 0, rank: rank?.rank || null, rank_prev: rank?.prev ?? null };
       });
       return send({ apps });
     }
@@ -342,6 +355,24 @@ async function handler(req, res) {
       const rows = await db(`/rest/v1/tools_dev_requests?id=eq.${id}`, { method: 'PATCH', body: { status: body.status, admin_note: text(body.admin_note, '관리자 메모', 2000) }, headers: { Prefer: 'return=representation' } });
       if (!rows.length) throw new AppError('요청을 찾을 수 없어요.', 404);
       return send({ request: rows[0] });
+    }
+    // 기타 문의: 로그인 없이 보낼 수 있고, 내용과 연락처는 관리자만 본다.
+    if (req.method === 'POST' && action === 'inquiry') {
+      await rate(req, 'inquiry', 5, 3600);
+      const rows = await db('/rest/v1/tools_inquiries', { method: 'POST', body: validateInquiry(body), headers: { Prefer: 'return=representation' } });
+      return send({ id: rows[0].id, status: 'pending' }, 201);
+    }
+    if (req.method === 'GET' && action === 'inquiries') {
+      await requireRole(req, true);
+      return send({ inquiries: await db('/rest/v1/tools_inquiries?select=*&order=created_at.desc&limit=500') });
+    }
+    if (req.method === 'PATCH' && action === 'inquiry') {
+      await requireRole(req, true);
+      const id = uuid(body.id, '문의 번호');
+      if (!INQUIRY_STATUSES.includes(body.status)) throw new AppError('처리 상태를 선택해 주세요.');
+      const rows = await db(`/rest/v1/tools_inquiries?id=eq.${id}`, { method: 'PATCH', body: { status: body.status, admin_note: text(body.admin_note, '관리자 메모', 2000) }, headers: { Prefer: 'return=representation' } });
+      if (!rows.length) throw new AppError('문의를 찾을 수 없어요.', 404);
+      return send({ inquiry: rows[0] });
     }
     throw new AppError('요청을 찾을 수 없어요.', 404);
   } catch (error) {

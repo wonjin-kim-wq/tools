@@ -133,6 +133,11 @@ body{padding-left:var(--side)}
 .voice small{display:block;font-size:12px;color:var(--mute);margin-top:1px}
 @media (prefers-reduced-motion:reduce){.voices-row{animation:none!important}.voices-track{overflow-x:auto;-webkit-mask-image:none;mask-image:none}}
 
+/* 인기순 기간 보기: 카드 그리드와 같은 너비 */
+.period{display:flex;gap:4px;background:#eaecef;border-radius:12px;padding:4px;margin-bottom:16px}
+.period button{flex:1;border:0;background:none;height:36px;border-radius:9px;font-size:14px;font-weight:600;color:var(--sub);transition:background .15s,color .15s}
+.period button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.12)}
+
 /* 별점 · 순위 변동 */
 .card-rating{display:inline-block;margin:10px 0 0 6px;font-size:12px;font-weight:700;color:#e8a100}
 .card-rating small{color:var(--mute);font-weight:500}
@@ -397,6 +402,7 @@ body{padding-left:var(--side)}
       <p class="side-label">함께 만들기</p>
       <button class="side-item" id="uploadButton" type="button"><span class="ic">📤</span>업로드 요청</button>
       <button class="side-item" id="devRequestButton" type="button"><span class="ic">🛠️</span>앱 개발 요청</button>
+      <button class="side-item" id="inquiryButton" type="button"><span class="ic">💬</span>기타 문의</button>
       <button class="side-item" id="adminMenuButton" type="button" hidden><span class="ic">🔑</span>관리자 메뉴</button>
     </nav>
     <div class="side-foot">
@@ -425,6 +431,9 @@ body{padding-left:var(--side)}
     </div>
   </div>
   <div class="cats" id="cats" role="tablist" aria-label="카테고리"></div>
+  <div class="period" id="period" role="tablist" aria-label="인기순 기간" hidden>
+    <button type="button" data-p="day" role="tab">일별</button><button type="button" data-p="week" class="on" role="tab">주별</button><button type="button" data-p="month" role="tab">월별</button>
+  </div>
   <div class="grid" id="grid"></div>
   <p class="empty" id="empty" hidden>찾는 도구가 없어요. 다른 검색어나 카테고리를 골라 보세요.</p>
 </main>
@@ -523,7 +532,7 @@ function setCat(next){
 // 좁은 화면에서는 사이드바 메뉴를 펼침 메뉴로 보여준다
 function setMenu(open){ side.classList.toggle('open', open); menuToggle.setAttribute('aria-expanded', open); menuToggle.textContent = open ? '닫기' : '메뉴'; }
 menuToggle.addEventListener('click', ()=>setMenu(!side.classList.contains('open')));
-$('#sidePanel').addEventListener('click', e=>{ if (e.target.closest('#uploadButton,#devRequestButton,#adminMenuButton,#memberButton')) setMenu(false); });
+$('#sidePanel').addEventListener('click', e=>{ if (e.target.closest('#uploadButton,#devRequestButton,#inquiryButton,#adminMenuButton,#memberButton')) setMenu(false); });
 const readQuery = () => { query = $('#q').value.trim().toLowerCase(); };
 readQuery();   // 뒤로가기 등으로 브라우저가 입력값을 복원한 경우에도 맞춰 둔다
 $('#q').addEventListener('input', ()=>{ readQuery(); layout(); });
@@ -609,6 +618,11 @@ hero.addEventListener('click', e=>{
 function escapeHtml(value){return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 renderCatalog();
 
+const periodEl = $('#period');
+let period = 'week';
+const PERIODS = { day:{cur:'d0', prev:'d1', label:'오늘'}, week:{cur:'w0', prev:'w1', label:'최근 7일'}, month:{cur:'m0', prev:'m1', label:'최근 30일'} };
+// 기간별 사용 횟수. 서버 기록이 없는 예시 목록은 전체 사용 횟수로 대신한다
+const popCount = (a, which) => a.use_periods ? a.use_periods[PERIODS[period][which]] || 0 : which==='cur' ? a.uses : 0;
 const mobileMQ = matchMedia('(max-width:640px)');
 function layout(){
   const W = grid.clientWidth;
@@ -638,8 +652,13 @@ function layout(){
     ch = clamp((avail - gap*(rows-1))/rows, 164, 230);
   }
   // 인기순은 서버가 매긴 전체 순위를 따르고, 순위가 없으면(예시 목록) 사용 횟수로 정렬한다
-  const hasRankHistory = apps.some(x=>x.rank_prev);
-  const sorted = [...shown].sort((x,y)=> key==='popular' ? ((x.rank||1e9)-(y.rank||1e9) || y.uses - x.uses) : y[key].localeCompare(x[key]));
+  // 인기순: 고른 기간(일별·주별·월별)의 사용 횟수로 정렬하고, 바로 앞 같은 길이의 기간과 순위를 비교한다
+  periodEl.hidden = key!=='popular';
+  const byCount = which => (x,y)=> popCount(y,which)-popCount(x,which) || y.uses-x.uses || String(x.created).localeCompare(String(y.created));
+  const curRank = new Map([...apps].sort(byCount('cur')).map((a,i)=>[a,i+1]));
+  const prevRank = new Map([...apps].sort(byCount('prev')).map((a,i)=>[a,i+1]));
+  const hasRankHistory = apps.some(a=>popCount(a,'prev')>0);
+  const sorted = [...shown].sort((x,y)=> key==='popular' ? byCount('cur')(x,y) : y[key].localeCompare(x[key]));
   sorted.forEach((a,i)=>{
     const r = Math.floor(i/cols), c = i%cols;
     if(key==='popular' && i<3){
@@ -649,8 +668,9 @@ function layout(){
     }
     // 인기순에서는 어제(직전 기록일)와 비교한 순위 변동을 블록 안에 표시한다
     // 첫 기록일처럼 비교할 이전 순위가 하나도 없으면 모두 NEW가 되므로 표시하지 않는다
-    if (key==='popular' && a.rank && hasRankHistory){
-      const move = a.el.querySelector('.rank-move'), diff = a.rank_prev ? a.rank_prev - a.rank : null;
+    if (key==='popular' && hasRankHistory){
+      const move = a.el.querySelector('.rank-move'), isNew = popCount(a,'prev')===0 && popCount(a,'cur')>0;
+      const diff = isNew ? null : popCount(a,'cur')===0 && popCount(a,'prev')===0 ? 0 : prevRank.get(a) - curRank.get(a);
       move.hidden = false;
       move.className = `rank-move ${diff===null?'new':diff>0?'up':diff<0?'down':'same'}`;
       move.textContent = diff===null ? 'NEW' : diff>0 ? `▲ ${diff}` : diff<0 ? `▼ ${-diff}` : '–';
@@ -661,7 +681,7 @@ function layout(){
       left: c*(cw+gap)+'px', top: r*(ch+gap)+'px',
       transitionDelay: `${i*30}ms,${i*30}ms,0s,0s,0s`
     });
-    a.el.querySelector('.date').textContent = key==='popular' ? `사용 ${a.uses.toLocaleString()}회` : `${key==='created'?'등록':'업데이트'} ${fmt(a[key])}`;
+    a.el.querySelector('.date').textContent = key==='popular' ? `${PERIODS[period].label} 사용 ${popCount(a,'cur').toLocaleString()}회` : `${key==='created'?'등록':'업데이트'} ${fmt(a[key])}`;
   });
   grid.style.height = shown.length ? (rows*ch + (rows-1)*gap) + 'px' : '0px';
   moveKnob();
@@ -680,6 +700,12 @@ mobileMQ.addEventListener('change', scheduleLayout);
 let observedWidth=grid.clientWidth;
 new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(width!==observedWidth){observedWidth=width;scheduleLayout();}}).observe(grid);   // 화면 폭이 바뀌는 모든 경우(회전·창 크기·확대)에 다시 배치
 
+periodEl.addEventListener('click', e=>{
+  const b = e.target.closest('[data-p]'); if (!b || b.dataset.p===period) return;
+  period = b.dataset.p;
+  periodEl.querySelectorAll('[data-p]').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-selected', x===b); });
+  layout();
+});
 seg.addEventListener('click', e=>{
   const b = e.target.closest('button'); if (!b || b.classList.contains('on')) return;
   seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
@@ -839,25 +865,42 @@ const Buddy = (()=>{
     const ready = s.hasMouse && age > 350;          // 나타난 모습을 잠깐 보여준 뒤 커서로 출발
     s.sideS = lerp(s.sideS, s.side, .06);
     // 커서를 아직 모르면 처음 자리(왼쪽 위)에 서 있다가, 커서가 보이면 그쪽으로 뛰어간다
-    // 같은 카드에 0.5초 머문 뒤 모서리로 이동한다. 그전에는 커서를 따라간다.
+    // 같은 카드에 0.5초 머물면 카드 오른쪽 위 모서리로 점프해서 걸터앉는다. 그전에는 커서를 따라간다.
     if (s.card && (!s.card.isConnected || !s.card.matches(':hover') || s.card.classList.contains('hide'))) s.card = null;
-    const card = s.card && t-s.cardSince >= 500 ? s.card : null;
+    const card = ready && s.card && t-s.cardSince >= 500 ? s.card : null;
+    if (s.perch && s.perch.card !== card){ s.perch = null; s.vx = s.vy = 0; if (s.jy === 0) s.jv = -4; }   // 카드를 벗어나면 폴짝 내려와 다시 따라간다
     const anchor = card?.getBoundingClientRect();
-    const tx = ready ? anchor ? clamp(anchor.right-28,32,innerWidth-32) : s.mx-s.sideS*30 : s.x;
-    const ty = ready ? anchor ? Math.max(52,anchor.top+18) : s.my+26 : s.y;
-    const dx = tx - s.x, dy = ty - s.y, dist = Math.hypot(dx,dy);
-    // 멀수록 강하게 끌려와서 커서가 빠르면 빨리 따라온다
-    const k = .03 + Math.min(dist,700)/700*.11;
-    s.vx = (s.vx + dx*k)*.76; s.vy = (s.vy + dy*k)*.76;
-    // 순간이동처럼 보이지 않게 최고 속도를 두어, 멀리서는 달려오는 모습이 보이게 한다
-    const v = Math.hypot(s.vx, s.vy), MAXV = 16;
-    if (v > MAXV){ s.vx *= MAXV/v; s.vy *= MAXV/v; }
-    s.x += s.vx; s.y += s.vy;
+    const seatX = anchor ? clamp(anchor.right-30,32,innerWidth-32) : 0, seatY = anchor ? Math.max(52,anchor.top+14) : 0;
+    // 모서리에서 멀면 먼저 달려가고, 가까워지면(200px 안) 점프한다
+    if (card && !s.perch && Math.hypot(seatX-s.x, seatY-s.y) <= 200){ s.perch = {card, fx:s.x, fy:s.y, t0:t, sat:false}; s.face = Math.sign(seatX - s.x) || s.face; }
+    const perch = s.perch;
+    if (perch){
+      // 포물선으로 뛰어올라 모서리에 앉는다. 앉은 뒤에는 방향을 고정해 좌우로 돌아보지 않는다.
+      const p = Math.min(1, (t-perch.t0)/480), e = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+      if (p < 1){
+        const h = Math.min(90, 40 + Math.abs(seatY-perch.fy)*.2);
+        s.x = lerp(perch.fx, seatX, e); s.y = lerp(perch.fy, seatY, e) - h*4*p*(1-p);
+      } else {
+        if (!perch.sat){ perch.sat = true; s.squash = .14; }
+        s.x = seatX; s.y = seatY;
+      }
+      s.vx = s.vy = 0;
+    } else {
+      const tx = card ? seatX : ready ? s.mx-s.sideS*30 : s.x, ty = card ? seatY : ready ? s.my+26 : s.y;
+      const dx = tx - s.x, dy = ty - s.y, dist = Math.hypot(dx,dy);
+      // 멀수록 강하게 끌려와서 커서가 빠르면 빨리 따라온다
+      const k = .03 + Math.min(dist,700)/700*.11;
+      s.vx = (s.vx + dx*k)*.76; s.vy = (s.vy + dy*k)*.76;
+      // 순간이동처럼 보이지 않게 최고 속도를 두어, 멀리서는 달려오는 모습이 보이게 한다
+      const v = Math.hypot(s.vx, s.vy), MAXV = 16;
+      if (v > MAXV){ s.vx *= MAXV/v; s.vy *= MAXV/v; }
+      s.x += s.vx; s.y += s.vy;
+    }
     const speed = Math.hypot(s.vx, s.vy);
-    el.classList.toggle('waiting',!!card && dist<3 && speed<.6 && !s.cheer);
+    el.classList.toggle('waiting', !!perch?.sat && !s.cheer);
 
-    // 방향 전환: 움직이면 진행 방향, 멈추면 커서 쪽. 폭이 줄었다 늘며 몸을 돌린다
-    if (card && dist<3) s.face = 1;
+    // 방향 전환: 움직이면 진행 방향, 멈추면 커서 쪽. 폭이 줄었다 늘며 몸을 돌린다 (카드 위에서는 고정)
+    if (perch) {}
     else if (Math.abs(s.vx) > .6) s.face = Math.sign(s.vx);
     else if (s.hasMouse && Math.abs(s.mx - s.x) > 30) s.face = Math.sign(s.mx - s.x);
     s.faceS = lerp(s.faceS, s.face, .22);
@@ -883,16 +926,18 @@ const Buddy = (()=>{
 
     const breathe = Math.sin(t/420)*.025*(1-s.amp);
     const sy = 1 - s.squash + breathe + pop + (s.jy < 0 ? .05 : 0), sx = 1 + s.squash - breathe*.6 + pop*.5;
-    const legA = sw*30*s.amp + kick;
+    let legA = sw*30*s.amp + kick, legB = -legA, sitDrop = 0;
+    if (perch && !perch.sat){ legA = -22; legB = 22; }                                   // 점프 중에는 다리를 모은다
+    else if (perch){ legA = Math.sin(t/380)*14 + kick; legB = Math.sin(t/380+1.3)*14 - kick; sitDrop = 2; }   // 걸터앉아 다리를 달랑달랑
 
     el.style.transform = `translate3d(${s.x-31.4}px,${s.y-47.8}px,0)`;
-    bd.style.transform = `translateY(${bob+s.jy}px) rotate(${s.lean + rock + wiggle}deg) scale(${sx*popS},${sy*popS})`;
+    bd.style.transform = `translateY(${bob+s.jy+sitDrop}px) rotate(${s.lean + rock + wiggle}deg) scale(${sx*popS},${sy*popS*(perch?.sat?.97:1)})`;
     flip.style.transform = `scaleX(${s.faceS})`;
     chieut.style.transform = `scaleX(${s.faceS < 0 ? -1 : 1})`;
     legL.style.transform = `rotate(${legA}deg)`;
-    legR.style.transform = `rotate(${-legA}deg)`;
+    legR.style.transform = `rotate(${legB}deg)`;
     sh.style.transform = `scale(${(1 + s.jy/50 - s.amp*.08)*popS})`;
-    sh.style.opacity = 1 + s.jy/70;
+    sh.style.opacity = perch ? 0 : 1 + s.jy/70;   // 공중·카드 위에서는 바닥 그림자를 숨긴다
     raf = requestAnimationFrame(tick);
   }
 

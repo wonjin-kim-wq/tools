@@ -254,3 +254,52 @@ revoke all on function public.tools_rank_snapshot() from public,anon,authenticat
 grant execute on function public.tools_rank_snapshot() to service_role;
 delete from public.tools_rank_daily where day < (statement_timestamp() at time zone 'Asia/Seoul')::date - 60;
 commit;
+
+-- 기타 문의. 참코딩 전용 tools_ 범위만 변경한다.
+begin;
+create table if not exists public.tools_inquiries (
+  id uuid primary key default gen_random_uuid(),
+  name text not null default '',
+  contact_email text not null,
+  subject text not null,
+  body text not null,
+  status text not null default 'pending' check (status in ('pending','answered','closed')),
+  admin_note text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists tools_inquiries_created on public.tools_inquiries(created_at desc);
+alter table public.tools_inquiries enable row level security;
+-- 브라우저는 직접 읽거나 쓰지 못하고, 서버 API(service_role)만 접근한다.
+revoke all on public.tools_inquiries from public,anon,authenticated;
+grant all on public.tools_inquiries to service_role;
+drop trigger if exists tools_inquiries_updated on public.tools_inquiries;
+create trigger tools_inquiries_updated before update on public.tools_inquiries for each row execute function public.tools_touch_row();
+commit;
+
+-- 인기순 일별·주별·월별: 사용 횟수를 한국 날짜별로도 쌓는다. 참코딩 전용 tools_ 범위만 변경한다.
+begin;
+create table if not exists public.tools_use_daily (
+  day date not null,
+  app_id uuid not null references public.tools_apps(id) on delete cascade,
+  count integer not null default 0 check (count >= 0),
+  primary key (day, app_id)
+);
+alter table public.tools_use_daily enable row level security;
+revoke all on public.tools_use_daily from public,anon,authenticated;
+grant all on public.tools_use_daily to service_role;
+
+create or replace function public.tools_use_app(p_app uuid)
+returns void language plpgsql set search_path = public, pg_temp as $$
+begin
+  update public.tools_apps set uses = uses + 1 where id = p_app and status = 'approved';
+  if found then
+    insert into public.tools_use_daily(day, app_id, count)
+      values ((statement_timestamp() at time zone 'Asia/Seoul')::date, p_app, 1)
+      on conflict (day, app_id) do update set count = tools_use_daily.count + 1;
+  end if;
+end;
+$$;
+revoke all on function public.tools_use_app(uuid) from public,anon,authenticated;
+grant execute on function public.tools_use_app(uuid) to service_role;
+commit;
