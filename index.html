@@ -478,7 +478,7 @@ function openApp(id){
   appSheet.innerHTML = `
     <button class="x" aria-label="닫기">✕</button>
     <div class="hd"><div class="bigicon thumbnail-big" style="--c:${a.color}">${source.screenshots?.[0]?.url?`<img src="${escapeHtml(source.screenshots[0].url)}" alt="${a.name} 썸네일">`:`<span>${a.name.slice(0,2)}</span>`}</div>
-      <div><h3>${a.name}</h3><div class="sub">${a.short}</div><div class="acts">${link(source.web_url,'열기','solid')}${link(source.demo_url,'체험하기','line')}${!source.web_url?'<span class="example-label">예시 앱 · 연결 준비 중</span>':''}</div></div>
+      <div><h3>${a.name}</h3><div class="sub">${a.short}</div><div class="acts">${source.web_url?link(source.web_url,'사용하기','solid'):'<button class="btn solid app-use-button" type="button" disabled aria-describedby="appLinkStatus">사용하기</button>'}${link(source.demo_url,'체험하기','line')}${!source.web_url?'<span class="example-label" id="appLinkStatus">웹앱 주소 연결 준비 중</span>':''}</div></div>
     </div>
     <div class="facts"><div><span>분류</span><b>${a.cat}</b></div><div><span>대상</span><b>${a.grade}</b></div><div><span>등록</span><b>${fmt(a.created)}</b></div><div><span>업데이트</span><b>${fmt(a.updated)}</b></div></div>
     ${images?`<div class="shots real-shots">${images}</div>`:source.is_example?`<div class="shots">${[0,1,2].map(n=>shot(a,n)).join('')}</div>`:''}
