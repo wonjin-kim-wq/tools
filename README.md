@@ -143,6 +143,15 @@ Supabase의 이메일 인증 설정과 SMTP 발송 제한을 적용합니다. �
 
 격리 UI 서버에 예시 앱을 넣어 확인하려면 `UI_FIXTURE_SEED=1 node tests/ui-server.js`로 실행합니다. 이때 테스트 회원 `member@local.test` / `local-member-test-only`로 리뷰를 확인할 수 있으며, 이 계정은 격리 서버에서만 동작합니다.
 
+## 엑셀 일괄 업로드
+
+- 양식: `assets/chamcoding-upload-template.xlsx` (사이트에서는 `/assets/chamcoding-upload-template.xlsx`). 업로드 요청 화면 맨 위의 '양식 받기' 또는 작업 창의 '엑셀 업로드' 탭에서 내려받습니다.
+- 양식은 `scripts/make-upload-template.py`로 만듭니다(`pip install openpyxl` 후 `python3 scripts/make-upload-template.py`). 열 이름은 `tools.js`의 `BULK_COLUMNS`와 같아야 하므로 한쪽을 바꾸면 둘 다 고칩니다.
+- '웹앱 목록' 시트에 앱 하나를 한 줄로 적습니다. 앱 이름이 `(예시)`로 시작하는 줄은 읽지 않습니다. '작성 안내' 시트에 열별 규칙과 AI에게 그대로 줄 안내문이 있습니다.
+- 이미지는 엑셀에 넣지 않고 '이미지 파일' 열에 파일 이름을 `|`로 구분해 적은 뒤(첫 번째가 대표 썸네일), 업로드 화면에서 엑셀과 함께 이미지 파일들을 선택합니다. 파일 이름은 대소문자를 구분하지 않습니다.
+- 엑셀은 브라우저에서 바로 읽고(외부 라이브러리 없음), 줄마다 미리 검사해 오류를 보여준 뒤 준비된 줄만 일반 업로드 요청과 같은 API(`upload`, `submit`)로 보냅니다. 모두 '승인 대기'로 등록되며 서버 검증도 일반 요청과 같습니다.
+- 서버의 시간당 제한(요청 12회, 이미지 36장)에 맞춰 한 번에 앱 12개, 이미지 36장까지 보냅니다.
+
 ## 관리자 화면에서 업로드 비밀번호 변경
 
 관리자 로그인 후 **업로드 비밀번호** 메뉴에서 현재 관리자 비밀번호와 새 업로드 비밀번호(8자 이상), 확인을 입력합니다. `supabase/migrations/20261103_upload_password.sql`을 먼저 적용해야 합니다.

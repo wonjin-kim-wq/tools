@@ -49,7 +49,7 @@
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role && !['login','member','setup','devreq'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup','devreq'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">엑셀 업로드</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
     return revision;
   }
@@ -58,7 +58,7 @@
     workspace.close(); document.body.style.overflow = ''; lastFocus?.focus();
   }
   workspace.addEventListener('cancel', e => { if (state.busy) e.preventDefault(); });
-  workspace.addEventListener('close', () => { viewRevision++; document.body.style.overflow = ''; state.shots.forEach(revokePreview); state.shots = []; });
+  workspace.addEventListener('close', () => { viewRevision++; document.body.style.overflow = ''; state.shots.forEach(revokePreview); state.shots = []; state.bulk = null; });
   function errorIn(form, error) {
     const target = form.querySelector('.form-error');
     if (target) { target.textContent = error.message; target.hidden = false; target.scrollIntoView({block:'nearest'}); }
@@ -186,7 +186,7 @@
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
     state.shots = (row?.screenshots || []).map(s=>({...s,key:crypto.randomUUID()}));
     openShell(row?'요청 검토 · 내용 수정':'웹앱 업로드 요청',row?'내용을 확인하고 상태를 선택해 저장해 주세요.':'만든 웹앱을 소개해 주세요. 승인 후 참코딩에 함께 올라가요.','upload');
-    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">
+    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':`<div class="bulk-entry"><div><b>엑셀로 여러 개 한 번에 올리기</b><p>양식을 받아 AI에게 작성을 맡기고, 작성된 엑셀과 이미지를 함께 올리면 바로 승인 대기로 등록돼요.</p></div><a class="btn line" href="${TEMPLATE_URL}" download>양식 받기</a><button type="button" class="btn solid" data-view="bulk">엑셀로 올리기</button></div>`}
       <div class="form-intro"><span>01</span><div><h3>기본 정보</h3><p>예시 앱의 카드와 상세 화면에 표시될 내용이에요.</p></div></div>
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
@@ -310,6 +310,151 @@
     workspace.append(preview); preview.showModal();
     preview.querySelector('button').onclick=()=>preview.close();preview.addEventListener('close',()=>preview.remove());
   }
+  /* ===== 엑셀 일괄 업로드 =====
+     양식(assets/chamcoding-upload-template.xlsx, scripts/make-upload-template.py로 생성)의 '웹앱 목록' 시트를 브라우저에서 읽고,
+     '이미지 파일' 열에 적힌 이름과 함께 고른 이미지 파일을 짝지어 한 줄씩 업로드 요청을 보낸다. 서버 검증은 일반 요청과 같다. */
+  const TEMPLATE_URL='/assets/chamcoding-upload-template.xlsx';
+  const BULK_COLUMNS={'앱 이름':'name','제작자 이름':'author_name','웹앱 주소':'web_url','체험하기 주소':'demo_url','소개 영상 주소':'video_url','카테고리':'cat','교과':'subjects','적용 학년':'grade','대표 색상':'color','한 줄 소개':'short','상세 설명':'description','새로운 소식':'notes','연락 이메일':'contact_email','이미지 파일':'images','이미지 설명':'captions'};
+  const BULK_MAX_APPS=12, BULK_MAX_IMAGES=36;   // 서버의 시간당 요청 제한(제출 12회·이미지 36장)에 맞춘다
+
+  // .xlsx는 zip 안의 XML이다. 외부 라이브러리 없이 필요한 시트만 풀어서 읽는다.
+  async function readXlsx(file){
+    if(file.size>5*1024*1024)throw new Error('엑셀 파일은 5MB 이하로 올려 주세요.');
+    const buf=new Uint8Array(await file.arrayBuffer()),view=new DataView(buf.buffer),utf8=new TextDecoder();
+    let end=-1;
+    for(let i=buf.length-22;i>=Math.max(0,buf.length-65557);i--)if(view.getUint32(i,true)===0x06054b50){end=i;break;}
+    if(end<0)throw new Error('엑셀(.xlsx) 파일을 읽지 못했어요. 양식을 엑셀에서 저장한 파일인지 확인해 주세요.');
+    const entries={};let p=view.getUint32(end+16,true);
+    for(let n=view.getUint16(end+10,true);n>0;n--){
+      if(view.getUint32(p,true)!==0x02014b50)throw new Error('엑셀 파일 구조를 읽지 못했어요.');
+      const nameLen=view.getUint16(p+28,true);
+      entries[utf8.decode(buf.subarray(p+46,p+46+nameLen))]={method:view.getUint16(p+10,true),size:view.getUint32(p+20,true),local:view.getUint32(p+42,true)};
+      p+=46+nameLen+view.getUint16(p+30,true)+view.getUint16(p+32,true);
+    }
+    const text=async name=>{
+      const e=entries[name.replace(/^\//,'')];if(!e)return null;
+      const start=e.local+30+view.getUint16(e.local+26,true)+view.getUint16(e.local+28,true),data=buf.subarray(start,start+e.size);
+      if(e.method===0)return utf8.decode(data);
+      if(e.method!==8||!('DecompressionStream' in window))throw new Error('이 브라우저에서는 엑셀 파일을 읽을 수 없어요. 최신 크롬이나 엣지로 열어 주세요.');
+      return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    };
+    const xml=s=>new DOMParser().parseFromString(s,'application/xml');
+    // '웹앱 목록' 시트를 찾고, 없으면 첫 시트를 읽는다
+    let sheetPath='xl/worksheets/sheet1.xml';
+    const wb=await text('xl/workbook.xml'),rels=await text('xl/_rels/workbook.xml.rels');
+    if(wb&&rels){
+      const sheet=[...xml(wb).getElementsByTagName('sheet')].find(s=>s.getAttribute('name')==='웹앱 목록')||xml(wb).getElementsByTagName('sheet')[0];
+      const rid=sheet?.getAttribute('r:id'),rel=[...xml(rels).getElementsByTagName('Relationship')].find(r=>r.getAttribute('Id')===rid);
+      if(rel){const target=rel.getAttribute('Target');sheetPath=target.startsWith('/')?target.slice(1):'xl/'+target.replace(/^\.\//,'');}
+    }
+    const shared=[...xml(await text('xl/sharedStrings.xml')||'<sst/>').getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));
+    const sheetXml=await text(sheetPath);if(!sheetXml)throw new Error('‘웹앱 목록’ 시트를 찾지 못했어요.');
+    const col=ref=>[...ref.replace(/\d+/g,'')].reduce((n,ch)=>n*26+ch.charCodeAt(0)-64,0)-1;
+    const grid=[...xml(sheetXml).getElementsByTagName('row')].map(row=>{
+      const cells=[];
+      for(const c of row.getElementsByTagName('c')){
+        const type=c.getAttribute('t'),v=c.getElementsByTagName('v')[0]?.textContent??'';
+        const value=type==='s'?shared[Number(v)]??'':type==='inlineStr'?[...c.getElementsByTagName('t')].map(t=>t.textContent).join(''):v;
+        cells[col(c.getAttribute('r')||'A')]=String(value).replace(/_x000D_/g,'').replace(/\r\n?/g,'\n').trim();
+      }
+      return cells;
+    });
+    const header=(grid[0]||[]).map(h=>BULK_COLUMNS[String(h||'').replace(/\s*\*$/,'').trim()]);
+    if(!header.includes('name'))throw new Error('양식의 1행 열 이름을 확인해 주세요. 참코딩 양식을 받아 그대로 사용해 주세요.');
+    return grid.slice(1).map((cells,i)=>({line:i+2,...Object.fromEntries(header.map((key,j)=>[key,cells[j]||'']).filter(([key])=>key))}))
+      .filter(r=>Object.values(r).some((v,i)=>i>0&&v)&&!r.name.startsWith('(예시)'));
+  }
+  const split=(value,pattern)=>String(value||'').split(pattern).map(s=>s.trim()).filter(Boolean);
+  function bulkRow(raw,images){
+    const errors=[],https=v=>!v||/^https:\/\/[^\s/]+\.[^\s]+/.test(v);
+    const row={line:raw.line,name:raw.name,author_name:raw.author_name,web_url:raw.web_url,demo_url:raw.demo_url,video_url:raw.video_url,cat:raw.cat,
+      subjects:[...new Set(split(raw.subjects,/[,，、\n]/))],grade:raw.grade,color:raw.color||'#ffd23f',short:raw.short,description:raw.description,
+      notes:split(raw.notes,/[|\n]/),contact_email:raw.contact_email,files:split(raw.images,/[|\n]/),captions:split(raw.captions,/[|\n]/)};
+    for(const [key,label] of [['name','앱 이름'],['author_name','제작자 이름'],['web_url','웹앱 주소'],['grade','적용 학년'],['short','한 줄 소개'],['description','상세 설명']])if(!row[key])errors.push(`‘${label}’ 칸이 비어 있어요.`);
+    for(const [key,label] of [['web_url','웹앱 주소'],['demo_url','체험하기 주소'],['video_url','소개 영상 주소']])if(row[key]&&!https(row[key]))errors.push(`${label}는 https://로 시작해야 해요.`);
+    if(!CATS.some(c=>c.k===row.cat&&c.k!=='all'))errors.push('카테고리를 목록에서 골라 주세요.');
+    if(!row.subjects.length)errors.push('교과를 하나 이상 적어 주세요.');
+    const unknown=row.subjects.filter(v=>!SUBJECTS.includes(v));if(unknown.length)errors.push(`목록에 없는 교과: ${unknown.join(', ')}`);
+    if(!/^#[0-9a-f]{6}$/i.test(row.color))errors.push('대표 색상은 #과 6자리로 적어 주세요.');
+    if(row.contact_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.contact_email))errors.push('연락 이메일을 확인해 주세요.');
+    if(row.notes.length>12)errors.push('새로운 소식은 12개까지예요.');
+    if(!row.files.length)errors.push('이미지 파일 이름을 1개 이상 적어 주세요.');
+    if(row.files.length>6)errors.push('이미지는 6개까지예요.');
+    if(row.captions.length!==row.files.length)errors.push(`이미지 ${row.files.length}개와 설명 ${row.captions.length}개의 수가 달라요.`);
+    const key=n=>n.split(/[\\/]/).pop().toLowerCase();
+    row.images=row.files.map(n=>images.get(key(n)));
+    const missing=row.files.filter((n,i)=>!row.images[i]);if(missing.length)errors.push(`선택하지 않은 이미지: ${missing.join(', ')}`);
+    row.errors=errors;return row;
+  }
+  function bulkView(){
+    state.bulk={raw:[],rows:[],images:new Map(),sheet:'',sending:false};
+    openShell('엑셀로 한 번에 올리기','양식에 적은 웹앱들을 한 번에 승인 대기로 보내요. 관리자 승인 후 공개돼요.','bulk');
+    $('#workspaceBody').innerHTML=`<div class="app-form bulk-form">
+      <div class="form-intro"><span>01</span><div><h3>양식 받기</h3><p>‘작성 안내’ 시트에 AI에게 그대로 줄 수 있는 안내문이 있어요.</p></div></div>
+      <a class="btn line" href="${TEMPLATE_URL}" download>📄 참코딩 업로드 양식 받기 (.xlsx)</a>
+      <div class="form-intro"><span>02</span><div><h3>작성한 엑셀 올리기</h3><p>앱 하나가 한 줄이에요. 한 번에 ${BULK_MAX_APPS}개 앱, 이미지 ${BULK_MAX_IMAGES}장까지 보낼 수 있어요.</p></div></div>
+      <label class="file-drop"><span>엑셀 파일 선택</span><small id="bulkSheetName">.xlsx 파일</small><input id="bulkSheet" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
+      <div class="form-intro"><span>03</span><div><h3>이미지 함께 올리기</h3><p>엑셀 ‘이미지 파일’ 열에 적은 이름의 이미지를 한꺼번에 선택해 주세요. PNG · JPG · WebP</p></div></div>
+      <label class="file-drop"><span>이미지 파일 선택</span><small id="bulkImageCount">여러 장을 한 번에 고를 수 있어요</small><input id="bulkImages" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>
+      <div id="bulkPreview" class="bulk-preview" aria-live="polite"></div>
+      <label class="consent"><input id="bulkConsent" type="checkbox"> 앱과 스크린샷을 공개할 권한이 있으며, 학생의 개인정보가 포함되지 않았음을 확인했어요.</label>
+      <p class="form-error" role="alert" hidden></p>
+      <footer class="form-actions"><button type="button" class="btn solid" id="bulkSend" disabled>업로드 요청 보내기</button></footer></div>`;
+    $('#bulkSheet').addEventListener('change',async e=>{
+      const file=e.target.files[0];if(!file||state.bulk.sending)return;
+      const error=workspace.querySelector('.bulk-form .form-error');error.hidden=true;
+      try{state.bulk.raw=await readXlsx(file);state.bulk.sheet=file.name;$('#bulkSheetName').textContent=file.name;checkBulk();}
+      catch(err){state.bulk.raw=[];checkBulk();error.textContent=err.message;error.hidden=false;}
+    });
+    $('#bulkImages').addEventListener('change',e=>{
+      if(state.bulk.sending)return;
+      for(const file of e.target.files){
+        if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024)continue;
+        state.bulk.images.set(file.name.toLowerCase(),file);
+      }
+      $('#bulkImageCount').textContent=`이미지 ${state.bulk.images.size}장 선택됨`;e.target.value='';checkBulk();
+    });
+    $('#bulkConsent').addEventListener('change',renderBulk);
+    $('#bulkSend').addEventListener('click',sendBulk);
+    renderBulk();
+  }
+  // 엑셀이나 이미지를 새로 고를 때만 다시 검사한다. 보낸 결과(완료·오류)는 화면을 다시 그려도 유지한다.
+  function checkBulk(){const b=state.bulk;b.rows=b.raw.map(r=>bulkRow(r,b.images));renderBulk();}
+  function renderBulk(){
+    const b=state.bulk;if(!b||!$('#bulkPreview'))return;
+    const ready=b.rows.filter(r=>!r.errors.length&&!r.done),images=ready.reduce((n,r)=>n+r.files.length,0);
+    const limit=ready.length>BULK_MAX_APPS?`한 번에 ${BULK_MAX_APPS}개까지 보낼 수 있어요. 엑셀을 나눠 주세요.`:images>BULK_MAX_IMAGES?`이미지는 한 번에 ${BULK_MAX_IMAGES}장까지예요. 엑셀을 나눠 주세요.`:'';
+    $('#bulkPreview').innerHTML=b.rows.length?`<p class="bulk-summary">${esc(b.sheet)} · 앱 ${b.rows.length}개 중 <b>${ready.length}개 준비됨</b>${b.rows.length-ready.length?` · 확인 필요 ${b.rows.filter(r=>r.errors.length).length}개`:''}</p>${limit?`<p class="form-error">${esc(limit)}</p>`:''}
+      <div class="bulk-list">${b.rows.map(r=>`<article class="bulk-row ${r.done?'done':r.errors.length?'bad':'ok'}"><header><span class="bulk-line">${r.line}행</span><b>${esc(r.name||'(이름 없음)')}</b><small>${esc([r.cat,r.subjects.join('·'),r.grade].filter(Boolean).join(' · '))}</small><span class="bulk-state">${r.done?`✓ 요청 완료 #${esc(r.done)}`:r.status?esc(r.status):r.errors.length?'확인 필요':`이미지 ${r.files.length}장 · 준비됨`}</span></header>${r.errors.length?`<ul>${r.errors.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:''}</article>`).join('')}</div>`
+      :'<p class="field-help">엑셀을 올리면 여기에서 내용을 미리 확인할 수 있어요.</p>';
+    const send=$('#bulkSend');
+    send.disabled=b.sending||!ready.length||!!limit||!$('#bulkConsent').checked;
+    send.textContent=b.sending?'보내는 중…':ready.length?`${ready.length}개 업로드 요청 보내기`:'업로드 요청 보내기';
+  }
+  async function sendBulk(){
+    const b=state.bulk;if(!b||b.sending)return;
+    b.sending=true;state.busy=true;renderBulk();
+    try{
+      for(const row of b.rows.filter(r=>!r.errors.length&&!r.done)){
+        try{
+          const shots=[];
+          for(let i=0;i<row.images.length;i++){
+            row.status=`이미지 저장 중 ${i+1}/${row.images.length}`;renderBulk();
+            const result=await api('upload',{method:'POST',body:{data:await imageData(row.images[i])}});
+            shots.push({path:result.path,caption:row.captions[i]});
+          }
+          row.status='요청 저장 중';renderBulk();
+          const {files,captions,images,errors,status,line,done,...app}=row;
+          const result=await api('submit',{method:'POST',body:{...app,icon:'🧩',screenshots:shots}});
+          row.done=result.id.slice(0,8).toUpperCase();row.status='';
+        }catch(error){row.status='';row.errors=[error.message];if(error.message.includes('다시 로그인')||error.message.includes('너무 많아요'))break;}
+        renderBulk();
+      }
+    }finally{b.sending=false;state.busy=false;renderBulk();}
+    const sent=b.rows.filter(r=>r.done).length,failed=b.rows.filter(r=>r.errors.length).length;
+    toast(failed?`${sent}개 요청을 보냈어요. ${failed}개는 확인이 필요해요.`:`${sent}개 업로드 요청을 보냈어요.`);
+  }
+
   const devDraftKey='chamcoding-dev-request-draft';
   function devRequestForm() {
     state.area='uploader';
@@ -430,6 +575,7 @@
     if(button.hasAttribute('data-admin-login')){await enter('admin');return;}
     if(button.dataset.devSave){await saveDevRequest(button);return;}
     if(button.dataset.view){
+      if(button.dataset.view==='bulk'){bulkView();return;}
       if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
     }
     if(button.hasAttribute('data-preview'))return preview();
