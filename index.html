@@ -87,7 +87,13 @@ body{padding-left:var(--side)}
 .side .search{flex:none;max-width:none;height:38px}
 
 /* 홍보 배너: 관리자가 고른 추천 앱, 없으면 인기 1위 */
-.hero{position:relative;margin-top:28px;height:300px;border-radius:24px;overflow:hidden;background:#222;box-shadow:var(--shadow-h)}
+/* 오른쪽 위: 방문자 수 · 로그인 */
+.topbar{display:flex;justify-content:flex-end;align-items:center;gap:16px;padding-top:18px}
+.topbar .visit-stats{display:flex;align-items:center;gap:14px;padding:0;margin:0;font-size:12.5px;color:var(--sub)}
+.topbar .visit-stats b{margin-left:4px;color:var(--ink);font-variant-numeric:tabular-nums}
+.topbar .visit-stats small{width:auto;font-size:12px}
+.topbar .btn{height:36px;border-radius:999px;padding:0 18px}
+.hero{position:relative;margin-top:14px;height:300px;border-radius:24px;overflow:hidden;background:#222;box-shadow:var(--shadow-h)}
 .hero-slide{position:absolute;inset:0;display:flex;align-items:flex-end;cursor:pointer;opacity:0;visibility:hidden;transition:opacity .5s,visibility .5s;
   background:linear-gradient(115deg,color-mix(in srgb,var(--c) 55%,#1c1404) 0%,color-mix(in srgb,var(--c) 80%,#2a1e00) 45%,color-mix(in srgb,var(--c) 70%,#fff) 100%)}
 .hero-slide.on{opacity:1;visibility:visible}
@@ -108,6 +114,32 @@ body{padding-left:var(--side)}
 .hero-dots{position:absolute;right:24px;bottom:18px;z-index:2;display:flex;gap:6px;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,.18)}
 .hero-dots button{width:7px;height:7px;border:0;border-radius:50%;padding:0;background:rgba(255,255,255,.5)}
 .hero-dots button.on{background:#fff;width:18px;border-radius:4px}
+
+/* 후기: 가로로 천천히 흘러가며 순환하고, 마우스를 올리면 멈춘다 */
+.voices{margin-top:22px}
+.voices-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.voices-head h2{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.voices-note{font-size:11px;font-weight:700;color:var(--sub);background:var(--chip);border-radius:6px;padding:2px 7px}
+.voices-track{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.voices-row{display:flex;gap:14px;width:max-content;animation:voices 42s linear infinite}
+.voices-track:hover .voices-row,.voices-track:focus-within .voices-row{animation-play-state:paused}
+@keyframes voices{to{transform:translateX(calc(-50% - 7px))}}
+.voice{flex:none;width:300px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)}
+.voice p{font-size:14px;line-height:1.65;color:#333d4b}
+.voice p::before{content:"“";display:block;font-size:28px;line-height:.8;color:#d1d6db;font-weight:800}
+.voice footer{display:flex;align-items:center;gap:10px;margin-top:14px}
+.voice .who{width:32px;height:32px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:var(--c)}
+.voice b{display:block;font-size:13px}
+.voice small{display:block;font-size:12px;color:var(--mute);margin-top:1px}
+@media (prefers-reduced-motion:reduce){.voices-row{animation:none!important}.voices-track{overflow-x:auto;-webkit-mask-image:none;mask-image:none}}
+
+/* 상세 스크린샷 좌우 스크롤 버튼 (마우스가 있는 화면) */
+.shots-wrap{position:relative}
+.shot-nav{position:absolute;top:50%;z-index:2;width:40px;height:40px;margin-top:-20px;border:1px solid var(--line);border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 4px 14px rgba(16,24,40,.14);font-size:18px;color:var(--ink);display:grid;place-items:center;transition:opacity .15s}
+.shot-nav.prev{left:12px}.shot-nav.next{right:12px}
+.shot-nav:disabled{opacity:0;pointer-events:none}
+.shot-nav:hover{background:#fff}
+@media (hover:none){.shot-nav{display:none}}
 
 /* 상세: 소개 영상 · 리뷰 · 다른 앱 · 새로운 소식 */
 .detail-sec{padding:0 32px 28px}
@@ -172,7 +204,7 @@ body{padding-left:var(--side)}
 .cat.on small{color:rgba(255,255,255,.65)}
 .card:hover{box-shadow:var(--shadow-h);border-color:var(--line2);transform:translateY(-2px)}
 .card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.pod{position:relative;flex:none;width:104px;height:120px}
+.pod{position:relative;flex:none;width:148px;height:150px}
 .pod::after{content:"";position:absolute;left:50%;top:86px;width:60px;height:14px;margin-left:-30px;border-radius:50%;
   background:radial-gradient(closest-side,rgba(16,24,40,.18),transparent);animation:shade 4.8s ease-in-out infinite;animation-delay:var(--d)}
 .scene{position:absolute;left:50%;top:76px;width:0;height:0;transform-style:preserve-3d;transform:rotateX(58deg) rotateZ(-45deg)}
@@ -283,6 +315,7 @@ body{padding-left:var(--side)}
   .hero-copy>p{font-size:13px}
   .hero-app{margin-top:12px;padding-top:12px}
   .hero-thumb{width:40px;height:40px;border-radius:11px}
+  .hero-dots{top:14px;bottom:auto;right:16px}
   .detail-sec{padding:0 20px 24px}
   .cat{min-width:0;flex:none;padding:10px 14px}
   .cat .ic{width:32px;height:32px;font-size:17px}
@@ -296,7 +329,7 @@ body{padding-left:var(--side)}
   .seg button{flex:1}
   .card{padding:0 16px 0 0}
   .card:hover{transform:none}
-  .pod{width:84px;height:100px}
+  .pod{width:108px;height:120px}
   .scene{top:64px;scale:.8}
   .pod::after{top:78px;width:48px;margin-left:-24px}
   .m-cat{display:inline}
@@ -341,13 +374,20 @@ body{padding-left:var(--side)}
     </nav>
     <div class="side-foot">
       <button class="btn ghost buddy-toggle" id="buddyToggle" aria-pressed="true" title="커서를 따라다니는 캐릭터 켜기/끄기">캐릭터 <span class="sw"></span></button>
-      <button class="btn line" id="memberButton" type="button">로그인</button>
     </div>
   </div>
 </aside>
 
 <main class="wrap">
+  <div class="topbar">
+    <p class="visit-stats" aria-label="방문 통계"><span>전체 방문자 <b id="visitTotal">—</b></span><span>오늘 방문자 <b id="visitToday">—</b></span><small id="visitStatus" hidden></small></p>
+    <button class="btn line" id="memberButton" type="button">로그인</button>
+  </div>
   <section class="hero" id="hero" aria-label="추천 웹앱" hidden></section>
+  <section class="voices" aria-labelledby="voicesTitle">
+    <div class="voices-head"><h2 id="voicesTitle">선생님들의 후기</h2><span class="voices-note">예시 후기</span></div>
+    <div class="voices-track"><div class="voices-row" id="voicesRow"></div></div>
+  </section>
   <div class="head">
     <h1>웹앱 <span class="total" id="total"></span></h1>
     <div class="seg" id="seg" role="tablist" aria-label="정렬">
@@ -360,7 +400,6 @@ body{padding-left:var(--side)}
   <div class="cats" id="cats" role="tablist" aria-label="카테고리"></div>
   <div class="grid" id="grid"></div>
   <p class="empty" id="empty" hidden>찾는 도구가 없어요. 다른 검색어나 카테고리를 골라 보세요.</p>
-  <footer class="visit-stats" aria-label="방문 통계"><span>전체 방문자 <b id="visitTotal">—</b></span><span>오늘 방문자 <b id="visitToday">—</b></span><small id="visitStatus" hidden></small></footer>
 </main>
 
 <div class="dim" id="dim"></div>
@@ -491,6 +530,18 @@ function renderCatalog(){
   });
   renderHero();
 }
+/* ===== 선생님들의 후기 =====
+   아직 실제 후기를 모으기 전이라 예시 5개를 보여준다. 끊김 없이 순환하도록 같은 목록을 두 번 이어 붙인다. */
+const VOICES = [
+  {text:'아이들이 쉬는 시간에도 또 하자고 해요. 수업 도입 5분이 확 달라졌어요.', name:'김○○ 선생님', role:'3학년 담임', color:'#ffb547'},
+  {text:'설치 없이 링크만 나눠 주면 돼서 컴퓨터실에서도 바로 시작할 수 있었어요.', name:'이○○ 선생님', role:'정보 전담', color:'#5b8def'},
+  {text:'모둠 활동 준비 시간이 절반으로 줄었어요. 아침활동으로 매일 쓰고 있어요.', name:'박○○ 선생님', role:'5학년 담임', color:'#3cbf8a'},
+  {text:'코딩을 처음 접하는 학생도 화면만 보고 따라 해요. 설명이 거의 필요 없어요.', name:'최○○ 선생님', role:'4학년 담임', color:'#e86f9c'},
+  {text:'필요한 앱을 직접 요청할 수 있어서 든든해요. 동료 선생님들께도 추천했어요.', name:'정○○ 선생님', role:'연구부장', color:'#8f7cf0'},
+];
+const voiceCard = (v, copy) => `<article class="voice"${copy?' aria-hidden="true"':''}><p>${escapeHtml(v.text)}</p><footer><span class="who" style="--c:${v.color}">${escapeHtml(v.name[0])}</span><span><b>${escapeHtml(v.name)}</b><small>${escapeHtml(v.role)}</small></span></footer></article>`;
+$('#voicesRow').innerHTML = VOICES.map(v=>voiceCard(v,false)).join('') + VOICES.map(v=>voiceCard(v,true)).join('');
+
 /* ===== 홍보 배너 =====
    관리자가 '메인 홍보 배너'로 고른 앱을 보여주고, 고른 앱이 없으면 인기 1위를 보여준다. */
 const hero = $('#hero');
@@ -536,7 +587,7 @@ function layout(){
   const W = grid.clientWidth;
   const mobile = mobileMQ.matches;
   const gap = mobile ? 12 : 16;
-  const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(280+gap)), 2, 5);
+  const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(320+gap)), 2, 5);
   const cw = (W - gap*(cols-1))/cols;
   const shown = apps.filter(matches);
   const shownSet=new Set(shown);
@@ -552,11 +603,11 @@ function layout(){
   });
   $('#empty').hidden = shown.length > 0;
   const rows = Math.max(1, Math.ceil(shown.length/cols));
-  let ch = 116;
+  let ch = 136;
   if (!mobile){
     // 데스크톱은 남은 화면 높이를 채우도록 카드 높이를 맞춘다
     const avail = innerHeight - (grid.getBoundingClientRect().top + scrollY) - 32;
-    ch = clamp((avail - gap*(rows-1))/rows, 150, 220);
+    ch = clamp((avail - gap*(rows-1))/rows, 176, 230);
   }
   const sorted = [...shown].sort((x,y)=> key==='popular' ? y.uses - x.uses : y[key].localeCompare(x[key]));
   sorted.forEach((a,i)=>{
@@ -655,8 +706,23 @@ function openApp(id){
     </div>
     ${source.notes?.length?`<section class="detail-sec"><h4>새로운 소식</h4><div class="news-item"><p class="news-date">업데이트 ${fmt(a.updated)}</p><ul class="news-list">${source.notes.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ul></div></section>`:''}`;
   show(appSheet);
+  appSheet.querySelectorAll('.shots').forEach(addShotNav);
   if (window.ChamTools) window.ChamTools.mountReviews($('#reviewBox'), source);
   else $('#reviewBox .review-body').innerHTML = '<p class="muted">리뷰를 불러오지 못했어요.</p>';
+}
+// 컴퓨터에서는 Ctrl+휠 없이도 스크린샷을 넘길 수 있게 좌우 버튼을 둔다
+function addShotNav(row){
+  const wrap = document.createElement('div'); wrap.className = 'shots-wrap';
+  row.before(wrap); wrap.append(row);
+  const button = (dir, label, text) => { const b = document.createElement('button'); b.type = 'button'; b.className = `shot-nav ${dir}`; b.setAttribute('aria-label', label); b.textContent = text; wrap.append(b); return b; };
+  const prev = button('prev','이전 스크린샷','‹'), next = button('next','다음 스크린샷','›');
+  const step = () => (row.querySelector(':scope > *')?.offsetWidth || 240) + 12;
+  const sync = () => { prev.disabled = row.scrollLeft <= 4; next.disabled = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4; };
+  prev.addEventListener('click', ()=>row.scrollBy({left:-step(), behavior:'smooth'}));
+  next.addEventListener('click', ()=>row.scrollBy({left:step(), behavior:'smooth'}));
+  row.addEventListener('scroll', sync, {passive:true});
+  row.querySelectorAll('img').forEach(img=>img.addEventListener('load', sync, {once:true}));
+  requestAnimationFrame(sync);
 }
 // 앱스토어 정보 줄처럼: 제목 · 값 (교과 · 카테고리 · 개발자 · 적용 학년)
 function factsRow(app){
