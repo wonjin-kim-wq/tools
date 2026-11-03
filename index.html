@@ -58,7 +58,7 @@ button{cursor:pointer}
 .grid{position:relative;margin-bottom:56px}
 .card{position:absolute;display:flex;align-items:center;gap:4px;padding:0 20px 0 6px;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);cursor:pointer;outline:none;
   transition:box-shadow .25s,border-color .25s,transform .25s}
-.grid.ready .card{transition:left .18s ease-out,top .18s ease-out,box-shadow .25s,border-color .25s,transform .25s,opacity .12s}
+.grid.ready .card{transition:left .8s cubic-bezier(.65,0,.25,1),top .8s cubic-bezier(.65,0,.25,1),box-shadow .25s,border-color .25s,transform .25s,opacity .3s}
 .card.hide{opacity:0;pointer-events:none;transform:scale(.96)}
 .empty{text-align:center;color:var(--sub);font-size:14px;padding:48px 0 80px}
 
@@ -411,7 +411,7 @@ function layout(){
     Object.assign(a.el.style, {
       width: cw+'px', height: ch+'px',
       left: c*(cw+gap)+'px', top: r*(ch+gap)+'px',
-      transitionDelay: '0s'
+      transitionDelay: `${i*30}ms,${i*30}ms,0s,0s,0s`
     });
     a.el.querySelector('.date').textContent = key==='popular' ? `사용 ${a.uses.toLocaleString()}회` : `${key==='created'?'등록':'업데이트'} ${fmt(a[key])}`;
   });
