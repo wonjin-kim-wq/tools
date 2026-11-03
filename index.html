@@ -638,6 +638,7 @@ function layout(){
     ch = clamp((avail - gap*(rows-1))/rows, 164, 230);
   }
   // 인기순은 서버가 매긴 전체 순위를 따르고, 순위가 없으면(예시 목록) 사용 횟수로 정렬한다
+  const hasRankHistory = apps.some(x=>x.rank_prev);
   const sorted = [...shown].sort((x,y)=> key==='popular' ? ((x.rank||1e9)-(y.rank||1e9) || y.uses - x.uses) : y[key].localeCompare(x[key]));
   sorted.forEach((a,i)=>{
     const r = Math.floor(i/cols), c = i%cols;
@@ -647,7 +648,8 @@ function layout(){
       a.el.setAttribute('aria-label',`인기순 ${i+1}등 · ${a.name} 자세히 보기`);
     }
     // 인기순에서는 어제(직전 기록일)와 비교한 순위 변동을 블록 안에 표시한다
-    if (key==='popular' && a.rank){
+    // 첫 기록일처럼 비교할 이전 순위가 하나도 없으면 모두 NEW가 되므로 표시하지 않는다
+    if (key==='popular' && a.rank && hasRankHistory){
       const move = a.el.querySelector('.rank-move'), diff = a.rank_prev ? a.rank_prev - a.rank : null;
       move.hidden = false;
       move.className = `rank-move ${diff===null?'new':diff>0?'up':diff<0?'down':'same'}`;
