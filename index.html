@@ -38,6 +38,12 @@ body{padding-left:var(--side)}
 .side-item.on{background:#e8ebf0;color:var(--ink)}
 .side-item.on .ic{background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08)}
 .side-item:focus-visible,.menu-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.side-sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 38px;padding-left:10px;border-left:2px solid var(--line);animation:side-open .18s ease-out}
+.side-sub button{display:flex;align-items:center;width:100%;border:0;background:none;text-align:left;padding:6px 10px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--sub)}
+.side-sub button small{margin-left:auto;font-size:12px;color:var(--mute);font-weight:500}
+.side-sub button:hover{background:var(--chip);color:var(--ink)}
+.side-sub button.on{background:var(--ink);color:#fff}.side-sub button.on small{color:rgba(255,255,255,.7)}
+@keyframes side-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .side-foot{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px}
 .side-foot .btn{width:100%}
 .side-foot .buddy-toggle{justify-content:space-between}
@@ -508,7 +514,10 @@ $('#logo').insertAdjacentHTML('afterbegin', mark());
 
 /* ===== 카드 ===== */
 const grid = $('#grid'), seg = $('#seg'), knob = seg.querySelector('.knob');
-let key = 'created', cat = 'all', query = '';
+let key = 'created', cat = 'all', level = 'all', query = '';
+// 적용 학교급: 적용 학년 글자 앞의 학교급으로 판단한다(예: '중학교 1-3학년'). 학교급이 없는 기존 값은 초등학교로 본다.
+const LEVELS = [{k:'초', name:'초등학교'}, {k:'중', name:'중학교'}, {k:'고', name:'고등학교'}];
+const levelOf = a => /^\s*중학교/.test(a.grade||'') ? '중' : /^\s*고등학교/.test(a.grade||'') ? '고' : '초';
 const CATS = [
   {k:'all', name:'전체', icon:'✨'},
   {k:'교과 교육', name:'교과 교육', icon:'📚'},
@@ -520,15 +529,23 @@ const CATS = [
 $('#total').textContent = apps.length;   // 업로드된 웹앱 전체 개수
 const catsEl = $('#cats'), sideCats = $('#sideCats'), side = $('#side'), menuToggle = $('#menuToggle');
 // 사이드바 목록과 모바일 칩은 같은 카테고리 상태를 함께 보여준다
+// 분류를 고르면 사이드바에서 그 분류 아래로 학교급(초·중·고)이 펼쳐진다
 function setCat(next){
   if (next !== cat){
-    cat = next;
-    document.querySelectorAll('[data-cat]').forEach(x=>{ const on = x.dataset.cat===cat; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
-    layout();
-  }
-  setMenu(false);
+    cat = next; level = 'all';
+    catsEl.querySelectorAll('[data-cat]').forEach(x=>{ const on = x.dataset.cat===cat; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+    renderSideCats(); layout();
+  } else setMenu(false);
 }
-[catsEl, sideCats].forEach(list => list.addEventListener('click', e=>{ const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat); }));
+function setLevel(next){
+  level = level === next ? 'all' : next;
+  renderSideCats(); layout(); setMenu(false);
+}
+catsEl.addEventListener('click', e=>{ const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat); });
+sideCats.addEventListener('click', e=>{
+  const lv = e.target.closest('[data-level]'); if (lv) return setLevel(lv.dataset.level);
+  const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat);
+});
 // 좁은 화면에서는 사이드바 메뉴를 펼침 메뉴로 보여준다
 function setMenu(open){ side.classList.toggle('open', open); menuToggle.setAttribute('aria-expanded', open); menuToggle.textContent = open ? '닫기' : '메뉴'; }
 menuToggle.addEventListener('click', ()=>setMenu(!side.classList.contains('open')));
@@ -536,9 +553,16 @@ $('#sidePanel').addEventListener('click', e=>{ if (e.target.closest('#uploadButt
 const readQuery = () => { query = $('#q').value.trim().toLowerCase(); };
 readQuery();   // 뒤로가기 등으로 브라우저가 입력값을 복원한 경우에도 맞춰 둔다
 $('#q').addEventListener('input', ()=>{ readQuery(); layout(); });
-const matches = a => (cat==='all' || a.cat===cat) &&
+const matches = a => (cat==='all' || a.cat===cat) && (level==='all' || levelOf(a)===level) &&
   (!query || [a.name,a.short,a.desc,a.cat,a.grade,...(a.subjects||[]),a.author_name||''].join(' ').toLowerCase().includes(query));
 
+function renderSideCats(){
+  sideCats.innerHTML = CATS.map(c=>{
+    const inCat = apps.filter(a=>c.k==='all' || a.cat===c.k), open = c.k===cat;
+    return `<button class="side-item${open?' on':''}" type="button" data-cat="${c.k}" role="tab" aria-selected="${open}" aria-expanded="${open}"><span class="ic">${c.icon}</span>${c.name}<small>${inCat.length}</small></button>`
+      + (open ? `<div class="side-sub" role="group" aria-label="${escapeHtml(c.name)} 학교급">${LEVELS.map(l=>`<button type="button" class="${level===l.k?'on':''}" data-level="${l.k}" aria-pressed="${level===l.k}">${l.name}<small>${inCat.filter(a=>levelOf(a)===l.k).length}</small></button>`).join('')}</div>` : '');
+  }).join('');
+}
 function renderCatalog(){
   grid.replaceChildren();
   $('#total').textContent = apps.length;
@@ -546,10 +570,7 @@ function renderCatalog(){
     const n = c.k==='all' ? apps.length : apps.filter(a=>a.cat===c.k).length;
     return `<button class="cat${c.k===cat?' on':''}" data-cat="${c.k}" role="tab" aria-selected="${c.k===cat}"><span class="ic">${c.icon}</span><span><b>${c.name}</b><small>${n}개</small></span></button>`;
   }).join('');
-  sideCats.innerHTML = CATS.map(c=>{
-    const n = c.k==='all' ? apps.length : apps.filter(a=>a.cat===c.k).length;
-    return `<button class="side-item${c.k===cat?' on':''}" type="button" data-cat="${c.k}" role="tab" aria-selected="${c.k===cat}"><span class="ic">${c.icon}</span>${c.name}<small>${n}</small></button>`;
-  }).join('');
+  renderSideCats();
   apps.forEach(a=>{
     const el = document.createElement('div');
     el.className = 'card'; el.tabIndex = 0; el.setAttribute('role','button');

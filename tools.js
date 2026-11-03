@@ -179,6 +179,36 @@
     const data = Object.fromEntries(new FormData(form)); delete data.screenshots; data.subjects=new FormData(form).getAll('subjects');
     try { sessionStorage.setItem(draftKey,JSON.stringify(data)); } catch {}
   }
+  /* 적용 학년: 학교급과 시작·끝 학년을 골라 '초등학교 4-6학년'처럼 저장한다(홈 화면의 학교급 분류에 쓰임). */
+  const SCHOOL_LEVELS={'초등학교':6,'중학교':3,'고등학교':3};
+  function parseGrade(value=''){
+    const text=String(value).trim(),level=Object.keys(SCHOOL_LEVELS).find(l=>text.startsWith(l))||'초등학교',max=SCHOOL_LEVELS[level];
+    const m=text.match(/(\d)\s*[-~]\s*(\d)/)||text.match(/(\d)\s*학년/);
+    let from=m?Number(m[1]):1,to=m?Number(m[2]||m[1]):max;
+    if(!m&&/전학년/.test(text)){from=1;to=max;}
+    from=Math.min(Math.max(from,1),max);to=Math.min(Math.max(to,from),max);
+    return {level,from,to,text:`${level} ${from}-${to}학년`,valid:!!m||/전학년/.test(text)};
+  }
+  function gradeField(value){
+    const g=parseGrade(value),opts=(max,sel)=>Array.from({length:max},(_,i)=>`<option value="${i+1}" ${sel===i+1?'selected':''}>${i+1}학년</option>`).join('');
+    return `<div class="field grade-pick"><span>적용 학년 <b class="required">*</b></span><div class="grade-row">
+      <select data-grade-level aria-label="학교급">${Object.keys(SCHOOL_LEVELS).map(l=>`<option ${g.level===l?'selected':''}>${l}</option>`).join('')}</select>
+      <select data-grade-from aria-label="시작 학년">${opts(SCHOOL_LEVELS[g.level],g.from)}</select><span class="grade-dash">–</span>
+      <select data-grade-to aria-label="끝 학년">${opts(SCHOOL_LEVELS[g.level],g.to)}</select></div>
+      <input type="hidden" name="grade" value="${esc(g.text)}"><small class="field-help">학교급과 학년 범위를 골라 주세요. 예: 4-6학년(4~6학년), 3-3학년(3학년만)</small></div>`;
+  }
+  // 학교급을 바꾸면 학년 목록(초 1~6, 중·고 1~3)을 다시 만들고, 끝 학년이 시작 학년보다 앞서지 않게 맞춘다
+  workspace.addEventListener('change',e=>{
+    const box=e.target.closest('.grade-pick');if(!box)return;
+    const level=box.querySelector('[data-grade-level]').value,max=SCHOOL_LEVELS[level],fromEl=box.querySelector('[data-grade-from]'),toEl=box.querySelector('[data-grade-to]');
+    if(e.target.matches('[data-grade-level]')){
+      const keep=(el,v)=>{el.innerHTML=Array.from({length:max},(_,i)=>`<option value="${i+1}">${i+1}학년</option>`).join('');el.value=String(Math.min(v,max));};
+      keep(fromEl,Number(fromEl.value));keep(toEl,Number(toEl.value));
+    }
+    if(Number(toEl.value)<Number(fromEl.value)){if(e.target===toEl)fromEl.value=toEl.value;else toEl.value=fromEl.value;}
+    const hidden=box.querySelector('input[name="grade"]');hidden.value=`${level} ${fromEl.value}-${toEl.value}학년`;
+    hidden.dispatchEvent(new Event('input',{bubbles:true}));   // 임시 저장(초안)도 갱신
+  });
   const field = (label,name,value,{required=true,type='text',max=200,placeholder='',help=''}={}) => `<label class="field"><span>${label}${required?' <b class="required">*</b>':''}</span><input name="${name}" type="${type}" value="${esc(value||'')}" ${required?'required':''} maxlength="${max}" placeholder="${esc(placeholder)}">${help?`<small class="field-help">${help}</small>`:''}</label>`;
   function uploadForm(row = null) {
     state.area=row?'admin':'uploader';
@@ -194,7 +224,7 @@
       ${field('체험하기 주소','demo_url',value.demo_url,{required:false,type:'url',max:2000,placeholder:'https://…',help:'체험용 주소가 따로 있는 경우에만 입력해 주세요.'})}
       ${field('소개 영상 주소','video_url',value.video_url,{required:false,type:'url',max:2000,placeholder:'https://youtu.be/…',help:'앱을 소개하는 영상 링크예요. 유튜브·비메오 주소는 상세 화면 안에서 바로 재생돼요.'})}
       <div class="form-grid"><label class="field"><span>카테고리 <b class="required">*</b></span><select name="cat" required>${CATS.filter(c=>c.k!=='all').map(c=>`<option value="${c.k}" ${value.cat===c.k?'selected':''}>${c.icon} ${c.name}</option>`).join('')}</select></label>
-      ${field('적용 학년','grade',value.grade,{max:80,placeholder:'예: 3-6학년, 전학년'})}</div>
+      ${gradeField(value.grade)}</div>
       <fieldset class="field subject-pick"><legend>교과 <b class="required">*</b> <small>여러 개 고를 수 있어요</small></legend><div class="subject-list">${SUBJECTS.map(v=>`<label><input type="checkbox" name="subjects" value="${esc(v)}" ${(value.subjects||[]).includes(v)?'checked':''}><span>${esc(v)}</span></label>`).join('')}</div></fieldset>
       ${field('대표 색상','color',value.color||'#ffd23f',{type:'color',max:7})}
       <label class="file-drop thumbnail-drop"><span>대표 썸네일 사진 *</span><small>정사각형 3D 카드에 표시돼요. 첫 번째 이미지가 대표 썸네일이에요.</small><input id="thumbnailFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
@@ -317,7 +347,7 @@
   const TEMPLATE_URL='/assets/chamcoding-upload-template.xlsx';
   const BULK_COLUMNS={'앱 이름':'name','제작자 이름':'author_name','웹앱 주소':'web_url','체험하기 주소':'demo_url','소개 영상 주소':'video_url','카테고리':'cat','교과':'subjects','적용 학년':'grade','대표 색상':'color','한 줄 소개':'short','상세 설명':'description','새로운 소식':'notes','연락 이메일':'contact_email','이미지 파일':'images','이미지 설명':'captions'};
   // 양식의 '작성 안내' 시트(scripts/make-upload-template.py)에 넣은 안내문과 같은 내용
-  const AI_PROMPT=`첨부한 엑셀 양식의 ‘웹앱 목록’ 시트를 채워 줘. 앱 하나당 한 줄이고, 1행의 열 이름과 열 순서는 바꾸지 마. ‘작성 안내’ 시트의 규칙을 지켜 줘: 필수 열(*)은 모두 채우고, 주소는 https://로 시작해야 해. 카테고리는 ${CATS.filter(c=>c.k!=='all').map(c=>c.k).join(', ')} 중 하나, 교과는 ${SUBJECTS.join(', ')} 중에서 쉼표로 구분해 골라. 이미지 파일은 실제로 함께 올릴 파일 이름을 | 로 구분해 최대 6개 적고(첫 번째가 대표 썸네일), 이미지 설명도 같은 순서로 | 로 구분해 적어. 학생 이름 등 개인정보는 넣지 마. 2번째 줄 (예시)는 지워도 돼. 완성한 파일은 .xlsx로 저장해서 줘.
+  const AI_PROMPT=`첨부한 엑셀 양식의 ‘웹앱 목록’ 시트를 채워 줘. 앱 하나당 한 줄이고, 1행의 열 이름과 열 순서는 바꾸지 마. ‘작성 안내’ 시트의 규칙을 지켜 줘: 필수 열(*)은 모두 채우고, 주소는 https://로 시작해야 해. 카테고리는 ${CATS.filter(c=>c.k!=='all').map(c=>c.k).join(', ')} 중 하나, 교과는 ${SUBJECTS.join(', ')} 중에서 쉼표로 구분해 골라. 이미지 파일은 실제로 함께 올릴 파일 이름을 | 로 구분해 최대 6개 적고(첫 번째가 대표 썸네일), 이미지 설명도 같은 순서로 | 로 구분해 적어. 적용 학년은 ‘초등학교 4-6학년’, ‘중학교 1-3학년’, ‘고등학교 3-3학년’처럼 학교급과 학년 범위로 적어. 학생 이름 등 개인정보는 넣지 마. 2번째 줄 (예시)는 지워도 돼. 완성한 파일은 .xlsx로 저장해서 줘.
 
 [앱 정보]
 (여기에 앱 주소, 소개, 사용 방법, 이미지 파일 이름 등을 붙여 넣으세요)`;
@@ -374,10 +404,11 @@
   function bulkRow(raw,images){
     const errors=[],https=v=>!v||/^https:\/\/[^\s/]+\.[^\s]+/.test(v);
     const row={line:raw.line,name:raw.name,author_name:raw.author_name,web_url:raw.web_url,demo_url:raw.demo_url,video_url:raw.video_url,cat:raw.cat,
-      subjects:[...new Set(split(raw.subjects,/[,，、\n]/))],grade:raw.grade,color:raw.color||'#ffd23f',short:raw.short,description:raw.description,
+      subjects:[...new Set(split(raw.subjects,/[,，、\n]/))],grade:raw.grade?parseGrade(raw.grade).text:'',color:raw.color||'#ffd23f',short:raw.short,description:raw.description,
       notes:split(raw.notes,/[|\n]/),contact_email:raw.contact_email,files:split(raw.images,/[|\n]/),captions:split(raw.captions,/[|\n]/)};
     for(const [key,label] of [['name','앱 이름'],['author_name','제작자 이름'],['web_url','웹앱 주소'],['grade','적용 학년'],['short','한 줄 소개'],['description','상세 설명']])if(!row[key])errors.push(`‘${label}’ 칸이 비어 있어요.`);
     for(const [key,label] of [['web_url','웹앱 주소'],['demo_url','체험하기 주소'],['video_url','소개 영상 주소']])if(row[key]&&!https(row[key]))errors.push(`${label}는 https://로 시작해야 해요.`);
+    if(raw.grade&&!parseGrade(raw.grade).valid)errors.push('적용 학년은 ‘초등학교 4-6학년’처럼 적어 주세요.');
     if(!CATS.some(c=>c.k===row.cat&&c.k!=='all'))errors.push('카테고리를 목록에서 골라 주세요.');
     if(!row.subjects.length)errors.push('교과를 하나 이상 적어 주세요.');
     const unknown=row.subjects.filter(v=>!SUBJECTS.includes(v));if(unknown.length)errors.push(`목록에 없는 교과: ${unknown.join(', ')}`);
@@ -476,7 +507,7 @@
       <div class="form-intro"><span>01</span><div><h3>어떤 앱이 필요한가요?</h3><p>업로드 요청과 같은 기준으로 카테고리와 적용 학년을 알려 주세요.</p></div></div>
       <div class="form-grid">${field('만들고 싶은 앱 이름','title',draft.title,{max:60,placeholder:'가칭도 괜찮아요. 예: 받아쓰기 자동 채점기'})}${field('요청자 이름','requester_name',draft.requester_name,{max:60,placeholder:'이름 또는 학교·연구회 이름'})}</div>
       <div class="form-grid"><label class="field"><span>카테고리 <b class="required">*</b></span><select name="cat" required>${CATS.filter(c=>c.k!=='all').map(c=>`<option value="${c.k}" ${draft.cat===c.k?'selected':''}>${c.icon} ${c.name}</option>`).join('')}</select></label>
-      ${field('적용 학년','grade',draft.grade,{max:80,placeholder:'예: 3-6학년, 전학년'})}</div>
+      ${gradeField(draft.grade)}</div>
       <label class="field"><span>활용 상황과 목적 <b class="required">*</b></span><textarea name="purpose" rows="5" maxlength="3000" required placeholder="어떤 수업·활동에서, 어떤 불편을 해결하고 싶은지 적어 주세요.">${esc(draft.purpose||'')}</textarea></label>
       <label class="field"><span>필요한 기능 <b class="required">*</b></span><textarea name="features" rows="5" maxlength="3000" required placeholder="한 줄에 한 가지씩 적어 주세요.&#10;예: 학생별 점수 저장&#10;예: 교사 화면에서 결과 한눈에 보기">${esc(draft.features||'')}</textarea></label>
       <div class="form-intro"><span>02</span><div><h3>참고 자료와 일정</h3><p>비슷한 사이트나 원하는 시기가 있으면 알려 주세요.</p></div></div>
