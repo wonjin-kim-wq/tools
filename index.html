@@ -531,9 +531,9 @@ const Buddy = (()=>{
     const ready = s.hasMouse && age > 350;          // 나타난 모습을 잠깐 보여준 뒤 커서로 출발
     s.sideS = lerp(s.sideS, s.side, .06);
     // 커서를 아직 모르면 처음 자리(왼쪽 위)에 서 있다가, 커서가 보이면 그쪽으로 뛰어간다
-    // 같은 카드에 1초 머문 뒤 모서리로 이동한다. 그전에는 커서를 따라간다.
+    // 같은 카드에 0.5초 머문 뒤 모서리로 이동한다. 그전에는 커서를 따라간다.
     if (s.card && (!s.card.isConnected || !s.card.matches(':hover') || s.card.classList.contains('hide'))) s.card = null;
-    const card = s.card && t-s.cardSince >= 1000 ? s.card : null;
+    const card = s.card && t-s.cardSince >= 500 ? s.card : null;
     const anchor = card?.getBoundingClientRect();
     const tx = ready ? anchor ? clamp(anchor.right-28,32,innerWidth-32) : s.mx-s.sideS*30 : s.x;
     const ty = ready ? anchor ? Math.max(52,anchor.top+18) : s.my+26 : s.y;
