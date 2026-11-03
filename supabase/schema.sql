@@ -7,7 +7,7 @@ create table if not exists public.tools_apps (
   demo_url text not null default '',
   short text not null,
   description text not null,
-  category text not null check (category in ('교과 교육','계기 교육','아침활동','교실놀이')),
+  category text not null check (category in ('교과 교육','계기 교육','아침활동','교실놀이','기타')),
   grade text not null,
   icon text not null default '🧩',
   color text not null default '#ffd23f' check (color ~ '^#[0-9a-fA-F]{6}$'),
