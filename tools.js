@@ -1,7 +1,7 @@
 /* Upload requests and review workspace. Credentials and database writes stay on the server. */
 (() => {
   const esc = escapeHtml;
-  const state = { role: null, member: null, configured: false, adminReady: false, queue: [], filter: 'pending', shots: [], edit: null, busy: false, setupToken: '' };
+  const state = { role: null, area: 'uploader', member: null, configured: false, adminReady: false, queue: [], filter: 'pending', shots: [], edit: null, busy: false, setupToken: '' };
   const labels = { pending: '승인 대기', approved: '승인 완료', changes_requested: '수정 요청', rejected: '반려', archived: '공개 중지' };
   const workspace = document.createElement('dialog');
   workspace.id = 'workspace'; workspace.className = 'workspace'; workspace.setAttribute('aria-labelledby','workspaceTitle');
@@ -38,11 +38,12 @@
     }
   }
   function openShell(title, subtitle, active) {
+    const adminView=state.role==='admin' && state.area==='admin';
     hideAll();
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${state.role==='admin'?'요청 검토 · 앱 관리':'대기 목록'}</button>${state.role==='admin'?`<button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${state.role==='admin'?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
   }
   function closeWorkspace() {
@@ -73,6 +74,7 @@
   async function enter(view) {
     try {
       await refreshSession();
+      state.area=view==='admin'?'admin':'uploader';
       if (view === 'admin' && state.role !== 'admin') return login('admin','queue');
       if (!state.role) return login('uploader',view);
       if (view === 'upload') uploadForm(); else await queueView();
@@ -117,7 +119,7 @@
     });};
   }
   async function passwordSettings() {
-    if(state.role!=='admin')return;
+    if(state.role!=='admin'||state.area!=='admin')return;
     openShell('업로드 비밀번호 변경','업로더가 요청 폼에 입장할 때 사용하는 공통 비밀번호를 관리해요.','settings');
     $('#workspaceBody').innerHTML='<p class="loading-state" role="status">설정을 불러오고 있어요…</p>';
     try {
@@ -148,6 +150,7 @@
   }
   const field = (label,name,value,{required=true,type='text',max=200,placeholder='',help=''}={}) => `<label class="field"><span>${label}${required?' <b class="required">*</b>':''}</span><input name="${name}" type="${type}" value="${esc(value||'')}" ${required?'required':''} maxlength="${max}" placeholder="${esc(placeholder)}">${help?`<small class="field-help">${help}</small>`:''}</label>`;
   function uploadForm(row = null) {
+    state.area=row?'admin':'uploader';
     state.shots.forEach(revokePreview);
     state.edit = row;
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
@@ -247,18 +250,18 @@
     }
   }
   async function queueView() {
-    const admin=state.role==='admin';
+    const admin=state.role==='admin' && state.area==='admin';
     openShell(admin?'요청 검토 · 앱 관리':'업로드 대기 목록',admin?'요청을 열어 설명과 스크린샷을 수정하고 승인해 주세요.':'업로드 요청의 처리 상태를 확인해요. 승인된 앱은 공개 목록에서 볼 수 있어요.','queue');
     $('#workspaceBody').innerHTML='<p class="loading-state" role="status">목록을 불러오고 있어요…</p>';
     try {
-      const data=await api('queue'); state.queue=data.apps;
+      const data=await api('queue'); state.queue=admin?data.apps:data.apps.filter(r=>!r.is_example);
       renderQueue();
     } catch(error) {
       $('#workspaceBody').innerHTML=`<div class="error-state" role="alert">${esc(error.message)}<button type="button" data-view="queue" class="btn line">다시 불러오기</button></div>`;
     }
   }
   function renderQueue() {
-    const admin=state.role==='admin', rows=state.queue.filter(r=>state.filter==='all'||r.status===state.filter);
+    const admin=state.role==='admin' && state.area==='admin', rows=state.queue.filter(r=>state.filter==='all'||r.status===state.filter);
     $('#workspaceBody').innerHTML=`<div class="queue-heading"><div class="status-filters" aria-label="상태별 요청 목록">${[['pending','승인 대기'],['changes_requested','수정 요청'],['approved','승인 완료'],['rejected','반려'],...(admin?[['archived','공개 중지']]:[]),['all','전체']].map(([key,label])=>`<button type="button" data-filter="${key}" aria-pressed="${state.filter===key}" class="${state.filter===key?'selected':''}">${label} <b>${state.queue.filter(r=>key==='all'||r.status===key).length}</b></button>`).join('')}</div><button type="button" data-view="queue" class="btn line">새로고침</button></div>
       <div class="queue-list">${rows.length?rows.map(r=>`<article class="request-row"><div class="request-main"><span class="status-badge status-${r.status}">${labels[r.status]}</span>${r.is_example?'<span class="example-label">예시 앱</span>':''}<h3>${esc(r.name)}</h3><p>${esc(r.category)} · ${esc(r.grade)} · ${date(r.created_at)}</p>${r.review_note?`<p class="review-note"><b>검토 메모</b> ${esc(r.review_note)}</p>`:''}</div>${admin?`<button type="button" class="btn solid" data-review="${r.id}">검토 · 수정</button>`:`<span class="request-number">#${r.id.slice(0,8).toUpperCase()}</span>`}</article>`).join(''):`<div class="empty-state"><span>📭</span><h3>${state.filter==='pending'?'승인 대기 중인 요청이 없어요':'이 상태의 요청이 없어요'}</h3><p>새 요청을 보내면 이곳에서 확인할 수 있어요.</p><button type="button" data-view="upload" class="btn line">업로드 요청하기</button></div>`}</div>`;
   }
@@ -278,7 +281,7 @@
       const data=Object.fromEntries(new FormData(form));
       if(data.password!==data.confirm) throw new Error('비밀번호 확인이 일치하지 않아요.');
       const result=await api('setup',{method:'POST',body:{username:data.username,password:data.password,setupToken:state.setupToken}});
-      state.setupToken='';state.role=result.role;state.adminReady=true;form.reset();toast('관리자 계정을 등록했어요.');await queueView();
+      state.setupToken='';state.role=result.role;state.area='admin';state.adminReady=true;form.reset();toast('관리자 계정을 등록했어요.');await queueView();
     });};
   }
   workspace.addEventListener('input',e=>{

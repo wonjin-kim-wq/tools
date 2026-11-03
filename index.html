@@ -363,6 +363,7 @@ function renderCatalog(){
     el.style.setProperty('--c', a.color);
     el.style.setProperty('--d', `${-Math.random()*9}s`);
     el.innerHTML = `
+      <span class="rank-badge" hidden aria-hidden="true"></span>
       <div class="pod"><div class="photo-card">${a.screenshots?.[0]?.url?`<img src="${escapeHtml(a.screenshots[0].url)}" alt="${escapeHtml(a.name)} 썸네일" loading="lazy">`:`<span>${escapeHtml(a.name.slice(0,2))}<small>썸네일 준비 중</small></span>`}</div></div>
       <div class="txt"><div class="when"><span class="m-cat">${escapeHtml(a.cat)} · </span><span class="date"></span></div>
       <h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p><span class="chip">${escapeHtml(a.cat)}</span></div>`;
@@ -380,7 +381,11 @@ function layout(){
   const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(280+gap)), 2, 5);
   const cw = (W - gap*(cols-1))/cols;
   const shown = apps.filter(matches);
-  apps.forEach(a => a.el.classList.toggle('hide', !shown.includes(a)));
+  apps.forEach(a => {
+    a.el.classList.toggle('hide', !shown.includes(a));
+    a.el.querySelector('.rank-badge').hidden=true;
+    a.el.setAttribute('aria-label',`${a.name} 자세히 보기`);
+  });
   // 숨긴 카드가 예전(넓은 화면) 자리에 남아 화면 밖으로 삐져나가지 않게 안쪽으로 당겨 둔다
   apps.filter(a => !shown.includes(a)).forEach(a => {
     a.el.style.width = cw+'px';
@@ -397,6 +402,11 @@ function layout(){
   const sorted = [...shown].sort((x,y)=> key==='popular' ? y.uses - x.uses : y[key].localeCompare(x[key]));
   sorted.forEach((a,i)=>{
     const r = Math.floor(i/cols), c = i%cols;
+    if(key==='popular' && i<3){
+      const badge=a.el.querySelector('.rank-badge');
+      badge.hidden=false;badge.dataset.rank=String(i+1);badge.textContent=`🏆 ${i+1}등`;
+      a.el.setAttribute('aria-label',`인기순 ${i+1}등 · ${a.name} 자세히 보기`);
+    }
     Object.assign(a.el.style, {
       width: cw+'px', height: ch+'px',
       left: c*(cw+gap)+'px', top: r*(ch+gap)+'px',
