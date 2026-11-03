@@ -186,7 +186,7 @@
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
     state.shots = (row?.screenshots || []).map(s=>({...s,key:crypto.randomUUID()}));
     openShell(row?'요청 검토 · 내용 수정':'웹앱 업로드 요청',row?'내용을 확인하고 상태를 선택해 저장해 주세요.':'만든 웹앱을 소개해 주세요. 승인 후 참코딩에 함께 올라가요.','upload');
-    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':`<div class="bulk-entry"><div><b>엑셀로 여러 개 한 번에 올리기</b><p>양식을 받아 AI에게 작성을 맡기고, 작성된 엑셀과 이미지를 함께 올리면 바로 승인 대기로 등록돼요.</p></div><a class="btn line" href="${TEMPLATE_URL}" download>양식 받기</a><button type="button" class="btn solid" data-view="bulk">업로드 요청(Excel)</button></div>`}
+    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':`<div class="bulk-entry"><div><b>엑셀로 여러 개 한 번에 올리기</b><p>양식은 다음 화면에서 받을 수 있어요. AI에게 작성을 맡기고, 작성된 엑셀과 이미지를 함께 올리면 바로 승인 대기로 등록돼요.</p></div><button type="button" class="btn solid" data-view="bulk">업로드 요청(Excel)</button></div>`}
       <div class="form-intro"><span>01</span><div><h3>기본 정보</h3><p>예시 앱의 카드와 상세 화면에 표시될 내용이에요.</p></div></div>
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
