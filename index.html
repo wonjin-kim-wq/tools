@@ -438,12 +438,14 @@ seg.addEventListener('click', e=>{
   key = b.dataset.k; layout();
 });
 
+let cardOpenTimer;
 grid.addEventListener('click', e=>{
   const card = e.target.closest('.card'); if (!card) return;
+  clearTimeout(cardOpenTimer);
   if (Buddy.active){
     burst(e.clientX, e.clientY);
     Buddy.cheer();
-    openApp(card.dataset.id);
+    cardOpenTimer=setTimeout(()=>openApp(card.dataset.id),220);
   } else openApp(card.dataset.id);
 });
 grid.addEventListener('keydown', e=>{
@@ -460,7 +462,7 @@ function burst(cx,cy){
 /* ===== 모달 ===== */
 const dim = $('#dim'), appSheet = $('#appSheet'), authSheet = $('#authSheet');
 function show(sheet){ dim.classList.add('show'); sheet.classList.add('show'); sheet.scrollTop = 0; document.body.style.overflow = 'hidden'; }
-function hideAll(){ dim.classList.remove('show'); appSheet.classList.remove('show'); authSheet.classList.remove('show'); document.body.style.overflow = ''; }
+function hideAll(){ clearTimeout(cardOpenTimer); dim.classList.remove('show'); appSheet.classList.remove('show'); authSheet.classList.remove('show'); document.body.style.overflow = ''; }
 dim.addEventListener('click', hideAll);
 document.addEventListener('click', e=>{ if (e.target.closest('.x')) hideAll(); });
 document.addEventListener('keydown', e=>{ if (e.key==='Escape') hideAll(); });
@@ -474,6 +476,7 @@ function shot(a, n){
   return `<div class="shot"><div class="bar" style="background:${a.color}">${a.icon} ${a.name}</div><div class="body">${layouts[n]}</div></div>`;
 }
 function openApp(id){
+  clearTimeout(cardOpenTimer);
   const source = apps.find(x=>x.id==id);
   if (!source) return;
   const a = Object.fromEntries(Object.entries(source).map(([k,v])=>[k,typeof v==='string'?escapeHtml(v):v]));
