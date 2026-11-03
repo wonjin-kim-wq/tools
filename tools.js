@@ -3,6 +3,7 @@
   const esc = escapeHtml;
   const state = { role: null, area: 'uploader', member: null, configured: false, adminReady: false, queue: [], filter: 'pending', shots: [], edit: null, busy: false, setupToken: '' };
   const labels = { pending: '승인 대기', approved: '승인 완료', changes_requested: '수정 요청', rejected: '반려', archived: '공개 중지' };
+  const devLabels = { pending: '접수', reviewing: '검토 중', in_progress: '개발 중', done: '완료', rejected: '보류' };
   const workspace = document.createElement('dialog');
   workspace.id = 'workspace'; workspace.className = 'workspace'; workspace.setAttribute('aria-labelledby','workspaceTitle');
   document.body.append(workspace);
@@ -46,7 +47,7 @@
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role && !['login','member','setup'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup','devreq'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
     return revision;
   }
@@ -76,11 +77,14 @@
     const flight=api('session').then(session=>{
       if(epoch!==sessionEpoch)return refreshSession();
       Object.assign(state,session);sessionCheckedAt=Date.now();
-      $('#adminButton').textContent=state.role==='admin'?'관리 중':'관리자';
-      $('#memberButton').textContent=state.member?'내 계정':'로그인';
+      syncChrome();
       return session;
     }).finally(()=>{if(sessionFlight===flight)sessionFlight=null;});
     sessionFlight=flight;return flight;
+  }
+  function syncChrome(){
+    $('#adminMenuButton').hidden=state.role!=='admin';
+    $('#memberButton').textContent=state.member?'내 계정':'로그인';
   }
   function loadingShell(title,active='loading'){
     const revision=openShell(title,'잠시만 기다려 주세요.',active);
@@ -111,25 +115,27 @@
     const form = $('#loginForm');
     form.addEventListener('submit', e => { e.preventDefault(); withBusy(form,async()=>{
       const body = Object.fromEntries(new FormData(form)); body.kind = kind;
-      const data = await api('login',{method:'POST',body}); state.role=data.role; form.reset();
+      const data = await api('login',{method:'POST',body}); state.role=data.role; syncChrome(); form.reset();
       // Leave withBusy before rendering the next form.
       if (next==='upload') uploadForm(); else await queueView();
     }); });
     form.querySelector('input')?.focus();
   }
+  // 관리자 로그인은 회원 로그인 창(로그인 상태면 내 계정 창) 아래에서 들어간다
+  const adminEntry='<div class="admin-entry"><span>참코딩 운영자이신가요?</span><button type="button" class="btn line" data-admin-login>관리자로 로그인</button></div>';
   async function memberEntry(mode='login') {
     const revision=loadingShell(mode==='signup'?'회원가입':'회원 로그인','member');
     try {await refreshSession();} catch(error){if(revision===viewRevision)errorIn($('#workspaceBody'),error);return;}
     if(revision!==viewRevision||!workspace.open)return;
     if(state.member){
       openShell('내 계정','참코딩 회원 정보와 콘텐츠 이용 권한을 확인해요.','member');
-      $('#workspaceBody').innerHTML=`<div class="entry-form"><div class="entry-icon">👤</div><h3>${esc(state.member.name)}님</h3><p class="field-help">${esc(state.member.email)}</p><p class="membership-state">${state.member.contentAccess?'회원 전용 콘텐츠 이용 권한이 있어요.':'콘텐츠 이용 권한 확인이 필요해요.'}</p><p class="field-help">회원 전용 콘텐츠는 준비되는 대로 추가돼요.</p><button type="button" class="btn line" id="memberLogout">회원 로그아웃</button></div>`;
+      $('#workspaceBody').innerHTML=`<div class="entry-form"><div class="entry-icon">👤</div><h3>${esc(state.member.name)}님</h3><p class="field-help">${esc(state.member.email)}</p><p class="membership-state">${state.member.contentAccess?'회원 전용 콘텐츠 이용 권한이 있어요.':'콘텐츠 이용 권한 확인이 필요해요.'}</p><p class="field-help">회원 전용 콘텐츠는 준비되는 대로 추가돼요.</p><button type="button" class="btn line" id="memberLogout">회원 로그아웃</button></div>${adminEntry}`;
       $('#memberLogout').onclick=async()=>{try{await api('member-logout',{method:'POST',body:{}});state.member=null;await refreshSession();closeWorkspace();toast('로그아웃했어요.');}catch(error){toast(error.message);}};
       return;
     }
     const signup=mode==='signup';
     openShell(signup?'회원가입':'회원 로그인','참코딩 회원으로 로그인하고 회원 전용 콘텐츠를 이용하세요.','member');
-    $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form"><div class="tabs"><button type="button" data-member-mode="login" class="${!signup?'on':''}">로그인</button><button type="button" data-member-mode="signup" class="${signup?'on':''}">회원가입</button></div>${signup?field('이름','name','',{max:60}):''}${field('이메일','email','',{type:'email',max:254})}<label class="field"><span>비밀번호 *</span><input type="password" name="password" minlength="8" maxlength="256" autocomplete="${signup?'new-password':'current-password'}" required></label>${signup?'<label class="field"><span>비밀번호 확인 *</span><input type="password" name="confirm" minlength="8" maxlength="256" autocomplete="new-password" required></label><p class="field-help">가입 후 받은 인증 메일의 링크를 눌러 이메일을 확인해 주세요.</p>':''}<p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">${signup?'회원가입':'로그인'}</button></form>`;
+    $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form"><div class="tabs"><button type="button" data-member-mode="login" class="${!signup?'on':''}">로그인</button><button type="button" data-member-mode="signup" class="${signup?'on':''}">회원가입</button></div>${signup?field('이름','name','',{max:60}):''}${field('이메일','email','',{type:'email',max:254})}<label class="field"><span>비밀번호 *</span><input type="password" name="password" minlength="8" maxlength="256" autocomplete="${signup?'new-password':'current-password'}" required></label>${signup?'<label class="field"><span>비밀번호 확인 *</span><input type="password" name="confirm" minlength="8" maxlength="256" autocomplete="new-password" required></label><p class="field-help">가입 후 받은 인증 메일의 링크를 눌러 이메일을 확인해 주세요.</p>':''}<p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">${signup?'회원가입':'로그인'}</button></form>${signup?'':adminEntry}`;
     $('#memberForm').onsubmit=e=>{e.preventDefault();const form=e.target;withBusy(form,async()=>{
       const data=Object.fromEntries(new FormData(form));
       if(signup&&data.password!==data.confirm)throw new Error('비밀번호 확인이 일치하지 않아요.');
@@ -183,19 +189,20 @@
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
       ${field('체험하기 주소','demo_url',value.demo_url,{required:false,type:'url',max:2000,placeholder:'https://…',help:'체험용 주소가 따로 있는 경우에만 입력해 주세요.'})}
+      ${field('소개 영상 주소','video_url',value.video_url,{required:false,type:'url',max:2000,placeholder:'https://youtu.be/…',help:'앱을 소개하는 영상 링크예요. 유튜브·비메오 주소는 상세 화면 안에서 바로 재생돼요.'})}
       <div class="form-grid"><label class="field"><span>분류 <b class="required">*</b></span><select name="cat" required>${CATS.filter(c=>c.k!=='all').map(c=>`<option value="${c.k}" ${value.cat===c.k?'selected':''}>${c.icon} ${c.name}</option>`).join('')}</select></label>
       ${field('대상 학년','grade',value.grade,{max:80,placeholder:'예: 3-6학년, 전학년'})}</div>
       ${field('대표 색상','color',value.color||'#ffd23f',{type:'color',max:7})}
       <label class="file-drop thumbnail-drop"><span>대표 썸네일 사진 *</span><small>정사각형 3D 카드에 표시돼요. 첫 번째 이미지가 대표 썸네일이에요.</small><input id="thumbnailFile" type="file" accept="image/png,image/jpeg,image/webp"></label>
       ${field('한 줄 소개','short',value.short,{max:160,placeholder:'어떤 수업에서 어떻게 쓰는 앱인지 짧게 알려 주세요.'})}
       <label class="field"><span>상세 설명 <b class="required">*</b></span><textarea name="description" rows="6" maxlength="6000" required placeholder="앱의 목적, 사용 방법, 준비물과 수업 활용 팁을 적어 주세요.">${esc(value.description||'')}</textarea></label>
-      <label class="field"><span>새로운 기능 · 변경 사항</span><textarea name="notes" rows="3" maxlength="3000" placeholder="한 줄에 한 가지씩 적어 주세요. 최대 12개">${esc(value.notes||'')}</textarea></label>
+      <label class="field"><span>새로운 소식 · 변경 사항</span><textarea name="notes" rows="3" maxlength="3000" placeholder="상세 화면의 ‘새로운 소식’에 보여요. 한 줄에 한 가지씩, 최대 12개">${esc(value.notes||'')}</textarea></label>
       <div class="form-intro"><span>02</span><div><h3>스크린샷과 설명</h3><p>썸네일을 포함해 최대 6장을 등록해 주세요. 첫 사진을 대표 썸네일로 사용해요. 학생의 개인정보는 가려 주세요.</p></div></div>
       <div id="shotEditor" class="shot-editor"></div>
       <label class="file-drop"><span>＋ 스크린샷 추가</span><small>PNG · JPG · WebP / 한 번에 최대 6장 / 자동 크기 조정</small><input id="screenshotFiles" name="screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>
       <div class="form-intro"><span>03</span><div><h3>연락과 검토</h3><p>연락 이메일은 관리자에게만 보여요.</p></div></div>
       ${field('연락 이메일','contact_email',value.contact_email,{type:'email',required:false,max:254,placeholder:'teacher@school.kr'})}
-      ${row?`<div class="review-box"><div class="form-grid"><label class="field"><span>처리 상태 <b class="required">*</b></span><select name="status">${Object.entries(labels).map(([key,label])=>`<option value="${key}" ${row.status===key?'selected':''}>${label}</option>`).join('')}</select></label><p class="field-help">승인 완료로 저장하면 공개 목록에 표시돼요. 반려·공개 중지는 목록에서 숨겨져요.</p></div><label class="field"><span>검토 메모 · 수정 요청 사유</span><textarea name="review_note" rows="3" maxlength="2000">${esc(row.review_note)}</textarea></label><p class="field-help">등록 ${date(row.created_at)} · 최종 수정 ${date(row.updated_at)}</p></div>`:
+      ${row?`<div class="review-box"><div class="form-grid"><label class="field"><span>처리 상태 <b class="required">*</b></span><select name="status">${Object.entries(labels).map(([key,label])=>`<option value="${key}" ${row.status===key?'selected':''}>${label}</option>`).join('')}</select></label><p class="field-help">승인 완료로 저장하면 공개 목록에 표시돼요. 반려·공개 중지는 목록에서 숨겨져요.</p></div><label class="consent featured-check"><input name="featured" type="checkbox" ${row.featured?'checked':''}> 메인 홍보 배너에 표시 <small>승인된 앱만 최상단 배너에 나와요. 여러 개를 고르면 번갈아 보여줘요.</small></label><label class="field"><span>검토 메모 · 수정 요청 사유</span><textarea name="review_note" rows="3" maxlength="2000">${esc(row.review_note)}</textarea></label><p class="field-help">등록 ${date(row.created_at)} · 최종 수정 ${date(row.updated_at)}</p></div>`:
       '<p class="field-help">등록일과 업데이트일은 자동으로 기록해요. 입력한 내용과 스크린샷은 관리자 승인 후 공개돼요.</p><label class="consent"><input name="consent" type="checkbox" required> 앱과 스크린샷을 공개할 권한이 있으며, 학생의 개인정보가 포함되지 않았음을 확인했어요.</label>'}
       <p class="form-error" role="alert" hidden></p><p class="upload-progress" role="status" aria-live="polite"></p>
       <footer class="form-actions"><button type="button" class="btn line" data-preview>미리보기</button>${row?'<button type="submit" name="decision" value="approved" class="btn line">승인하여 공개</button>':''}<button type="submit" class="btn solid">${row?'수정 내용 저장':'업로드 요청 보내기'}</button></footer>
@@ -245,7 +252,9 @@
   }
   function values(form) {
     const data=Object.fromEntries(new FormData(form));
-    return {...data,notes:data.notes.split('\n').map(s=>s.trim()).filter(Boolean),screenshots:state.shots.map(s=>({path:s.path,caption:s.caption}))};
+    const result={...data,notes:data.notes.split('\n').map(s=>s.trim()).filter(Boolean),screenshots:state.shots.map(s=>({path:s.path,caption:s.caption}))};
+    if(form.elements.featured)result.featured=form.elements.featured.checked;
+    return result;
   }
   async function submitApp(form,decision) {
     if (!state.shots.length && !state.edit?.is_example) throw new Error('스크린샷을 1장 이상 등록해 주세요.');
@@ -293,10 +302,99 @@
   function preview() {
     const form=$('#appForm'), data=values(form);
     const preview=document.createElement('dialog'); preview.className='preview-dialog';
-    preview.innerHTML=`<button type="button" class="x" aria-label="미리보기 닫기">✕</button><div class="preview-inner"><span class="eyebrow">공개 전 미리보기</span><div class="preview-title"><span style="background:${esc(data.color)}">${state.shots[0]?`<img class="preview-thumb" src="${esc(state.shots[0].preview||state.shots[0].url||'')}" alt="대표 썸네일">`:'사진'}</span><div><h2>${esc(data.name||'앱 이름')}</h2><p>${esc(data.short||'한 줄 소개')}</p></div></div><p class="preview-meta">${esc(data.cat)} · ${esc(data.grade||'대상 학년')} · 제작 ${esc(data.author_name||'제작자')}</p><div class="preview-shots">${state.shots.map(s=>`<figure><img src="${esc(s.preview||s.url||'')}" alt="${esc(s.caption)}"><figcaption>${esc(s.caption||'스크린샷 설명')}</figcaption></figure>`).join('')}</div><p class="multiline">${esc(data.description||'상세 설명')}</p>${data.notes.length?`<h3>새로운 기능</h3><ul>${data.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`;
+    preview.innerHTML=`<button type="button" class="x" aria-label="미리보기 닫기">✕</button><div class="preview-inner"><span class="eyebrow">공개 전 미리보기</span><div class="preview-title"><span style="background:${esc(data.color)}">${state.shots[0]?`<img class="preview-thumb" src="${esc(state.shots[0].preview||state.shots[0].url||'')}" alt="대표 썸네일">`:'사진'}</span><div><h2>${esc(data.name||'앱 이름')}</h2><p>${esc(data.short||'한 줄 소개')}</p></div></div><p class="preview-meta">${esc(data.cat)} · ${esc(data.grade||'대상 학년')} · 제작 ${esc(data.author_name||'제작자')}</p>${data.video_url?`<p class="preview-meta">소개 영상 · ${esc(data.video_url)}</p>`:''}<div class="preview-shots">${state.shots.map(s=>`<figure><img src="${esc(s.preview||s.url||'')}" alt="${esc(s.caption)}"><figcaption>${esc(s.caption||'스크린샷 설명')}</figcaption></figure>`).join('')}</div><p class="multiline">${esc(data.description||'상세 설명')}</p>${data.notes.length?`<h3>새로운 소식</h3><ul>${data.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`;
     workspace.append(preview); preview.showModal();
     preview.querySelector('button').onclick=()=>preview.close();preview.addEventListener('close',()=>preview.remove());
   }
+  const devDraftKey='chamcoding-dev-request-draft';
+  function devRequestForm() {
+    state.area='uploader';
+    let draft={};try{draft=JSON.parse(sessionStorage.getItem(devDraftKey)||'{}');}catch{}
+    openShell('앱 개발 요청','수업에 필요한 앱 아이디어를 알려 주세요. 참쌤스쿨 개발진이 검토한 뒤 연락드려요.','devreq');
+    $('#workspaceBody').innerHTML=`<form id="devForm" class="app-form">
+      <div class="form-intro"><span>01</span><div><h3>어떤 앱이 필요한가요?</h3><p>업로드 요청과 같은 기준으로 분류와 대상 학년을 알려 주세요.</p></div></div>
+      <div class="form-grid">${field('만들고 싶은 앱 이름','title',draft.title,{max:60,placeholder:'가칭도 괜찮아요. 예: 받아쓰기 자동 채점기'})}${field('요청자 이름','requester_name',draft.requester_name,{max:60,placeholder:'이름 또는 학교·연구회 이름'})}</div>
+      <div class="form-grid"><label class="field"><span>분류 <b class="required">*</b></span><select name="cat" required>${CATS.filter(c=>c.k!=='all').map(c=>`<option value="${c.k}" ${draft.cat===c.k?'selected':''}>${c.icon} ${c.name}</option>`).join('')}</select></label>
+      ${field('대상 학년','grade',draft.grade,{max:80,placeholder:'예: 3-6학년, 전학년'})}</div>
+      <label class="field"><span>활용 상황과 목적 <b class="required">*</b></span><textarea name="purpose" rows="5" maxlength="3000" required placeholder="어떤 수업·활동에서, 어떤 불편을 해결하고 싶은지 적어 주세요.">${esc(draft.purpose||'')}</textarea></label>
+      <label class="field"><span>필요한 기능 <b class="required">*</b></span><textarea name="features" rows="5" maxlength="3000" required placeholder="한 줄에 한 가지씩 적어 주세요.&#10;예: 학생별 점수 저장&#10;예: 교사 화면에서 결과 한눈에 보기">${esc(draft.features||'')}</textarea></label>
+      <div class="form-intro"><span>02</span><div><h3>참고 자료와 일정</h3><p>비슷한 사이트나 원하는 시기가 있으면 알려 주세요.</p></div></div>
+      ${field('참고 주소','reference_url',draft.reference_url,{required:false,type:'url',max:2000,placeholder:'https://…',help:'비슷한 앱, 참고 영상, 수업 자료 등의 링크를 적어 주세요.'})}
+      ${field('희망 시기','wanted_by',draft.wanted_by,{required:false,max:80,placeholder:'예: 12월 수업 전, 2학기 중'})}
+      <div class="form-intro"><span>03</span><div><h3>연락처</h3><p>연락 이메일은 관리자에게만 보여요.</p></div></div>
+      ${field('연락 이메일','contact_email',draft.contact_email,{type:'email',max:254,placeholder:'teacher@school.kr'})}
+      <label class="consent"><input name="consent" type="checkbox" required> 학생 이름 등 개인정보를 적지 않았고, 답변을 위해 연락 이메일을 관리자에게 전달하는 데 동의해요.</label>
+      <p class="form-error" role="alert" hidden></p>
+      <footer class="form-actions"><button type="submit" class="btn solid">개발 요청 보내기</button></footer></form>`;
+    const form=$('#devForm');
+    form.addEventListener('input',()=>{const data=Object.fromEntries(new FormData(form));delete data.consent;try{sessionStorage.setItem(devDraftKey,JSON.stringify(data));}catch{}});
+    form.addEventListener('submit',e=>{e.preventDefault();withBusy(form,async()=>{
+      const data=Object.fromEntries(new FormData(form));data.consent=form.elements.consent.checked;
+      const result=await api('dev-request',{method:'POST',body:data});
+      try{sessionStorage.removeItem(devDraftKey);}catch{}
+      openShell('개발 요청을 보냈어요','관리자가 검토한 뒤 적어 주신 이메일로 연락드려요.','devreq');
+      $('#workspaceBody').innerHTML=`<div class="success-state"><span>✓</span><h3>요청이 접수됐어요</h3><p>요청 번호 ${esc(result.id.slice(0,8).toUpperCase())}</p><p>진행 상황은 이메일로 안내해 드려요.</p><button type="button" data-view="devreq" class="btn line">다른 요청 보내기</button></div>`;
+    });});
+    form.querySelector('input')?.focus();
+  }
+  async function devQueueView() {
+    if(state.role!=='admin'||state.area!=='admin')return;
+    const revision=openShell('앱 개발 요청','선생님들이 보낸 앱 아이디어를 확인하고 진행 상태를 기록해요.','devqueue');
+    $('#workspaceBody').innerHTML='<p class="loading-state" role="status">요청을 불러오고 있어요…</p>';
+    try {
+      const data=await api('dev-requests');
+      if(revision!==viewRevision||!workspace.open)return;
+      state.devRequests=data.requests;
+      $('#workspaceBody').innerHTML=`<div class="queue-heading"><p class="field-help">전체 ${data.requests.length}건 · ${Object.entries(devLabels).map(([k,l])=>`${l} ${data.requests.filter(r=>r.status===k).length}`).join(' · ')}</p><button type="button" data-view="devqueue" class="btn line">새로고침</button></div>
+        <div class="queue-list">${data.requests.length?data.requests.map(r=>`<article class="request-row dev-row"><div class="request-main"><span class="status-badge dev-status-${r.status}">${devLabels[r.status]}</span><h3>${esc(r.title)}</h3><p>${esc(r.category)} · ${esc(r.grade)} · ${esc(r.requester_name)} · ${date(r.created_at)}</p>
+          <dl class="dev-detail"><dt>연락 이메일</dt><dd>${esc(r.contact_email)}</dd><dt>활용 상황과 목적</dt><dd class="multiline">${esc(r.purpose)}</dd><dt>필요한 기능</dt><dd class="multiline">${esc(r.features)}</dd>${r.reference_url?`<dt>참고 주소</dt><dd><a href="${esc(r.reference_url)}" target="_blank" rel="noopener noreferrer">${esc(r.reference_url)}</a></dd>`:''}${r.wanted_by?`<dt>희망 시기</dt><dd>${esc(r.wanted_by)}</dd>`:''}</dl>
+          <div class="dev-edit"><label class="field"><span>진행 상태</span><select data-dev-status="${r.id}">${Object.entries(devLabels).map(([k,l])=>`<option value="${k}" ${r.status===k?'selected':''}>${l}</option>`).join('')}</select></label><label class="field"><span>관리자 메모</span><textarea data-dev-note="${r.id}" rows="2" maxlength="2000">${esc(r.admin_note)}</textarea></label><button type="button" class="btn solid" data-dev-save="${r.id}">저장</button></div></div></article>`).join(''):'<div class="empty-state"><span>🛠️</span><h3>아직 받은 개발 요청이 없어요</h3><p>선생님들이 사이드바의 ‘앱 개발 요청’으로 아이디어를 보내면 이곳에 모여요.</p></div>'}</div>`;
+    } catch(error) {
+      if(revision!==viewRevision||!workspace.open)return;
+      $('#workspaceBody').innerHTML=`<div class="error-state" role="alert">${esc(error.message)}<button type="button" data-view="devqueue" class="btn line">다시 불러오기</button></div>`;
+    }
+  }
+  async function saveDevRequest(button) {
+    const id=button.dataset.devSave;
+    state.busy=true;button.disabled=true;button.textContent='저장 중…';
+    try {
+      await api('dev-request',{method:'PATCH',body:{id,status:workspace.querySelector(`[data-dev-status="${id}"]`).value,admin_note:workspace.querySelector(`[data-dev-note="${id}"]`).value}});
+      toast('개발 요청을 저장했어요.');
+    } catch(error){toast(error.message);}
+    finally{state.busy=false;button.disabled=false;button.textContent='저장';}
+    const badge=button.closest('.dev-row')?.querySelector('.status-badge'),status=workspace.querySelector(`[data-dev-status="${id}"]`).value;
+    if(badge){badge.className=`status-badge dev-status-${status}`;badge.textContent=devLabels[status];}
+  }
+
+  /* 상세 화면 리뷰: 누구나 읽고, 참코딩 회원은 앱마다 한 개씩 쓰고 고칠 수 있다. 평점은 받지 않는다. */
+  let reviewRevision=0;
+  async function mountReviews(box, app) {
+    const target=box.querySelector('.review-body'),revision=++reviewRevision;
+    if(!/^[a-f0-9-]{36}$/.test(String(app.id))){target.innerHTML='<p class="muted">예시 앱에는 리뷰를 남길 수 없어요.</p>';return;}
+    try {
+      const data=await api(`reviews&app=${app.id}`);
+      if(revision!==reviewRevision||!box.isConnected)return;
+      box.querySelector('h4').innerHTML=`리뷰 <small>${data.reviews.length}개</small>`;
+      target.innerHTML=`${data.reviews.length?`<div class="review-list">${data.reviews.map(r=>`<article class="review-item"><header><b>${esc(r.member_name)}</b>${r.mine?'<span class="mine">내 리뷰</span>':''}${data.admin?`<button type="button" class="hide-review" data-hide-review="${r.id}">숨기기</button>`:''}<time datetime="${esc(r.updated_at)}">${date(r.updated_at)}</time></header><p>${esc(r.body)}</p></article>`).join('')}</div>`:'<p class="muted">아직 리뷰가 없어요. 수업에 써 본 경험을 처음으로 남겨 주세요.</p>'}
+        ${data.member?`<form class="review-form"><label class="sr-only" for="reviewText">리뷰 내용</label><textarea id="reviewText" maxlength="1000" required placeholder="수업에서 써 본 경험, 좋았던 점, 바라는 점을 적어 주세요.">${esc(data.mine)}</textarea><footer><small>${esc(data.member.name)} 이름으로 공개돼요</small><button type="submit" class="btn solid">${data.mine?'리뷰 수정':'리뷰 남기기'}</button></footer></form>`
+          :'<p class="muted review-login">리뷰는 참코딩 회원만 남길 수 있어요. <button type="button" class="btn line" data-review-login>로그인하고 리뷰 쓰기</button></p>'}`;
+      target.querySelector('[data-review-login]')?.addEventListener('click',()=>memberEntry());
+      target.querySelectorAll('[data-hide-review]').forEach(button=>button.addEventListener('click',async()=>{
+        button.disabled=true;
+        try{await api('app-review',{method:'PATCH',body:{id:button.dataset.hideReview,hidden:true}});toast('리뷰를 숨겼어요.');mountReviews(box,app);}catch(error){button.disabled=false;toast(error.message);}
+      }));
+      const form=target.querySelector('.review-form');
+      form?.addEventListener('submit',async e=>{
+        e.preventDefault();const button=form.querySelector('button');button.disabled=true;
+        try{await api('app-review',{method:'POST',body:{appId:app.id,body:form.querySelector('textarea').value}});toast('리뷰를 남겼어요.');mountReviews(box,app);}
+        catch(error){button.disabled=false;toast(error.message);}
+      });
+    } catch(error) {
+      if(revision===reviewRevision&&box.isConnected)target.innerHTML=`<p class="muted">${esc(error.message)}</p>`;
+    }
+  }
+  window.ChamTools={mountReviews};
+
   function setup(token) {
     state.setupToken=token;
     openShell('관리자 계정 등록','소유자 전용 설정이에요. 사용할 아이디와 비밀번호를 직접 정해 주세요.','setup');
@@ -306,7 +404,7 @@
       const data=Object.fromEntries(new FormData(form));
       if(data.password!==data.confirm) throw new Error('비밀번호 확인이 일치하지 않아요.');
       const result=await api('setup',{method:'POST',body:{username:data.username,password:data.password,setupToken:state.setupToken}});
-      state.setupToken='';state.role=result.role;state.area='admin';state.adminReady=true;form.reset();toast('관리자 계정을 등록했어요.');await queueView();
+      state.setupToken='';state.role=result.role;syncChrome();state.area='admin';state.adminReady=true;form.reset();toast('관리자 계정을 등록했어요.');await queueView();
     });};
   }
   workspace.addEventListener('input',e=>{
@@ -318,11 +416,13 @@
     if(state.busy)return;
     if(button.matches('.close-workspace'))return closeWorkspace();
     if(button.matches('.logout')){
-      try{await api('logout',{method:'POST',body:{}});state.role=null;closeWorkspace();$('#adminButton').textContent='관리자';toast('로그아웃했어요.');}catch(error){toast(error.message);}return;
+      try{await api('logout',{method:'POST',body:{}});state.role=null;closeWorkspace();syncChrome();toast('로그아웃했어요.');}catch(error){toast(error.message);}return;
     }
     if(button.dataset.memberMode){await memberEntry(button.dataset.memberMode);return;}
+    if(button.hasAttribute('data-admin-login')){await enter('admin');return;}
+    if(button.dataset.devSave){await saveDevRequest(button);return;}
     if(button.dataset.view){
-      if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
+      if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
     }
     if(button.hasAttribute('data-preview'))return preview();
     if(button.dataset.filter){state.filter=button.dataset.filter;renderQueue();return;}
@@ -330,7 +430,7 @@
     if(button.dataset.shotRemove){const index=state.shots.findIndex(s=>s.key===button.dataset.shotRemove);if(index>=0){revokePreview(state.shots[index]);state.shots.splice(index,1);renderShotEditor();}return;}
     if(button.dataset.shotMove){const index=state.shots.findIndex(s=>s.key===button.dataset.shotMove),target=index+Number(button.dataset.direction);if(target>=0&&target<state.shots.length){[state.shots[index],state.shots[target]]=[state.shots[target],state.shots[index]];renderShotEditor();}}
   });
-  $('#uploadButton').onclick=()=>enter('upload');$('#memberButton').onclick=()=>memberEntry();$('#adminButton').onclick=()=>enter('admin');
+  $('#uploadButton').onclick=()=>enter('upload');$('#memberButton').onclick=()=>memberEntry();$('#adminMenuButton').onclick=()=>enter('admin');$('#devRequestButton').onclick=()=>devRequestForm();
   const authHash=new URLSearchParams(location.hash.slice(1));
   if(authHash.has('access_token')||authHash.has('error'))history.replaceState(null,'',location.pathname+location.search);
   if(new URLSearchParams(location.search).has('email-confirmed'))memberEntry();

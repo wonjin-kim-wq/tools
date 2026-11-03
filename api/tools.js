@@ -1,5 +1,5 @@
 const { randomUUID, createHash } = require('node:crypto');
-const { AppError, equal, text, validateApp, signSession, readSession, hashPassword, verifyPassword, imageType } = require('../lib/tools-core');
+const { AppError, DEV_STATUSES, equal, text, validateApp, validateDevRequest, signSession, readSession, hashPassword, verifyPassword, imageType } = require('../lib/tools-core');
 
 const BUCKET = 'chamcoding-screenshots';
 const COOKIE = 'chamcoding_session';
@@ -69,6 +69,15 @@ async function requireRole(req, adminOnly = false) {
     if (!account || actor.av !== account.salt) throw new AppError('관리자 로그인이 만료됐어요.', 401);
   }
   return actor;
+}
+async function isAdmin(req) {
+  const actor = session(req);
+  return actor?.role === 'admin' && (await adminAccount(req))?.salt === actor.av;
+}
+function uuid(value, label) {
+  const id = text(value, label, 36, true);
+  if (!/^[a-f0-9-]{36}$/.test(id)) throw new AppError(`${label}를 확인해 주세요.`);
+  return id;
 }
 function assertMutation(req) {
   const origin = req.headers.origin;
@@ -251,6 +260,55 @@ async function handler(req, res) {
       const rows = await db(`/rest/v1/tools_apps?id=eq.${id}&version=eq.${body.version}`, { method: 'PATCH', body: value, headers: { Prefer: 'return=representation' } });
       if (!rows.length) throw new AppError('다른 창에서 수정된 요청이에요. 목록을 새로 불러와 주세요.', 409);
       return send({ app: (await withImages(rows, true))[0] });
+    }
+    // 회원 리뷰: 누구나 읽고, 참코딩 회원만 앱마다 한 개씩 쓰고 고친다. 관리자는 숨길 수 있다.
+    if (req.method === 'GET' && action === 'reviews') {
+      const appId = uuid(url.searchParams.get('app'), '앱 번호');
+      const [rows, member, admin] = await Promise.all([
+        db(`/rest/v1/tools_reviews?app_id=eq.${appId}&hidden=eq.false&select=id,member_id,member_name,body,created_at,updated_at&order=updated_at.desc&limit=50`),
+        members.member(req), isAdmin(req)
+      ]);
+      const mine = member ? rows.find(r => r.member_id === member.id) : null;
+      return send({ reviews: rows.map(({ member_id, ...r }) => ({ ...r, mine: !!member && member_id === member.id })), member: member ? { name: member.name } : null, mine: mine?.body || '', admin });
+    }
+    if (req.method === 'POST' && action === 'app-review') {
+      const member = await members.member(req, true);
+      await rate(req, 'app-review', 10, 3600);
+      const appId = uuid(body.appId, '앱 번호');
+      const value = text(body.body, '리뷰', 1000, true);
+      const app = await db(`/rest/v1/tools_apps?id=eq.${appId}&status=eq.approved&select=id&limit=1`);
+      if (!app.length) throw new AppError('리뷰를 남길 수 있는 앱을 찾지 못했어요.', 404);
+      // 같은 회원이 다시 쓰면 기존 리뷰를 고친다. 숨김 여부는 관리자가 정한 값을 유지한다.
+      await db('/rest/v1/tools_reviews?on_conflict=app_id,member_id', {
+        method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: { app_id: appId, member_id: member.id, member_name: member.name, body: value }
+      });
+      return send({ ok: true }, 201);
+    }
+    if (req.method === 'PATCH' && action === 'app-review') {
+      await requireRole(req, true);
+      const id = uuid(body.id, '리뷰 번호');
+      const rows = await db(`/rest/v1/tools_reviews?id=eq.${id}`, { method: 'PATCH', body: { hidden: body.hidden === true }, headers: { Prefer: 'return=representation' } });
+      if (!rows.length) throw new AppError('리뷰를 찾을 수 없어요.', 404);
+      return send({ ok: true });
+    }
+    // 앱 개발 요청: 로그인 없이 보낼 수 있고, 내용과 연락처는 관리자만 본다.
+    if (req.method === 'POST' && action === 'dev-request') {
+      await rate(req, 'dev-request', 5, 3600);
+      const rows = await db('/rest/v1/tools_dev_requests', { method: 'POST', body: validateDevRequest(body), headers: { Prefer: 'return=representation' } });
+      return send({ id: rows[0].id, status: 'pending' }, 201);
+    }
+    if (req.method === 'GET' && action === 'dev-requests') {
+      await requireRole(req, true);
+      return send({ requests: await db('/rest/v1/tools_dev_requests?select=*&order=created_at.desc&limit=500') });
+    }
+    if (req.method === 'PATCH' && action === 'dev-request') {
+      await requireRole(req, true);
+      const id = uuid(body.id, '요청 번호');
+      if (!DEV_STATUSES.includes(body.status)) throw new AppError('처리 상태를 선택해 주세요.');
+      const rows = await db(`/rest/v1/tools_dev_requests?id=eq.${id}`, { method: 'PATCH', body: { status: body.status, admin_note: text(body.admin_note, '관리자 메모', 2000) }, headers: { Prefer: 'return=representation' } });
+      if (!rows.length) throw new AppError('요청을 찾을 수 없어요.', 404);
+      return send({ request: rows[0] });
     }
     throw new AppError('요청을 찾을 수 없어요.', 404);
   } catch (error) {

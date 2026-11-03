@@ -20,16 +20,33 @@ body{background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden;-w
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 
-/* 헤더 */
-.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.88);backdrop-filter:saturate(1.6) blur(12px);-webkit-backdrop-filter:saturate(1.6) blur(12px);border-bottom:1px solid var(--line)}
-.top-in{max-width:1360px;margin:0 auto;height:64px;padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+/* 왼쪽 사이드바: 앱스토어처럼 메뉴를 한곳에 모은다 */
+:root{--side:248px}
+body{padding-left:var(--side)}
+.side{position:fixed;left:0;top:0;bottom:0;width:var(--side);z-index:6;display:flex;flex-direction:column;gap:16px;padding:22px 14px 16px;
+  background:rgba(255,255,255,.94);backdrop-filter:saturate(1.6) blur(12px);-webkit-backdrop-filter:saturate(1.6) blur(12px);border-right:1px solid var(--line);overflow-y:auto;overscroll-behavior:contain}
+.side .logo{padding:0 6px}
+.menu-toggle{display:none}
+.side-panel{display:flex;flex-direction:column;flex:1;gap:14px}
+.side-nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.side-label{font-size:11.5px;font-weight:700;color:var(--mute);padding:10px 10px 6px}
+.side-label:first-child{padding-top:0}
+.side-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;text-align:left;padding:7px 10px;border-radius:10px;font-size:14px;font-weight:600;color:#333d4b;transition:background .15s,color .15s}
+.side-item .ic{width:28px;height:28px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:15px;background:var(--chip)}
+.side-item small{margin-left:auto;font-size:12px;color:var(--mute);font-weight:500}
+.side-item:hover{background:var(--chip)}
+.side-item.on{background:#e8ebf0;color:var(--ink)}
+.side-item.on .ic{background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.side-item:focus-visible,.menu-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.side-foot{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px}
+.side-foot .btn{width:100%}
+.side-foot .buddy-toggle{justify-content:space-between}
 .logo{display:flex;align-items:center;gap:10px;flex:none}
 .logo .mark{width:40px;height:33px;flex:none}
 .char{position:relative;display:inline-block}
 .char img{position:absolute;inset:0;width:100%;height:100%;user-select:none}
 .logo b{display:block;font-size:17px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
 .logo small{display:block;font-size:11.5px;color:var(--mute);font-weight:500;margin-top:1px;white-space:nowrap}
-.auth{display:flex;gap:6px;flex:none}
 .btn{border:0;border-radius:10px;height:38px;padding:0 16px;font-size:14px;font-weight:600;transition:background .15s,color .15s;white-space:nowrap}
 .btn.ghost{background:transparent;color:var(--sub)}
 .btn.ghost:hover{background:var(--chip);color:var(--ink)}
@@ -67,9 +84,79 @@ button{cursor:pointer}
 .search:focus-within{background:#fff;border-color:var(--ink);color:var(--ink)}
 .search input{flex:1;min-width:0;border:0;background:none;outline:none;font-size:14px;color:var(--ink)}
 .search input::placeholder{color:var(--mute)}
+.side .search{flex:none;max-width:none;height:38px}
+
+/* 홍보 배너: 관리자가 고른 추천 앱, 없으면 인기 1위 */
+.hero{position:relative;margin-top:28px;height:300px;border-radius:24px;overflow:hidden;background:#222;box-shadow:var(--shadow-h)}
+.hero-slide{position:absolute;inset:0;display:flex;align-items:flex-end;cursor:pointer;opacity:0;visibility:hidden;transition:opacity .5s,visibility .5s;
+  background:linear-gradient(115deg,color-mix(in srgb,var(--c) 55%,#1c1404) 0%,color-mix(in srgb,var(--c) 80%,#2a1e00) 45%,color-mix(in srgb,var(--c) 70%,#fff) 100%)}
+.hero-slide.on{opacity:1;visibility:visible}
+.hero-art{position:absolute;right:0;top:0;bottom:0;width:58%;display:grid;place-items:center;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 30%);mask-image:linear-gradient(90deg,transparent,#000 30%)}
+.hero-art img{width:100%;height:100%;object-fit:cover}
+.hero-art .hero-emoji{font-size:120px;transform:rotate(-8deg);filter:drop-shadow(0 18px 24px rgba(0,0,0,.25))}
+.hero-copy{position:relative;z-index:1;max-width:520px;padding:32px 36px;color:#fff}
+.hero-eyebrow{font-size:12.5px;font-weight:700;opacity:.85}
+.hero-copy h2{font-size:32px;font-weight:800;letter-spacing:-.03em;margin-top:6px;text-shadow:0 2px 12px rgba(0,0,0,.2)}
+.hero-copy>p{font-size:14.5px;line-height:1.6;margin-top:6px;opacity:.92;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hero-app{display:flex;align-items:center;gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.25)}
+.hero-thumb{width:52px;height:52px;flex:none;border-radius:14px;overflow:hidden;background:#fff;display:grid;place-items:center;font-size:26px;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.hero-thumb img{width:100%;height:100%;object-fit:cover}
+.hero-app b{display:block;font-size:14.5px}
+.hero-app small{display:block;font-size:12px;opacity:.8;margin-top:2px}
+.hero-open{margin-left:auto;border:0;border-radius:999px;height:34px;padding:0 20px;font-weight:700;font-size:13.5px;background:rgba(255,255,255,.92);color:var(--ink)}
+.hero-dots{position:absolute;right:24px;bottom:18px;z-index:2;display:flex;gap:6px;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,.18)}
+.hero-dots button{width:7px;height:7px;border:0;border-radius:50%;padding:0;background:rgba(255,255,255,.5)}
+.hero-dots button.on{background:#fff;width:18px;border-radius:4px}
+
+/* 상세: 소개 영상 · 리뷰 · 다른 앱 · 새로운 소식 */
+.detail-sec{padding:0 32px 28px}
+.detail-sec>h4{display:flex;align-items:baseline;gap:8px;font-size:18px;font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
+.detail-sec>h4 small{font-size:13px;color:var(--mute);font-weight:500}
+.video-box{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000}
+.video-box iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.detail-cols{display:grid;grid-template-columns:1.25fr 1fr;gap:0 8px;border-top:1px solid var(--line);padding-top:24px}
+.detail-cols .detail-sec{padding-right:16px}
+.review-list{display:flex;flex-direction:column;gap:10px}
+.review-item{background:var(--bg);border-radius:16px;padding:14px 16px}
+.review-item header{display:flex;align-items:center;gap:8px;font-size:13px}
+.review-item header b{font-weight:700}
+.review-item header time{margin-left:auto;font-size:12px;color:var(--mute)}
+.review-item p{font-size:14px;line-height:1.65;margin-top:8px;white-space:pre-wrap;overflow-wrap:anywhere;color:#333d4b}
+.review-item .mine{font-size:11px;font-weight:700;color:#775600;background:#fff1bb;border-radius:6px;padding:1px 6px}
+.review-item .hide-review{border:0;background:none;font-size:12px;color:#b43b28;text-decoration:underline;padding:0}
+.review-form{margin-top:12px}
+.review-form textarea{display:block;width:100%;min-height:76px;resize:vertical;font:inherit;font-size:14px;line-height:1.6;border:1px solid var(--line2);border-radius:12px;padding:10px 12px;outline:none}
+.review-form textarea:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(25,31,40,.08)}
+.review-form footer{display:flex;align-items:center;gap:8px;margin-top:8px}
+.review-form footer small{color:var(--mute);font-size:12px}
+.review-form footer .btn{margin-left:auto;height:34px;border-radius:999px}
+.muted{font-size:13.5px;color:var(--sub);line-height:1.7}
+.more-list{display:flex;flex-direction:column;gap:4px}
+.more-app{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;text-align:left;padding:8px;border-radius:14px}
+.more-app:hover{background:var(--bg)}
+.more-thumb{width:52px;height:52px;flex:none;border-radius:13px;overflow:hidden;display:grid;place-items:center;font-size:24px;background:var(--c)}
+.more-thumb img{width:100%;height:100%;object-fit:cover}
+.more-app b{display:block;font-size:14.5px}
+.more-app small{display:block;font-size:12px;color:var(--mute);margin-top:2px}
+.more-app .pill{margin-left:auto;font-size:13px;font-weight:700;color:#1b64da;background:#e8f1fd;border-radius:999px;padding:6px 14px}
+.news-item+.news-item{margin-top:14px}
+.news-date{font-size:12.5px;color:var(--mute);margin-bottom:8px}
+.news-list{padding-left:18px;font-size:14.5px;line-height:1.8;color:#333d4b}
+
+@media (min-width:901px){.wrap>.cats{display:none}}   /* 넓은 화면에서는 사이드바가 카테고리를 맡는다 */
 @media (max-width:900px){
-  .top-in{height:auto;padding-top:10px;padding-bottom:10px;flex-wrap:wrap;row-gap:10px}
-  .search{order:3;flex-basis:100%;max-width:none}
+  body{padding-left:0}
+  .side{position:sticky;top:0;bottom:auto;width:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 20px;border-right:0;border-bottom:1px solid var(--line);overflow:visible}
+  .side .logo{padding:0}
+  .menu-toggle{display:inline-flex;align-items:center;margin-left:auto;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--chip);font-size:13.5px;font-weight:700}
+  .side .search{order:3;flex-basis:100%}
+  .side-panel{display:none;position:absolute;left:0;right:0;top:100%;padding:8px 16px 16px;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 18px 30px rgba(16,24,40,.12);max-height:calc(100dvh - 120px);overflow:auto}
+  .side.open .side-panel{display:flex}
+  .hero{height:260px;margin-top:20px}
+  .hero-copy{padding:24px}
+  .hero-copy h2{font-size:26px}
+  .detail-cols{grid-template-columns:1fr}
 }
 
 /* 카테고리 위젯 */
@@ -186,9 +273,17 @@ button{cursor:pointer}
 
 /* 모바일 */
 @media (max-width:640px){
-  .top-in{height:auto;padding:10px 16px;flex-wrap:wrap;row-gap:10px}
-  .search{order:3;flex-basis:100%;max-width:none}
+  .side{padding:10px 16px}
   .search input{font-size:16px}
+  .hero{height:230px;border-radius:20px}
+  .hero-art{width:62%}
+  .hero-art .hero-emoji{font-size:72px;transform:translate(28%,-18%) rotate(-8deg)}
+  .hero-copy{padding:20px}
+  .hero-copy h2{font-size:22px}
+  .hero-copy>p{font-size:13px}
+  .hero-app{margin-top:12px;padding-top:12px}
+  .hero-thumb{width:40px;height:40px;border-radius:11px}
+  .detail-sec{padding:0 20px 24px}
   .cat{min-width:0;flex:none;padding:10px 14px}
   .cat .ic{width:32px;height:32px;font-size:17px}
   .logo small{display:none}
@@ -228,23 +323,31 @@ button{cursor:pointer}
 <link rel="stylesheet" href="/tools.css">
 </head>
 <body>
-<header class="top">
-  <div class="top-in">
-    <div class="logo" id="logo"><div><b>참코딩</b><small>참쌤스쿨이 만든 코딩 수업 도구</small></div></div>
-    <label class="search" role="search">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="어떤 도구를 찾으세요?" aria-label="도구 검색" autocomplete="off">
-    </label>
-    <div class="auth">
+<aside class="side" id="side" aria-label="참코딩 메뉴">
+  <div class="logo" id="logo"><div><b>참코딩</b><small>참쌤스쿨이 만든 코딩 수업 도구</small></div></div>
+  <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="sidePanel">메뉴</button>
+  <label class="search" role="search">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="어떤 도구를 찾으세요?" aria-label="도구 검색" autocomplete="off">
+  </label>
+  <div class="side-panel" id="sidePanel">
+    <nav class="side-nav" aria-label="카테고리와 요청">
+      <p class="side-label">카테고리</p>
+      <div id="sideCats" role="tablist" aria-label="카테고리"></div>
+      <p class="side-label">함께 만들기</p>
+      <button class="side-item" id="uploadButton" type="button"><span class="ic">📤</span>업로드 요청</button>
+      <button class="side-item" id="devRequestButton" type="button"><span class="ic">🛠️</span>앱 개발 요청</button>
+      <button class="side-item" id="adminMenuButton" type="button" hidden><span class="ic">🔑</span>관리자 메뉴</button>
+    </nav>
+    <div class="side-foot">
       <button class="btn ghost buddy-toggle" id="buddyToggle" aria-pressed="true" title="커서를 따라다니는 캐릭터 켜기/끄기">캐릭터 <span class="sw"></span></button>
-      <button class="btn ghost" id="memberButton">로그인</button>
-      <button class="btn ghost" id="adminButton">관리자</button>
-      <button class="btn solid" id="uploadButton">업로드 요청</button>
+      <button class="btn line" id="memberButton" type="button">로그인</button>
     </div>
   </div>
-</header>
+</aside>
 
 <main class="wrap">
+  <section class="hero" id="hero" aria-label="추천 웹앱" hidden></section>
   <div class="head">
     <h1>웹앱 <span class="total" id="total"></span></h1>
     <div class="seg" id="seg" role="tablist" aria-label="정렬">
@@ -340,12 +443,21 @@ const CATS = [
   {k:'기타', name:'기타', icon:'🗂️'},
 ];
 $('#total').textContent = apps.length;   // 업로드된 웹앱 전체 개수
-const catsEl = $('#cats');
-catsEl.addEventListener('click', e=>{
-  const b = e.target.closest('.cat'); if (!b || b.dataset.cat===cat) return;
-  catsEl.querySelectorAll('.cat').forEach(x=>x.classList.toggle('on', x===b));
-  cat = b.dataset.cat; layout();
-});
+const catsEl = $('#cats'), sideCats = $('#sideCats'), side = $('#side'), menuToggle = $('#menuToggle');
+// 사이드바 목록과 모바일 칩은 같은 카테고리 상태를 함께 보여준다
+function setCat(next){
+  if (next !== cat){
+    cat = next;
+    document.querySelectorAll('[data-cat]').forEach(x=>{ const on = x.dataset.cat===cat; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+    layout();
+  }
+  setMenu(false);
+}
+[catsEl, sideCats].forEach(list => list.addEventListener('click', e=>{ const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat); }));
+// 좁은 화면에서는 사이드바 메뉴를 펼침 메뉴로 보여준다
+function setMenu(open){ side.classList.toggle('open', open); menuToggle.setAttribute('aria-expanded', open); menuToggle.textContent = open ? '닫기' : '메뉴'; }
+menuToggle.addEventListener('click', ()=>setMenu(!side.classList.contains('open')));
+$('#sidePanel').addEventListener('click', e=>{ if (e.target.closest('#uploadButton,#devRequestButton,#adminMenuButton,#memberButton')) setMenu(false); });
 const readQuery = () => { query = $('#q').value.trim().toLowerCase(); };
 readQuery();   // 뒤로가기 등으로 브라우저가 입력값을 복원한 경우에도 맞춰 둔다
 $('#q').addEventListener('input', ()=>{ readQuery(); layout(); });
@@ -358,6 +470,10 @@ function renderCatalog(){
   catsEl.innerHTML = CATS.map(c=>{
     const n = c.k==='all' ? apps.length : apps.filter(a=>a.cat===c.k).length;
     return `<button class="cat${c.k===cat?' on':''}" data-cat="${c.k}" role="tab" aria-selected="${c.k===cat}"><span class="ic">${c.icon}</span><span><b>${c.name}</b><small>${n}개</small></span></button>`;
+  }).join('');
+  sideCats.innerHTML = CATS.map(c=>{
+    const n = c.k==='all' ? apps.length : apps.filter(a=>a.cat===c.k).length;
+    return `<button class="side-item${c.k===cat?' on':''}" type="button" data-cat="${c.k}" role="tab" aria-selected="${c.k===cat}"><span class="ic">${c.icon}</span>${c.name}<small>${n}</small></button>`;
   }).join('');
   apps.forEach(a=>{
     const el = document.createElement('div');
@@ -373,7 +489,45 @@ function renderCatalog(){
       <h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p><span class="chip">${escapeHtml(a.cat)}</span></div>`;
     grid.appendChild(el); a.el = el;
   });
+  renderHero();
 }
+/* ===== 홍보 배너 =====
+   관리자가 '메인 홍보 배너'로 고른 앱을 보여주고, 고른 앱이 없으면 인기 1위를 보여준다. */
+const hero = $('#hero');
+let heroTimer = 0, heroIndex = 0;
+function heroApps(){
+  const featured = apps.filter(a=>a.featured).slice(0,5);
+  if (featured.length) return {list:featured, label:'참코딩 추천'};
+  const top = [...apps].sort((x,y)=>y.uses-x.uses)[0];
+  return {list: top ? [top] : [], label:'지금 인기 1위'};
+}
+function renderHero(){
+  clearInterval(heroTimer);
+  const {list, label} = heroApps();
+  hero.hidden = !list.length;
+  if (!list.length) return;
+  heroIndex = Math.min(heroIndex, list.length-1);
+  const thumb = a => a.screenshots?.[0]?.url ? `<img src="${escapeHtml(a.screenshots[0].url)}" alt="" loading="lazy">` : '';
+  hero.innerHTML = list.map(a=>`<article class="hero-slide" data-open-app="${escapeHtml(a.id)}" style="--c:${escapeHtml(a.color)}" aria-label="${escapeHtml(label)} · ${escapeHtml(a.name)}">
+      <div class="hero-art">${thumb(a) || `<span class="hero-emoji">${escapeHtml(a.icon||'🧩')}</span>`}</div>
+      <div class="hero-copy"><span class="hero-eyebrow">${escapeHtml(label)}</span><h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p>
+        <div class="hero-app"><span class="hero-thumb">${thumb(a) || escapeHtml(a.icon||'🧩')}</span><div><b>${escapeHtml(a.name)}</b><small>${escapeHtml([a.author_name,a.cat].filter(Boolean).join(' · '))}</small></div><button class="hero-open" type="button">보기</button></div></div>
+    </article>`).join('') + (list.length>1 ? `<div class="hero-dots">${list.map((a,i)=>`<button type="button" data-hero="${i}" aria-label="${i+1}번째 추천 앱 보기"></button>`).join('')}</div>` : '');
+  showHero(heroIndex);
+  if (list.length>1) heroTimer = setInterval(()=>{ if (!hero.matches(':hover')) showHero((heroIndex+1)%list.length); }, 6000);
+}
+function showHero(i){
+  heroIndex = i;
+  hero.querySelectorAll('.hero-slide').forEach((el,n)=>{ el.classList.toggle('on', n===i); el.inert = n!==i; });
+  hero.querySelectorAll('[data-hero]').forEach((el,n)=>el.classList.toggle('on', n===i));
+}
+hero.addEventListener('click', e=>{
+  const dot = e.target.closest('[data-hero]');
+  if (dot) return showHero(Number(dot.dataset.hero));
+  const slide = e.target.closest('[data-open-app]');
+  if (slide) openApp(slide.dataset.openApp);
+});
+
 function escapeHtml(value){return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 renderCatalog();
 
@@ -493,10 +647,45 @@ function openApp(id){
     </div>
     <div class="facts"><div><span>분류</span><b>${a.cat}</b></div><div><span>대상</span><b>${a.grade}</b></div><div><span>등록</span><b>${fmt(a.created)}</b></div><div><span>업데이트</span><b>${fmt(a.updated)}</b></div></div>
     ${images?`<div class="shots real-shots">${images}</div>`:source.is_example?`<div class="shots">${[0,1,2].map(n=>shot(a,n)).join('')}</div>`:''}
-    <div class="desc"><p class="multiline">${a.desc}</p>${a.author_name?`<p class="creator">제작 · ${a.author_name}</p>`:''}
-      ${a.notes.length?`<h4>새로운 기능</h4><ul>${a.notes.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ul>`:''}</div>`;
+    ${videoSection(source)}
+    <div class="desc"><p class="multiline">${a.desc}</p>${a.author_name?`<p class="creator">제작 · ${a.author_name}</p>`:''}</div>
+    <div class="detail-cols">
+      <section class="detail-sec" id="reviewBox" aria-label="리뷰"><h4>리뷰</h4><div class="review-body"><p class="muted">리뷰를 불러오고 있어요…</p></div></section>
+      ${moreAppsSection(source)}
+    </div>
+    ${source.notes?.length?`<section class="detail-sec"><h4>새로운 소식</h4><div class="news-item"><p class="news-date">업데이트 ${fmt(a.updated)}</p><ul class="news-list">${source.notes.map(n=>`<li>${escapeHtml(n)}</li>`).join('')}</ul></div></section>`:''}`;
   show(appSheet);
+  if (window.ChamTools) window.ChamTools.mountReviews($('#reviewBox'), source);
+  else $('#reviewBox .review-body').innerHTML = '<p class="muted">리뷰를 불러오지 못했어요.</p>';
 }
+// 유튜브·비메오 주소는 화면 안에서 재생하고, 그 밖의 영상 주소는 새 창 링크로 연다
+function videoEmbed(url){
+  try {
+    const u = new URL(url); let id = '';
+    if (/(^|\.)youtube\.com$/.test(u.hostname)) id = u.pathname === '/watch' ? u.searchParams.get('v') : (u.pathname.match(/^\/(shorts|embed|live)\/([\w-]+)/)||[])[2];
+    else if (u.hostname === 'youtu.be') id = u.pathname.slice(1);
+    if (id && /^[\w-]{6,20}$/.test(id)) return `https://www.youtube-nocookie.com/embed/${id}`;
+    if (/(^|\.)vimeo\.com$/.test(u.hostname)){ const v = u.pathname.split('/').filter(Boolean).pop(); if (/^\d+$/.test(v)) return `https://player.vimeo.com/video/${v}`; }
+  } catch {}
+  return '';
+}
+function videoSection(app){
+  if (!app.video_url) return '';
+  const embed = videoEmbed(app.video_url);
+  return `<section class="detail-sec"><h4>소개 영상</h4>${embed
+    ? `<div class="video-box"><iframe src="${escapeHtml(embed)}" title="${escapeHtml(app.name)} 소개 영상" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
+    : `<a class="btn line app-link" href="${escapeHtml(app.video_url)}" target="_blank" rel="noopener noreferrer">소개 영상 보기 ↗</a>`}</section>`;
+}
+// 같은 제작자가 올린 다른 앱
+function moreAppsSection(app){
+  if (!app.author_name) return '';
+  const others = apps.filter(x=>x!==app && x.author_name===app.author_name);
+  const thumb = x => x.screenshots?.[0]?.url ? `<img src="${escapeHtml(x.screenshots[0].url)}" alt="" loading="lazy">` : escapeHtml(x.icon||'🧩');
+  return `<section class="detail-sec"><h4>${escapeHtml(app.author_name)}의 다른 앱</h4>${others.length
+    ? `<div class="more-list">${others.slice(0,6).map(x=>`<button class="more-app" type="button" data-open-app="${escapeHtml(x.id)}"><span class="more-thumb" style="--c:${escapeHtml(x.color)}">${thumb(x)}</span><span><b>${escapeHtml(x.name)}</b><small>${escapeHtml(x.cat)}</small></span><span class="pill">보기</span></button>`).join('')}</div>`
+    : `<p class="muted">${escapeHtml(app.author_name)}님이 올린 다른 앱이 아직 없어요.</p>`}</section>`;
+}
+appSheet.addEventListener('click', e=>{ const other = e.target.closest('.more-app'); if (other) openApp(other.dataset.openApp); });
 
 let toastTimer;
 function toast(msg){
