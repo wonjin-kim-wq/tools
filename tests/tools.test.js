@@ -5,7 +5,7 @@ const { webUrl, validateApp, signSession, readSession, hashPassword, verifyPassw
 const handler = require('../api/tools');
 const sid = randomUUID();
 const shot = `uploads/${sid}/${randomUUID()}.jpg`;
-const app = () => ({name:'모둠 뽑기',web_url:'https://example.com/',demo_url:'',short:'모둠을 만들어요',description:'사용 방법',cat:'교실놀이',grade:'전학년',icon:'🎲',color:'#ffd23f',notes:['설명'],screenshots:[{path:shot,caption:'시작 화면'}],author_name:'제작자',contact_email:''});
+const app = () => ({name:'모둠 뽑기',web_url:'https://example.com/',demo_url:'',short:'모둠을 만들어요',description:'사용 방법',cat:'교실놀이',subjects:['수학'],grade:'전학년',icon:'🎲',color:'#ffd23f',notes:['설명'],screenshots:[{path:shot,caption:'시작 화면'}],author_name:'제작자',contact_email:''});
 
 test('unsafe, credential-bearing and private app URLs are refused',()=>{
   for(const value of ['javascript:alert(1)','data:text/html,test','http://example.com','https://user:secret@example.com','https://127.0.0.1','https://10.0.0.1','https://192.168.0.1']) assert.throws(()=>webUrl(value,true));

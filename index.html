@@ -214,10 +214,11 @@ body{padding-left:var(--side)}
 .btn.line{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
 .btn.line:hover{background:var(--chip)}
 .facts{display:grid;grid-template-columns:repeat(4,1fr);margin:0 32px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.facts div{padding:14px 4px;text-align:center}
+.facts div{padding:14px 8px;text-align:center;min-width:0}
+.facts i{display:block;font-style:normal;font-size:22px;line-height:1;margin-top:8px;filter:grayscale(.15)}
 .facts div+div{border-left:1px solid var(--line)}
 .facts span{display:block;font-size:11.5px;color:var(--mute)}
-.facts b{display:block;font-size:15px;margin-top:4px;font-weight:700}
+.facts b{display:block;font-size:13.5px;margin-top:8px;font-weight:600;color:#4e5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shots{display:flex;gap:12px;overflow-x:auto;padding:24px 32px;scroll-padding-inline:32px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .shots::-webkit-scrollbar{display:none}
 .shot{flex:none;width:220px;height:390px;border-radius:18px;border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;scroll-snap-align:start;background:#fafbfc}
@@ -462,7 +463,7 @@ const readQuery = () => { query = $('#q').value.trim().toLowerCase(); };
 readQuery();   // 뒤로가기 등으로 브라우저가 입력값을 복원한 경우에도 맞춰 둔다
 $('#q').addEventListener('input', ()=>{ readQuery(); layout(); });
 const matches = a => (cat==='all' || a.cat===cat) &&
-  (!query || [a.name,a.short,a.desc,a.cat,a.grade].join(' ').toLowerCase().includes(query));
+  (!query || [a.name,a.short,a.desc,a.cat,a.grade,...(a.subjects||[]),a.author_name||''].join(' ').toLowerCase().includes(query));
 
 function renderCatalog(){
   grid.replaceChildren();
@@ -645,7 +646,7 @@ function openApp(id){
     <div class="hd"><div class="bigicon thumbnail-big" style="--c:${a.color}">${source.screenshots?.[0]?.url?`<img src="${escapeHtml(source.screenshots[0].url)}" alt="${a.name} 썸네일">`:`<span>${a.name.slice(0,2)}</span>`}</div>
       <div><h3>${a.name}</h3><div class="sub">${a.short}</div><div class="acts">${source.web_url?link(source.web_url,'사용하기','solid'):'<button class="btn solid app-use-button" type="button" disabled aria-describedby="appLinkStatus">사용하기</button>'}${link(source.demo_url,'체험하기','line')}${!source.web_url?'<span class="example-label" id="appLinkStatus">웹앱 주소 연결 준비 중</span>':''}</div></div>
     </div>
-    <div class="facts"><div><span>분류</span><b>${a.cat}</b></div><div><span>대상</span><b>${a.grade}</b></div><div><span>등록</span><b>${fmt(a.created)}</b></div><div><span>업데이트</span><b>${fmt(a.updated)}</b></div></div>
+    ${factsRow(source)}
     ${images?`<div class="shots real-shots">${images}</div>`:source.is_example?`<div class="shots">${[0,1,2].map(n=>shot(a,n)).join('')}</div>`:''}
     ${videoSection(source)}
     <div class="desc"><p class="multiline">${a.desc}</p>${a.author_name?`<p class="creator">제작 · ${a.author_name}</p>`:''}</div>
@@ -657,6 +658,14 @@ function openApp(id){
   show(appSheet);
   if (window.ChamTools) window.ChamTools.mountReviews($('#reviewBox'), source);
   else $('#reviewBox .review-body').innerHTML = '<p class="muted">리뷰를 불러오지 못했어요.</p>';
+}
+// 앱스토어 정보 줄처럼: 제목 · 아이콘 · 값 (교과 · 카테고리 · 개발자 · 적용 학년)
+function factsRow(app){
+  const subjects = app.subjects || [];
+  const subjectText = subjects.length > 2 ? `${subjects.slice(0,2).join('·')} 외 ${subjects.length-2}` : subjects.join('·');
+  const catIcon = CATS.find(c=>c.k===app.cat)?.icon || '🗂️';
+  const cell = (label, icon, value, title=value) => `<div><span>${label}</span><i aria-hidden="true">${icon}</i><b title="${escapeHtml(title)}">${escapeHtml(value || '—')}</b></div>`;
+  return `<div class="facts">${cell('교과','📖',subjectText,subjects.join(', '))}${cell('카테고리',catIcon,app.cat)}${cell('개발자','👤',app.author_name||'참쌤스쿨')}${cell('적용 학년','🎓',app.grade)}</div>`;
 }
 // 유튜브·비메오 주소는 화면 안에서 재생하고, 그 밖의 영상 주소는 새 창 링크로 연다
 function videoEmbed(url){

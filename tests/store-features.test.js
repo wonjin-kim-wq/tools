@@ -6,7 +6,7 @@ const handler = require('../api/tools');
 
 const sid = randomUUID();
 const shot = `uploads/${sid}/${randomUUID()}.jpg`;
-const app = () => ({name:'모둠 뽑기',web_url:'https://example.com/',demo_url:'',video_url:'',short:'모둠을 만들어요',description:'사용 방법',cat:'교실놀이',grade:'전학년',icon:'🎲',color:'#ffd23f',notes:[],screenshots:[{path:shot,caption:'시작 화면'}],author_name:'제작자',contact_email:''});
+const app = () => ({name:'모둠 뽑기',web_url:'https://example.com/',demo_url:'',video_url:'',short:'모둠을 만들어요',description:'사용 방법',cat:'교실놀이',subjects:['수학'],grade:'전학년',icon:'🎲',color:'#ffd23f',notes:[],screenshots:[{path:shot,caption:'시작 화면'}],author_name:'제작자',contact_email:''});
 const devRequest = () => ({title:'받아쓰기 채점기',requester_name:'김선생',contact_email:'teacher@example.com',cat:'교과 교육',grade:'2학년',purpose:'받아쓰기 시험을 빠르게 채점하고 싶어요.',features:'문항 입력\n자동 채점',reference_url:'',wanted_by:'12월',consent:true});
 
 test('intro video URL must be a public https address and featured is admin-only', () => {
@@ -15,6 +15,14 @@ test('intro video URL must be a public https address and featured is admin-only'
   assert.equal(validateApp({...app(),featured:true},{sessionId:sid}).featured,undefined);
   assert.equal(validateApp({...app(),featured:true,status:'approved'},{admin:true,sessionId:sid}).featured,true);
   assert.equal(validateApp({...app(),featured:'yes',status:'approved'},{admin:true,sessionId:sid}).featured,false);
+});
+
+test('subjects: several allowed values, required for new uploads, unknown values refused', () => {
+  assert.deepEqual(validateApp({...app(),subjects:['수학','실과(정보)','수학']},{sessionId:sid}).subjects,['수학','실과(정보)']);
+  assert.throws(()=>validateApp({...app(),subjects:[]},{sessionId:sid}));
+  assert.throws(()=>validateApp({...app(),subjects:['코딩']},{sessionId:sid}));
+  assert.throws(()=>validateApp({...app(),subjects:'수학'},{sessionId:sid}));
+  assert.deepEqual(validateApp({...app(),subjects:[],status:'approved'},{admin:true,sessionId:sid}).subjects,[]);
 });
 
 test('development requests need contact email, consent and a known category; status cannot be injected', () => {
