@@ -670,6 +670,7 @@ function layout(){
     a.el.style.left = Math.min(parseFloat(a.el.style.left)||0, W - cw)+'px';
   });
   $('#empty').hidden = shown.length > 0;
+  $('#total').textContent = shown.length;   // 고른 분류·학교급·검색어에 맞는 웹앱 수
   const rows = Math.max(1, Math.ceil(shown.length/cols));
   let ch = 124;
   if (!mobile){
