@@ -387,6 +387,7 @@ body{padding-left:var(--side)}
   .scene{top:64px;scale:.8}
   .pod::after{top:78px;width:48px;margin-left:-24px}
   .m-cat{display:inline}
+  .m-cat + .date:not(:empty)::before{content:" · "}
   .chip{display:none}
   .txt h2{font-size:15.5px;margin-top:3px}
   .txt p{font-size:12.5px;margin-top:3px}
@@ -604,7 +605,7 @@ function renderCatalog(){
     el.innerHTML = `
       <span class="rank-badge" hidden aria-hidden="true"></span><span class="rank-move" hidden></span>
       <div class="pod"><div class="photo-card">${a.screenshots?.[0]?.url?`<img src="${escapeHtml(a.screenshots[0].url)}" alt="${escapeHtml(a.name)} 썸네일" loading="lazy">`:`<span>${escapeHtml(a.name.slice(0,2))}<small>썸네일 준비 중</small></span>`}</div></div>
-      <div class="txt"><div class="when"><span class="m-cat">${escapeHtml(a.cat)} · </span><span class="date"></span></div>
+      <div class="txt"><div class="when"><span class="m-cat">${escapeHtml(a.cat)}</span><span class="date"></span></div>
       <h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p><span class="chip">${escapeHtml(a.cat)}</span>${a.rating_count?`<span class="card-rating" aria-label="평균 별점 5점 만점에 ${a.rating_avg}점, ${a.rating_count}개의 평가">★ ${a.rating_avg.toFixed(1)} <small>(${a.rating_count})</small></span>`:''}</div>`;
     grid.appendChild(el); a.el = el;
   });
@@ -730,7 +731,10 @@ function layout(){
       left: c*(cw+gap)+'px', top: r*(ch+gap)+'px',
       transitionDelay: `${i*30}ms,${i*30}ms,0s,0s,0s`
     });
-    a.el.querySelector('.date').textContent = key==='popular' ? `${PERIODS[period].label} 사용 ${popCount(a,'cur').toLocaleString()}회` : `${key==='created'?'등록':'업데이트'} ${fmt(a[key])}`;
+    let cardMeta = '';
+    if (key === 'popular') cardMeta = `${PERIODS[period].label} 사용 ${popCount(a,'cur').toLocaleString()}회`;
+    if (key === 'updated') cardMeta = `업데이트 ${fmt(a.updated)}`;
+    a.el.querySelector('.date').textContent = cardMeta;
   });
   grid.style.height = shown.length ? (rows*ch + (rows-1)*gap) + 'px' : '0px';
   moveKnob();
