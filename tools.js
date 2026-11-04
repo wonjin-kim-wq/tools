@@ -36,9 +36,11 @@
     try {
       const data = await api('apps');
       apps.splice(0, apps.length, ...data.apps.map(normalize));
-      renderCatalog(); layout(); banner.hidden = true;
+      appsLoading = false; renderCatalog(); layout(); banner.hidden = true;
     } catch {
-      apps.forEach(a => { if (!a.created_at) a.is_example = true; });
+      // 서버 목록을 못 불러올 때만 예시 목록을 보여 준다
+      apps.splice(0, apps.length, ...EXAMPLE_APPS.map(a => ({ ...a, is_example: true })));
+      appsLoading = false; renderCatalog(); layout();
       banner.textContent = '최신 목록을 불러오지 못했어요. 연결을 확인한 뒤 새로고침해 주세요. 현재는 예시 목록을 보여드려요.';
       banner.hidden = false;
     }
