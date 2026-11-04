@@ -14,7 +14,9 @@
   --shadow-h:0 12px 32px rgba(16,24,40,.09);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
+/* 스크롤바가 화면 폭을 차지하는 컴퓨터(윈도우 등)에서도 폭이 변하지 않게 자리를 항상 잡아 둔다.
+   그러지 않으면 '스크롤바 생김 → 폭 줄어 카드 재배치 → 높이 변해 스크롤바 사라짐'이 반복되며 카드가 위아래로 떨린다. */
+html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable}
 body{background:var(--bg);color:var(--ink);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;
   font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
 button,input{font:inherit;color:inherit}
@@ -243,7 +245,8 @@ body{padding-left:var(--side)}
 .cat.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .cat.on .ic{background:rgba(255,255,255,.14)}
 .cat.on small{color:rgba(255,255,255,.65)}
-.card:hover{box-shadow:var(--shadow-h);border-color:var(--line2);transform:translateY(-2px)}
+/* 마우스를 올려도 카드를 움직이지 않는다. 카드 아래쪽 끝에 커서가 있으면 올라감·내려옴이 반복되며 떨리기 때문 */
+.card:hover{box-shadow:var(--shadow-h);border-color:var(--line2)}
 .card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .pod{position:relative;flex:none;width:126px;height:140px}
 .pod::after{content:"";position:absolute;left:50%;top:86px;width:60px;height:14px;margin-left:-30px;border-radius:50%;
@@ -726,7 +729,15 @@ function scheduleLayout(){if(!layoutFrame)layoutFrame=requestAnimationFrame(()=>
 addEventListener('resize', scheduleLayout);
 mobileMQ.addEventListener('change', scheduleLayout);
 let observedWidth=grid.clientWidth;
-new ResizeObserver(entries=>{const width=entries[0].contentRect.width;if(width!==observedWidth){observedWidth=width;scheduleLayout();}}).observe(grid);   // 화면 폭이 바뀌는 모든 경우(회전·창 크기·확대)에 다시 배치
+// 스크롤바 때문에 두 폭 사이를 짧은 시간에 오가면(scrollbar-gutter를 지원하지 않는 브라우저) 다시 배치하지 않는다
+let prevWidth=-1,widthChangedAt=0;
+new ResizeObserver(entries=>{
+  const width=entries[0].contentRect.width,now=performance.now();
+  if(width===observedWidth)return;
+  const flapping=width===prevWidth&&now-widthChangedAt<1000&&Math.abs(width-observedWidth)<=24;
+  prevWidth=observedWidth;observedWidth=width;widthChangedAt=now;
+  if(!flapping)scheduleLayout();
+}).observe(grid);   // 화면 폭이 바뀌는 모든 경우(회전·창 크기·확대)에 다시 배치
 
 periodEl.addEventListener('click', e=>{
   const b = e.target.closest('[data-p]'); if (!b || b.dataset.p===period) return;
