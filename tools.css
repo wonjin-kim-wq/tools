@@ -27,6 +27,8 @@
 .photo-card img{display:block;width:100%;height:100%;object-fit:cover}.photo-card>span{height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:28px;font-weight:800}.photo-card small{font-size:8px;margin-top:5px;font-weight:500}.pod::after{display:none}@keyframes photo-float{0%,100%{transform:translateY(0) rotate(-9deg)}50%{transform:translateY(-7px) rotate(-6deg)}}
 .thumbnail-big{overflow:hidden}.thumbnail-big img,.preview-thumb{width:100%;height:100%;object-fit:cover;border-radius:inherit}.thumbnail-drop{margin-bottom:22px}.membership-state{background:#fff7d6;padding:14px;border-radius:12px;font-size:14px;line-height:1.8;margin:22px 0}
 @media(max-width:640px){.photo-card{width:67px;height:67px;left:12px;top:22px;border-radius:14px}}
+/* 움직임 줄이기 설정(윈도우 '애니메이션 표시' 끔 등)에서는 위의 전체 규칙이 무한 반복 애니메이션을 0.01ms로 줄여 썸네일이 매 프레임 위아래로 떨린다. 썸네일 둥실거림은 멈춘다 */
+@media(prefers-reduced-motion:reduce){.photo-card{animation:none!important}}
 
 .rank-badge{position:absolute;left:8px;top:8px;z-index:2;display:inline-flex;align-items:center;padding:3px 7px;border-radius:7px;font-size:11px;font-weight:800;line-height:1.4;background:#fff2bf;color:#805800;border:1px solid #ead58a;box-shadow:0 2px 5px #1018280c;pointer-events:none;white-space:nowrap}.rank-badge[data-rank="2"]{background:#f0f3f6;color:#526170;border-color:#d7dfe6}.rank-badge[data-rank="3"]{background:#faebdf;color:#976039;border-color:#eacdb7}
 .visit-stats{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px 24px;padding:0 0 30px;color:var(--sub);font-size:12px}.visit-stats b{margin-left:5px;color:var(--ink);font-variant-numeric:tabular-nums}.visit-stats small{width:100%;text-align:center;font-size:11px;color:var(--sub)}
