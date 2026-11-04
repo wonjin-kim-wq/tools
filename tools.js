@@ -50,7 +50,7 @@
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role && !['login','member','setup','devreq','inquiry'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">업로드 요청(Excel)</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="inquiries" class="${active==='inquiries'?'active':''}">기타 문의</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup','devreq','inquiry'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button>${BULK_ENABLED?`<button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">업로드 요청(Excel)</button>`:'<button type="button" disabled aria-disabled="true" title="아직 준비 중이에요">업로드 요청(Excel) <span class="wip">공사중</span></button>'}<button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="inquiries" class="${active==='inquiries'?'active':''}">기타 문의</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
     return revision;
   }
@@ -217,7 +217,7 @@
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
     state.shots = (row?.screenshots || []).map(s=>({...s,key:crypto.randomUUID()}));
     openShell(row?'요청 검토 · 내용 수정':'웹앱 업로드 요청',row?'내용을 확인하고 상태를 선택해 저장해 주세요.':'만든 웹앱을 소개해 주세요. 승인 후 참코딩에 함께 올라가요.','upload');
-    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':`<div class="bulk-entry"><div><b>엑셀로 여러 개 한 번에 올리기</b><p>양식은 다음 화면에서 받을 수 있어요. AI에게 작성을 맡기고, 작성된 엑셀과 이미지를 함께 올리면 바로 승인 대기로 등록돼요.</p></div><button type="button" class="btn solid" data-view="bulk">업로드 요청(Excel)</button></div>`}
+    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':`<div class="bulk-entry"><div><b>엑셀로 여러 개 한 번에 올리기</b><p>양식은 다음 화면에서 받을 수 있어요. AI에게 작성을 맡기고, 작성된 엑셀과 이미지를 함께 올리면 바로 승인 대기로 등록돼요.</p></div>${BULK_ENABLED?'<button type="button" class="btn solid" data-view="bulk">업로드 요청(Excel)</button>':'<button type="button" class="btn solid" disabled aria-disabled="true">업로드 요청(Excel) <span class="wip">공사중</span></button>'}</div>`}
       <div class="form-intro"><span>01</span><div><h3>기본 정보</h3><p>예시 앱의 카드와 상세 화면에 표시될 내용이에요.</p></div></div>
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
@@ -344,6 +344,8 @@
   /* ===== 엑셀 일괄 업로드 =====
      양식(assets/chamcoding-upload-template.xlsx, scripts/make-upload-template.py로 생성)의 '웹앱 목록' 시트를 브라우저에서 읽고,
      '이미지 파일' 열에 적힌 이름과 함께 고른 이미지 파일을 짝지어 한 줄씩 업로드 요청을 보낸다. 서버 검증은 일반 요청과 같다. */
+  // 엑셀 일괄 업로드는 아직 쓰지 않는다(사용자 결정). 버튼은 '공사중'으로 보여주고 막아 둔다. 다시 열 때 true로 바꾼다.
+  const BULK_ENABLED=false;
   const TEMPLATE_URL='/assets/chamcoding-upload-template.xlsx';
   const BULK_COLUMNS={'앱 이름':'name','제작자 이름':'author_name','웹앱 주소':'web_url','체험하기 주소':'demo_url','소개 영상 주소':'video_url','카테고리':'cat','교과':'subjects','적용 학년':'grade','대표 색상':'color','한 줄 소개':'short','상세 설명':'description','새로운 소식':'notes','연락 이메일':'contact_email','이미지 파일':'images','이미지 설명':'captions'};
   // 양식의 '작성 안내' 시트(scripts/make-upload-template.py)에 넣은 안내문과 같은 내용
@@ -666,7 +668,7 @@
     if(button.dataset.devSave){await saveDevRequest(button);return;}
     if(button.dataset.inquirySave){await saveInquiry(button);return;}
     if(button.dataset.view){
-      if(button.dataset.view==='bulk'){bulkView();return;}
+      if(button.dataset.view==='bulk'){if(BULK_ENABLED)bulkView();return;}
       if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='inquiries')await inquiryQueueView();else if(button.dataset.view==='inquiry')inquiryForm();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
     }
     if(button.hasAttribute('data-preview'))return preview();
