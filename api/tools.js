@@ -382,3 +382,5 @@ async function handler(req, res) {
   }
 }
 module.exports = handler;
+// api/autofill.js(무거운 브라우저를 담은 별도 함수)가 같은 권한·요청 제한 검사를 쓴다.
+module.exports.internals = { assertMutation, isConfigured, requireRole, rate, session };
