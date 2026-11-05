@@ -52,7 +52,7 @@
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role && !['login','member','setup','devreq','inquiry'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="inquiries" class="${active==='inquiries'?'active':''}">기타 문의</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup','devreq','inquiry'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">일괄 업로드</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="inquiries" class="${active==='inquiries'?'active':''}">기타 문의</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
     return revision;
   }
@@ -61,7 +61,7 @@
     workspace.close(); document.body.style.overflow = ''; lastFocus?.focus();
   }
   workspace.addEventListener('cancel', e => { if (state.busy) e.preventDefault(); });
-  workspace.addEventListener('close', () => { viewRevision++; document.body.style.overflow = ''; state.shots.forEach(revokePreview); state.shots = []; state.aiFill = null; });
+  workspace.addEventListener('close', () => { viewRevision++; document.body.style.overflow = ''; state.shots.forEach(revokePreview); state.shots = []; state.bulk?.cards.forEach(c=>c.shots.forEach(revokePreview)); state.bulk = null; });
   function errorIn(form, error) {
     const target = form.querySelector('.form-error');
     if (target) { target.textContent = error.message; target.hidden = false; target.scrollIntoView({block:'nearest'}); }
@@ -104,7 +104,7 @@
       if(revision!==viewRevision||!workspace.open)return;
       if(view==='admin'&&state.role!=='admin')return login('admin','queue');
       if(!state.role)return login('uploader',view);
-      if(view==='upload')uploadForm();else await queueView();
+      if(view==='upload')uploadForm();else if(view==='bulk')bulkView();else await queueView();
     } catch(error){if(revision===viewRevision)errorIn($('#workspaceBody'),error);}
   }
   function login(kind, next) {
@@ -122,7 +122,7 @@
       const body = Object.fromEntries(new FormData(form)); body.kind = kind;
       const data = await api('login',{method:'POST',body}); state.role=data.role; syncChrome(); form.reset();
       // Leave withBusy before rendering the next form.
-      if (next==='upload') uploadForm(); else await queueView();
+      if (next==='upload') uploadForm(); else if (next==='bulk') bulkView(); else await queueView();
     }); });
     form.querySelector('input')?.focus();
   }
@@ -212,36 +212,15 @@
     hidden.dispatchEvent(new Event('input',{bubbles:true}));   // 임시 저장(초안)도 갱신
   });
   const field = (label,name,value,{required=true,type='text',max=200,placeholder='',help=''}={}) => `<label class="field"><span>${label}${required?' <b class="required">*</b>':''}</span><input name="${name}" type="${type}" value="${esc(value||'')}" ${required?'required':''} maxlength="${max}" placeholder="${esc(placeholder)}">${help?`<small class="field-help">${help}</small>`:''}</label>`;
-  /* ===== AI 자동 채우기(베타) =====
-     주소를 보내면 서버(api/autofill.js)가 앱을 열어 첫 화면을 캡처하고 Claude로 폼 초안을 만든다.
-     채운 칸은 노란색으로 표시하고, 제작자 이름·연락 이메일·동의 체크는 사람이 직접 한다. */
-  const aiFillBox = url => `<section class="ai-fill" aria-labelledby="aiFillTitle"><div class="ai-fill-head"><b id="aiFillTitle">✨ 주소만 넣으면 AI가 채워 줘요</b><span class="beta">베타</span></div>
-      <p>웹앱 주소를 넣으면 AI가 앱을 열어 보고 이름·소개·설명·카테고리·교과·학년과 첫 화면 스크린샷을 채워요. AI가 쓴 내용은 꼭 확인하고 고쳐 주세요.</p>
-      <div class="ai-fill-row"><input id="aiFillUrl" type="url" inputmode="url" maxlength="2000" value="${esc(url||'')}" placeholder="https://my-app.vercel.app" aria-label="AI로 채울 웹앱 주소"><button type="button" class="btn solid" data-ai-fill>AI로 채우기</button></div>
-      <p class="ai-fill-status" role="status" aria-live="polite"></p></section>`;
-  /* ===== 내 AI로 업로드 준비하기 =====
-     업로더가 Claude Code·Codex·ChatGPT Work 같은 AI에 붙여 넣어, 바탕화면에 스크린샷과 폼 내용을 준비하게 하는 프롬프트.
-     폼 규칙(카테고리·교과·학년 형식·글자 수·사진 6장)이 바뀌면 이 문구도 함께 고친다. */
-  const prepPrompt = () => `너는 내 웹앱을 '참코딩'(https://tools-one-nu.vercel.app/) 웹앱 목록에 올리기 위한 업로드 준비를 돕는 조수야.
-
-[내 웹앱 주소]
-웹앱 주소: (여기에 내 웹앱 주소를 붙여 넣으세요)
-
-[해야 할 일]
-1. 위 주소를 브라우저로 열고, 첫 화면과 주요 메뉴·기능을 직접 눌러 보며 어떤 앱인지 파악해 줘.
-   - 로그인·결제·이메일 전송·제출·삭제 같은 버튼은 누르지 마.
-   - 실제 개인정보는 입력하지 마. 입력해야만 다음 화면이 열리면 teacher@example.com, 학생1 같은 예시 값만 써.
-2. 스크린샷을 최대 6장 찍어 줘(대표 썸네일 포함).
-   - 01번 대표 썸네일: 창을 정사각형(예: 900×900)으로 맞추고 첫 화면을 찍어. 목록 카드에 정사각형으로 보여.
-   - 02~06번: 1280×800 정도 창에서 메인 화면과 핵심 기능이 실제로 동작하는 화면을 골라 찍어. 시작 설정 화면보다 버튼을 눌러 결과·진행 상황이 보이는 화면이 좋아.
-   - PNG 또는 JPG, 장당 15MB 이하. 학생 이름·얼굴 같은 개인정보가 보이면 그 화면은 빼.
-3. 바탕화면에 '참코딩 업로드 준비' 폴더를 만들고 그 안에 앱 이름 폴더를 만들어 줘. 사진은 01-대표썸네일.png, 02-메인화면.png처럼 순서와 내용이 보이는 이름으로 저장해.
-4. 같은 폴더에 '업로드 내용.md'를 만들고, 아래 업로드 폼 칸을 순서대로 채워 줘. 폼에 바로 복사해 붙일 수 있게 칸마다 내용을 따로 적어.
-
-[업로드 폼 칸과 규칙]
-- 앱 이름: 60자 이내
+  /* ===== 내 AI에게 업로드 준비 맡기기 =====
+     업로더가 Claude Code·Codex·ChatGPT Work 같은 AI에 붙여 넣어 스크린샷과 폼 내용을 준비하게 하는 프롬프트(한 개용·일괄용).
+     폼 규칙(카테고리·교과·학년 형식·글자 수·사진 수)이 바뀌면 promptRules 문구도 함께 고친다. */
+  const BULK_MAX_CARDS=12, BULK_MAX_IMAGES=36;   // 서버의 시간당 제한(요청 12회·이미지 36장)에 맞춘다
+  const promptSafety = `   - 로그인·결제·이메일 전송·제출·삭제 같은 버튼은 누르지 마.
+   - 실제 개인정보는 입력하지 마. 입력해야만 다음 화면이 열리면 teacher@example.com, 학생1 같은 예시 값만 써.`;
+  const promptRules = () => `- 앱 이름: 60자 이내
 - 제작자 이름: 화면에서 확실히 알 수 없으면 '직접 입력'이라고 남겨
-- 웹앱 주소: 위 주소(https://로 시작)
+- 웹앱 주소: 앱 주소(https://로 시작)
 - 체험하기 주소: 체험용 주소가 따로 있을 때만
 - 소개 영상 주소: 사이트에 유튜브·비메오 링크가 실제로 있을 때만
 - 카테고리(하나): ${CATS.filter(c=>c.k!=='all').map(c=>c.name).join(' / ')}
@@ -252,75 +231,204 @@
 - 상세 설명: 앱의 목적 → 사용 방법(화면의 버튼·단계) → 수업 활용 팁 순서, 해요체, 6000자 이내. 화면에서 확인하지 못한 기능은 지어내지 마
 - 새로운 소식 · 변경 사항: 한 줄에 하나, 최대 12줄(알 수 없으면 비워 둬)
 - 스크린샷 설명: 사진마다 한 문장, 250자 이내
-- 연락 이메일과 '공개 권한·개인정보 확인' 체크는 내가 직접 할 테니 비워 둬
+- 연락 이메일과 '공개 권한·개인정보 확인' 체크는 내가 직접 할 테니 비워 둬`;
+  const promptChat = what => `[Codex·Claude Code가 아닌 일반 채팅인 경우]
+바탕화면에 폴더를 만들 수 없으면, 이 채팅 안에서 쓸 수 있는 기능(웹 브라우징, 코드 실행, 인앱 브라우저 등)으로 위 작업을 똑같이 진행해 줘.
+- 찍은 스크린샷은 파일 이름(01-대표썸네일.png 등)을 붙여 이 채팅에 이미지 파일로 바로 보내 줘. 여러 장이면 zip으로 묶어 내려받을 수 있게 해도 좋아.
+- '${what}'도 파일로 만들어 채팅에 보내 주고, 같은 내용을 칸별로 채팅에도 적어 줘. 나는 채팅에서 바로 저장해서 업로드 폼에 쓸 거야.
+- 이 채팅에서 사이트를 열거나 캡처할 수 없으면 먼저 그렇다고 말해 줘. 그때는 내가 직접 찍을 스크린샷 목록(어떤 화면, 몇 장)을 알려 주고, 사이트 내용을 볼 수 없으면 지어내지 말고 나에게 앱 설명을 물어봐.`;
+  const prepPrompt = () => `너는 내 웹앱을 '참코딩'(https://tools-one-nu.vercel.app/) 웹앱 목록에 올리기 위한 업로드 준비를 돕는 조수야.
+
+[내 웹앱 주소]
+웹앱 주소: (여기에 내 웹앱 주소를 붙여 넣으세요)
+
+[해야 할 일]
+1. 위 주소를 브라우저로 열고, 첫 화면과 주요 메뉴·기능을 직접 눌러 보며 어떤 앱인지 파악해 줘.
+${promptSafety}
+2. 스크린샷을 최대 6장 찍어 줘(대표 썸네일 포함).
+   - 01번 대표 썸네일: 창을 정사각형(예: 900×900)으로 맞추고 첫 화면을 찍어. 목록 카드에 정사각형으로 보여.
+   - 02~06번: 1280×800 정도 창에서 메인 화면과 핵심 기능이 실제로 동작하는 화면을 골라 찍어. 시작 설정 화면보다 버튼을 눌러 결과·진행 상황이 보이는 화면이 좋아.
+   - PNG 또는 JPG, 장당 15MB 이하. 학생 이름·얼굴 같은 개인정보가 보이면 그 화면은 빼.
+3. 바탕화면에 '참코딩 업로드 준비' 폴더를 만들고 그 안에 앱 이름 폴더를 만들어 줘. 사진은 01-대표썸네일.png, 02-메인화면.png처럼 순서와 내용이 보이는 이름으로 저장해.
+4. 같은 폴더에 '업로드 내용.md'를 만들고, 아래 업로드 폼 칸을 순서대로 채워 줘. 폼에 바로 복사해 붙일 수 있게 칸마다 내용을 따로 적어.
+
+[업로드 폼 칸과 규칙]
+${promptRules()}
 
 [마지막에 알려 줄 것]
 - 만든 폴더 위치와 파일 목록
 - 내가 직접 확인하거나 고쳐야 할 칸(추정한 학년, 제작자 이름 등)
 
-[Codex·Claude Code가 아닌 일반 채팅인 경우]
-바탕화면에 폴더를 만들 수 없으면, 이 채팅 안에서 쓸 수 있는 기능(웹 브라우징, 코드 실행, 인앱 브라우저 등)으로 위 1~2번을 똑같이 진행해 줘.
-- 찍은 스크린샷은 파일 이름(01-대표썸네일.png 등)을 붙여 이 채팅에 이미지 파일로 바로 보내 줘. 여러 장이면 zip으로 묶어 내려받을 수 있게 해도 좋아.
-- '업로드 내용.md'도 파일로 만들어 채팅에 보내 주고, 같은 내용을 칸별로 채팅에도 적어 줘. 나는 채팅에서 바로 저장해서 업로드 폼에 쓸 거야.
-- 이 채팅에서 사이트를 열거나 캡처할 수 없으면 먼저 그렇다고 말해 줘. 그때는 내가 직접 찍을 스크린샷 목록(어떤 화면, 몇 장)을 알려 주고, 사이트 내용을 볼 수 없으면 지어내지 말고 나에게 앱 설명을 물어봐.`;
-  const prepBox = () => `<section class="ai-prep" aria-labelledby="aiPrepTitle"><div class="ai-fill-head"><b id="aiPrepTitle">🤖 내 AI에게 업로드 준비 맡기기</b></div>
-      <ol class="ai-prep-steps"><li><b>프롬프트 복사</b>를 누르고, 프롬프트의 <b>웹앱 주소:</b> 뒤에 내 앱 주소를 넣어 주세요.</li>
-      <li><b>Claude Code, Codex, ChatGPT Work(에이전트)</b>처럼 컴퓨터·브라우저를 다룰 수 있는 AI에 붙여 넣으면, 바탕화면 <b>'참코딩 업로드 준비'</b> 폴더에 스크린샷과 '업로드 내용.md'가 만들어져요.</li>
-      <li>만들어진 사진과 내용을 아래 폼에 넣고 업로드 요청을 보내 주세요.</li></ol>
+${promptChat('업로드 내용.md')}`;
+  const bulkPrompt = () => `너는 내 웹앱 여러 개를 '참코딩'(https://tools-one-nu.vercel.app/) 웹앱 목록에 한 번에 올리기 위한 일괄 업로드 준비를 돕는 조수야.
+
+[내 웹앱 주소 목록] 한 줄에 하나씩, 최대 ${BULK_MAX_CARDS}개
+1. (여기에 웹앱 주소를 붙여 넣으세요)
+2. (두 번째 웹앱 주소)
+3. (필요한 만큼 줄을 늘려 주세요)
+
+[해야 할 일]
+1. 목록의 주소를 순서대로 하나씩 브라우저로 열고, 첫 화면과 주요 메뉴·기능을 직접 눌러 보며 어떤 앱인지 파악해 줘.
+${promptSafety}
+2. 앱마다 스크린샷을 찍어 줘.
+   - 01번 대표 썸네일: 창을 정사각형(예: 900×900)으로 맞추고 첫 화면을 찍어. 목록 카드에 정사각형으로 보여.
+   - 02번부터: 1280×800 정도 창에서 메인 화면과 핵심 기능이 실제로 동작하는 화면(버튼을 눌러 결과·진행 상황이 보이는 화면)을 골라 찍어.
+   - 앱당 최대 6장, 모든 앱을 합쳐 ${BULK_MAX_IMAGES}장 이하. 앱이 7개 이상이면 앱당 3~4장으로 줄여 합계를 맞춰.
+   - PNG 또는 JPG, 장당 15MB 이하. 학생 이름·얼굴 같은 개인정보가 보이면 그 화면은 빼.
+3. 바탕화면에 '참코딩 업로드 준비/일괄 업로드' 폴더를 만들고, 앱마다 '01-앱 이름', '02-앱 이름'처럼 목록 순서가 보이는 폴더를 만들어 사진을 저장해. 사진 이름은 01-대표썸네일.png, 02-메인화면.png처럼 순서와 내용이 보이게 지어.
+4. '일괄 업로드' 폴더에 '일괄 업로드 내용.md'를 만들어 줘. 앱마다 '## 앱 1 — 앱 이름' 제목 아래에 업로드 카드 칸을 순서대로 채우고, 사진 파일 이름과 사진별 설명도 적어 줘. 나는 참코딩 일괄 업로드 화면에서 '웹앱 카드 추가'로 카드를 앱 수만큼 만들고 같은 번호 카드에 칸마다 복사해 붙일 거야.
+
+[업로드 카드 칸과 규칙] 앱마다 아래 칸을 채워 줘
+${promptRules()}
+
+[마지막에 알려 줄 것]
+- 만든 폴더 위치와 앱별 파일 목록, 전체 사진 수
+- 열지 못했거나 로그인이 필요해 제대로 보지 못한 앱
+- 내가 직접 확인하거나 고쳐야 할 칸(추정한 학년, 제작자 이름 등)
+
+${promptChat('일괄 업로드 내용.md')}`;
+  const promptBox = ({id,title,steps,prompt,folder}) => `<section class="ai-prep" aria-labelledby="${id}Title"><div class="ai-prep-head"><b id="${id}Title">${title}</b></div>
+      <ol class="ai-prep-steps">${steps}<li><b>Claude Code, Codex, ChatGPT Work(에이전트)</b>처럼 컴퓨터·브라우저를 다룰 수 있는 AI에 붙여 넣으면, 바탕화면 <b>'${folder}'</b> 폴더에 스크린샷과 정리된 내용이 만들어져요.</li></ol>
       <p class="ai-prep-note">일반 AI 채팅(ChatGPT·Claude·Gemini 채팅창)은 바탕화면에 폴더를 만들 수 없어요. 대신 <b>채팅 안에서 캡처본과 정리된 내용을 파일로 보내 주니</b>, 채팅에서 바로 저장해 쓰세요. 채팅에서 사이트를 열지 못하면 <b>Claude Code나 ChatGPT Work</b>를 쓰거나 스크린샷을 직접 찍어 주세요.</p>
-      <textarea id="aiPrepPrompt" class="ai-prep-prompt" rows="8" readonly aria-label="업로드 준비 프롬프트">${esc(prepPrompt())}</textarea>
-      <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt>프롬프트 복사</button><span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
-  async function copyPrepPrompt() {
-    const area=$('#aiPrepPrompt'),done=workspace.querySelector('.ai-prep-copied');if(!area)return;
+      <textarea id="${id}" class="ai-prep-prompt" rows="8" readonly aria-label="${esc(title)} 프롬프트">${esc(prompt)}</textarea>
+      <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt="${id}">프롬프트 복사</button><span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
+  const prepBox = () => promptBox({id:'aiPrepPrompt',title:'🤖 내 AI에게 업로드 준비 맡기기',folder:'참코딩 업로드 준비',prompt:prepPrompt(),
+    steps:'<li><b>프롬프트 복사</b>를 누르고, 프롬프트의 <b>웹앱 주소:</b> 뒤에 내 앱 주소를 넣어 주세요.</li>'})
+    + '<div class="bulk-hint"><span>웹앱을 여러 개 올리나요?</span><button type="button" class="btn line" data-view="bulk">일괄 업로드로 이동</button></div>';
+  const bulkPromptBox = () => promptBox({id:'bulkPrepPrompt',title:'🤖 내 AI에게 일괄 업로드 준비 맡기기',folder:'참코딩 업로드 준비/일괄 업로드',prompt:bulkPrompt(),
+    steps:'<li><b>프롬프트 복사</b>를 누르고, <b>내 웹앱 주소 목록</b>에 올릴 앱 주소를 한 줄에 하나씩 넣어 주세요(최대 '+BULK_MAX_CARDS+'개).</li><li>AI가 만든 \'일괄 업로드 내용.md\'의 앱 순서대로 아래에서 <b>웹앱 카드 추가</b>를 눌러 카드를 만들고 칸마다 붙여 넣어 주세요.</li>'});
+  async function copyPrepPrompt(button) {
+    const area=$('#'+button.dataset.copyPrompt),done=button.parentElement.querySelector('.ai-prep-copied');if(!area)return;
     try{await navigator.clipboard.writeText(area.value);}
     catch{area.focus();area.select();document.execCommand('copy');}
     done.textContent='복사했어요. AI에 붙여 넣고 웹앱 주소를 채워 주세요.';toast('프롬프트를 복사했어요.');
   }
-  async function runAiFill() {
-    const input=$('#aiFillUrl'),button=workspace.querySelector('[data-ai-fill]'),status=workspace.querySelector('.ai-fill-status'),form=$('#appForm');
-    if(!input||!form||state.aiFill)return;
-    const url=input.value.trim();
-    if(!/^https:\/\/[^\s/]+\.[^\s]+/.test(url)){status.textContent='https://로 시작하는 웹앱 주소를 넣어 주세요.';status.dataset.tone='error';input.focus();return;}
-    const revision=viewRevision,started=Date.now();
-    state.aiFill={url};button.disabled=true;button.textContent='살펴보는 중…';input.readOnly=true;status.dataset.tone='';
-    const tick=()=>{status.textContent=`AI가 앱을 열어 살펴보고 있어요… ${Math.round((Date.now()-started)/1000)}초 (보통 20~40초 걸려요)`;};
-    tick();const timer=setInterval(tick,1000);
-    try{
-      const response=await fetch('/api/autofill',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({url}),signal:AbortSignal.timeout(90000)});
-      let data;try{data=await response.json();}catch{throw new Error('서버 응답을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.');}
-      if(!response.ok){if(response.status===401){state.role=null;invalidateSession();}throw new Error(data.error||'AI 자동 채우기에 실패했어요.');}
-      if(revision!==viewRevision||!workspace.open||$('#appForm')!==form)return;
-      applyAiFill(form,url,data);
-      status.textContent='AI가 채운 칸을 노란색으로 표시했어요. 내용을 확인하고 고쳐 주세요. 제작자 이름과 연락 이메일은 직접 입력해 주세요.';status.dataset.tone='done';
-    }catch(error){
-      if(revision!==viewRevision)return;
-      status.textContent=error.name==='TimeoutError'?'시간이 너무 오래 걸려 멈췄어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.':error.message;status.dataset.tone='error';
-    }finally{
-      clearInterval(timer);state.aiFill=null;
-      if(revision===viewRevision&&button.isConnected){button.disabled=false;button.textContent='AI로 채우기';input.readOnly=false;}
-    }
+
+  /* ===== 일괄 업로드 =====
+     카드 하나가 웹앱 하나. 아래 '웹앱 카드 추가'로 업로더가 개수를 정한다(최대 12개, 사진 합계 36장).
+     보낼 때는 카드마다 일반 업로드와 같은 API(upload → submit)를 차례로 부르고, 보낸 카드는 잠가 다시 보내지 않는다. */
+  const bulkCardOf = el => state.bulk?.cards.find(c=>c.key===el.dataset.card);
+  function bulkCardHtml(card, author='') {
+    return `<article class="bulk-card" data-card="${card.key}">
+      <header class="bulk-card-head"><span class="bulk-no"></span><b class="bulk-name">새 웹앱</b><span class="bulk-state" role="status"></span><button type="button" class="bulk-remove" data-card-remove="${card.key}">카드 삭제</button></header>
+      <div class="form-grid">${field('앱 이름','name','',{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',author,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
+      ${field('웹앱 주소','web_url','',{type:'url',max:2000,placeholder:'https://my-app.vercel.app'})}
+      <div class="form-grid">${field('체험하기 주소','demo_url','',{required:false,type:'url',max:2000,placeholder:'https://…'})}${field('소개 영상 주소','video_url','',{required:false,type:'url',max:2000,placeholder:'https://youtu.be/…'})}</div>
+      <div class="form-grid"><label class="field"><span>카테고리 <b class="required">*</b></span><select name="cat" required>${CATS.filter(c=>c.k!=='all').map(c=>`<option value="${c.k}">${c.icon} ${c.name}</option>`).join('')}</select></label>${gradeField('')}</div>
+      <fieldset class="field subject-pick"><legend>교과 <b class="required">*</b> <small>여러 개 고를 수 있어요</small></legend><div class="subject-list">${SUBJECTS.map(v=>`<label><input type="checkbox" name="subjects" value="${esc(v)}"><span>${esc(v)}</span></label>`).join('')}</div></fieldset>
+      ${field('대표 색상','color','#ffd23f',{type:'color',max:7})}
+      ${field('한 줄 소개','short','',{max:160,placeholder:'어떤 수업에서 어떻게 쓰는 앱인지 짧게 알려 주세요.'})}
+      <label class="field"><span>상세 설명 <b class="required">*</b></span><textarea name="description" rows="5" maxlength="6000" required placeholder="앱의 목적, 사용 방법, 준비물과 수업 활용 팁을 적어 주세요."></textarea></label>
+      <label class="field"><span>새로운 소식 · 변경 사항</span><textarea name="notes" rows="2" maxlength="3000" placeholder="한 줄에 한 가지씩, 최대 12개"></textarea></label>
+      <div class="bulk-shots" data-shots="${card.key}"></div>
+      <label class="file-drop"><span>＋ 사진 추가</span><small>첫 사진이 대표 썸네일(정사각형 카드)이에요 · 앱당 최대 6장 · PNG·JPG·WebP</small><input type="file" accept="image/png,image/jpeg,image/webp" multiple data-card-files="${card.key}"></label>
+    </article>`;
   }
-  function applyAiFill(form,url,{fields,screenshot}) {
-    const mark=el=>{if(el)el.classList.add('ai-filled');};
-    const set=(name,value)=>{const el=form.elements[name];if(el&&value){el.value=value;mark(el);}};
-    set('web_url',url);set('name',fields.name);set('short',fields.short);set('description',fields.description);set('cat',fields.cat);
-    if(fields.video_url&&!form.elements.video_url.value)set('video_url',fields.video_url);
-    if(fields.notes?.length&&!form.elements.notes.value.trim())set('notes',fields.notes.join('\n'));
-    form.querySelectorAll('input[name="subjects"]').forEach(box=>{box.checked=fields.subjects.includes(box.value);});
-    mark(form.querySelector('.subject-pick'));
-    const grade=form.querySelector('.grade-pick');
-    if(grade&&fields.grade){grade.outerHTML=gradeField(fields.grade);mark(form.querySelector('.grade-pick'));}
-    if(screenshot?.data){
-      // 다시 채우면 이전에 AI가 넣은 캡처를 바꾼다. 직접 올린 사진은 그대로 두고, 사진이 없을 때만 대표 썸네일이 된다.
-      state.shots.filter(s=>s.ai).forEach(revokePreview);state.shots=state.shots.filter(s=>!s.ai);
-      if(state.shots.length<6){
-        const bytes=Uint8Array.from(atob(screenshot.data),c=>c.charCodeAt(0));
-        const file=new File([bytes],'ai-first-screen.jpg',{type:screenshot.type||'image/jpeg'});
-        state.shots.push({file,preview:URL.createObjectURL(file),key:crypto.randomUUID(),caption:screenshot.caption||'첫 화면',ai:true});
-      }
-      renderShotEditor();
+  function bulkView() {
+    state.area='uploader';
+    state.bulk?.cards.forEach(c=>c.shots.forEach(revokePreview));
+    state.bulk={cards:[{key:crypto.randomUUID(),shots:[]}]};
+    openShell('웹앱 일괄 업로드','웹앱마다 카드를 하나씩 채워 한 번에 보내요. 모두 관리자 승인 후 공개돼요.','bulk');
+    $('#workspaceBody').innerHTML=`<form id="bulkForm" class="app-form bulk-form">${bulkPromptBox()}
+      <div class="form-intro"><span>01</span><div><h3>웹앱 카드</h3><p>카드 하나가 웹앱 하나예요. 아래 <b>웹앱 카드 추가</b>로 올릴 개수만큼 카드를 만들어 주세요.</p></div></div>
+      <div id="bulkCards" class="bulk-cards">${bulkCardHtml(state.bulk.cards[0])}</div>
+      <div class="bulk-add-row"><button type="button" class="btn line bulk-add" data-card-add>＋ 웹앱 카드 추가</button><small id="bulkCount" class="field-help"></small></div>
+      <div class="form-intro"><span>02</span><div><h3>연락과 검토</h3><p>연락 이메일은 모든 카드에 함께 쓰이고 관리자에게만 보여요.</p></div></div>
+      ${field('연락 이메일','contact_email','',{type:'email',required:false,max:254,placeholder:'teacher@school.kr'})}
+      <p class="field-help">카드마다 한 건씩 승인 대기로 등록돼요. 한 번에 웹앱 ${BULK_MAX_CARDS}개, 사진 합계 ${BULK_MAX_IMAGES}장까지 보낼 수 있어요.</p>
+      <label class="consent"><input name="consent" type="checkbox" required> 모든 앱과 스크린샷을 공개할 권한이 있으며, 학생의 개인정보가 포함되지 않았음을 확인했어요.</label>
+      <p class="form-error" role="alert" hidden></p><p class="upload-progress" role="status" aria-live="polite"></p>
+      <footer class="form-actions"><button type="submit" class="btn solid">일괄 업로드 요청 보내기</button></footer></form>`;
+    const form=$('#bulkForm');
+    form.addEventListener('input',e=>{
+      const cap=e.target.closest('[data-bulk-caption]');
+      if(cap){const [ck,sk]=cap.dataset.bulkCaption.split(':');const shot=state.bulk.cards.find(c=>c.key===ck)?.shots.find(s=>s.key===sk);if(shot)shot.caption=cap.value;}
+      if(e.target.name==='name'){const card=e.target.closest('.bulk-card');card.querySelector('.bulk-name').textContent=e.target.value.trim()||'새 웹앱';}
+    });
+    form.addEventListener('change',e=>{const input=e.target.closest('[data-card-files]');if(input){addBulkFiles(input.dataset.cardFiles,input.files);input.value='';}});
+    form.addEventListener('submit',e=>{e.preventDefault();withBusy(form,()=>sendBulk(form));});
+    renumberBulk();
+  }
+  function renumberBulk() {
+    const cards=[...workspace.querySelectorAll('.bulk-card')];
+    cards.forEach((el,i)=>{el.querySelector('.bulk-no').textContent=`앱 ${i+1}`;el.querySelector('.bulk-remove').hidden=cards.length<2||el.classList.contains('done');});
+    const images=state.bulk.cards.filter(c=>!c.done).reduce((n,c)=>n+c.shots.length,0);
+    const count=$('#bulkCount');if(count)count.textContent=`카드 ${cards.length}개 · 사진 ${images}장 (최대 ${BULK_MAX_CARDS}개 · ${BULK_MAX_IMAGES}장)`;
+    const add=workspace.querySelector('[data-card-add]');if(add)add.disabled=cards.length>=BULK_MAX_CARDS;
+  }
+  function addBulkCard() {
+    const cards=$('#bulkCards');if(!cards||state.bulk.cards.length>=BULK_MAX_CARDS)return;
+    const card={key:crypto.randomUUID(),shots:[]};state.bulk.cards.push(card);
+    // 제작자 이름은 대부분 같아서 마지막 카드의 값을 이어 쓴다
+    const last=[...cards.querySelectorAll('.bulk-card')].pop()?.querySelector('[name="author_name"]')?.value||'';
+    cards.insertAdjacentHTML('beforeend',bulkCardHtml(card,last));
+    renumberBulk();
+    const el=cards.lastElementChild;el.scrollIntoView({block:'start',behavior:'smooth'});el.querySelector('[name="name"]').focus({preventScroll:true});
+  }
+  function removeBulkCard(key) {
+    const i=state.bulk.cards.findIndex(c=>c.key===key);if(i<0||state.bulk.cards.length<2)return;
+    state.bulk.cards[i].shots.forEach(revokePreview);state.bulk.cards.splice(i,1);
+    workspace.querySelector(`.bulk-card[data-card="${key}"]`)?.remove();renumberBulk();
+  }
+  function renderBulkShots(card) {
+    const box=workspace.querySelector(`[data-shots="${card.key}"]`);if(!box)return;
+    box.innerHTML=card.shots.map((s,i)=>`<article class="shot-edit bulk-shot"><img src="${esc(s.preview||'')}" alt="${i===0?'대표 썸네일':`스크린샷 ${i+1}`} 미리보기"><div><label class="field"><span>${i===0?'대표 썸네일 설명':`스크린샷 ${i+1} 설명`} <b class="required">*</b></span><textarea data-bulk-caption="${card.key}:${s.key}" rows="2" maxlength="250" required placeholder="예: 학생 이름을 입력하고 모둠 수를 선택하는 시작 화면">${esc(s.caption||'')}</textarea></label><div class="shot-controls"><button type="button" data-bulk-shot="${card.key}:${s.key}" data-direction="-1" ${i===0?'disabled':''} aria-label="앞으로">↑</button><button type="button" data-bulk-shot="${card.key}:${s.key}" data-direction="1" ${i===card.shots.length-1?'disabled':''} aria-label="뒤로">↓</button><button type="button" data-bulk-shot-remove="${card.key}:${s.key}">삭제</button></div></div></article>`).join('');
+    renumberBulk();
+  }
+  function addBulkFiles(key,files) {
+    const card=state.bulk?.cards.find(c=>c.key===key),form=$('#bulkForm');if(!card)return;
+    if(card.shots.length+files.length>6)return errorIn(form,new Error('사진은 앱마다 최대 6장까지 넣을 수 있어요.'));
+    for(const file of files){
+      if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>15*1024*1024){errorIn(form,new Error('15MB 이하의 PNG, JPG, WebP 이미지를 선택해 주세요.'));continue;}
+      card.shots.push({file,preview:URL.createObjectURL(file),key:crypto.randomUUID(),caption:card.shots.length?'':'대표 썸네일'});
     }
-    saveDraft(form);
+    renderBulkShots(card);
+  }
+  function bulkShotAction(button) {
+    const [ck,sk]=(button.dataset.bulkShot||button.dataset.bulkShotRemove).split(':');
+    const card=state.bulk?.cards.find(c=>c.key===ck);if(!card)return;
+    const i=card.shots.findIndex(s=>s.key===sk);if(i<0)return;
+    if(button.dataset.bulkShotRemove){revokePreview(card.shots[i]);card.shots.splice(i,1);}
+    else{const t=i+Number(button.dataset.direction);if(t<0||t>=card.shots.length)return;[card.shots[i],card.shots[t]]=[card.shots[t],card.shots[i]];}
+    renderBulkShots(card);
+  }
+  async function sendBulk(form) {
+    const els=[...form.querySelectorAll('.bulk-card')],todo=els.filter(el=>!bulkCardOf(el).done);
+    if(!todo.length)return;
+    const label=el=>`${el.querySelector('.bulk-no').textContent}(${el.querySelector('[name="name"]').value.trim()||'이름 없음'})`;
+    for(const el of todo){
+      const card=bulkCardOf(el);
+      if(!card.shots.length)throw new Error(`${label(el)}: 사진을 1장 이상 넣어 주세요. 첫 사진이 대표 썸네일이에요.`);
+      if(card.shots.some(s=>!s.caption?.trim()))throw new Error(`${label(el)}: 모든 사진에 설명을 적어 주세요.`);
+      if(!el.querySelectorAll('input[name="subjects"]:checked').length)throw new Error(`${label(el)}: 교과를 하나 이상 골라 주세요.`);
+    }
+    if(todo.reduce((n,el)=>n+bulkCardOf(el).shots.length,0)>BULK_MAX_IMAGES)throw new Error(`사진은 한 번에 ${BULK_MAX_IMAGES}장까지 보낼 수 있어요. 카드를 나눠 보내 주세요.`);
+    form.querySelector('.form-error').hidden=true;
+    const progress=form.querySelector('.upload-progress'),contact=form.querySelector('[name="contact_email"]').value;
+    for(const [n,el] of todo.entries()){
+      const card=bulkCardOf(el),state_=el.querySelector('.bulk-state'),val=name=>el.querySelector(`[name="${name}"]`).value;
+      try{
+        for(let i=0;i<card.shots.length;i++){
+          const shot=card.shots[i];if(shot.path)continue;
+          progress.textContent=state_.textContent=`${n+1}/${todo.length}번째 앱 · 사진 저장 중 ${i+1}/${card.shots.length}`;
+          shot.path=(await api('upload',{method:'POST',body:{data:await imageData(shot.file)}})).path;
+        }
+        progress.textContent=state_.textContent=`${n+1}/${todo.length}번째 앱 · 요청 저장 중`;
+        const result=await api('submit',{method:'POST',body:{name:val('name'),author_name:val('author_name'),web_url:val('web_url'),demo_url:val('demo_url'),video_url:val('video_url'),cat:val('cat'),grade:val('grade'),
+          subjects:[...el.querySelectorAll('input[name="subjects"]:checked')].map(x=>x.value),color:val('color'),short:val('short'),description:val('description'),
+          notes:val('notes').split('\n').map(s=>s.trim()).filter(Boolean),screenshots:card.shots.map(s=>({path:s.path,caption:s.caption})),contact_email:contact}});
+        card.done=true;el.classList.add('done');el.querySelectorAll('input,select,textarea,button').forEach(x=>x.disabled=true);
+        state_.textContent=`✓ 보냄 · #${result.id.slice(0,8).toUpperCase()}`;
+      }catch(error){
+        el.classList.add('failed');state_.textContent='확인 필요';el.scrollIntoView({block:'start'});
+        throw new Error(`${label(el)}: ${error.message} 앞 카드들은 이미 보냈으니, 이 카드부터 고쳐서 다시 보내 주세요.`);
+      }
+      el.classList.remove('failed');renumberBulk();
+    }
+    const sent=state.bulk.cards.filter(c=>c.done).length;
+    state.bulk.cards.forEach(c=>c.shots.forEach(revokePreview));state.bulk=null;
+    openShell('일괄 업로드 요청을 보냈어요','관리자가 내용을 확인하면 공개 목록에 올라가요.','queue');
+    $('#workspaceBody').innerHTML=`<div class="success-state"><span>✓</span><h3>웹앱 ${sent}개가 승인 대기 중이에요</h3><p>대기 목록에서 처리 상태와 검토 메모를 확인할 수 있어요.</p><button type="button" data-view="queue" class="btn solid">대기 목록 보기</button><button type="button" data-view="bulk" class="btn line">새 일괄 업로드</button></div>`;
   }
   function uploadForm(row = null) {
     state.area=row?'admin':'uploader';
@@ -329,7 +437,7 @@
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
     state.shots = (row?.screenshots || []).map(s=>({...s,key:crypto.randomUUID()}));
     openShell(row?'요청 검토 · 내용 수정':'웹앱 업로드 요청',row?'내용을 확인하고 상태를 선택해 저장해 주세요.':'만든 웹앱을 소개해 주세요. 승인 후 참코딩에 함께 올라가요.','upload');
-    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':aiFillBox(value.web_url)+prepBox()}
+    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':prepBox()}
       <div class="form-intro"><span>01</span><div><h3>기본 정보</h3><p>예시 앱의 카드와 상세 화면에 표시될 내용이에요.</p></div></div>
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
@@ -355,9 +463,7 @@
     </form>`;
     renderShotEditor();
     const form = $('#appForm');
-    form.addEventListener('input',e=>{e.target.closest('.ai-filled')?.classList.remove('ai-filled');if(e.target.id!=='aiFillUrl')saveDraft(form);});
-    // AI 주소 칸에서 Enter를 누르면 폼 제출 대신 AI 채우기를 시작한다
-    $('#aiFillUrl')?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();runAiFill();}});
+    form.addEventListener('input',()=>saveDraft(form));
     $('#screenshotFiles').addEventListener('change', e => addFiles(e.target.files));
     $('#thumbnailFile').addEventListener('change', e => addThumbnail(e.target.files[0]));
     form.addEventListener('submit',e=>{
@@ -623,10 +729,12 @@
     if(button.dataset.devSave){await saveDevRequest(button);return;}
     if(button.dataset.inquirySave){await saveInquiry(button);return;}
     if(button.dataset.view){
-      if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='inquiries')await inquiryQueueView();else if(button.dataset.view==='inquiry')inquiryForm();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
+      if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='inquiries')await inquiryQueueView();else if(button.dataset.view==='inquiry')inquiryForm();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else if(button.dataset.view==='bulk')bulkView();else await queueView();return;
     }
-    if(button.hasAttribute('data-ai-fill'))return runAiFill();
-    if(button.hasAttribute('data-copy-prompt'))return copyPrepPrompt();
+    if(button.dataset.copyPrompt)return copyPrepPrompt(button);
+    if(button.hasAttribute('data-card-add'))return addBulkCard();
+    if(button.dataset.cardRemove)return removeBulkCard(button.dataset.cardRemove);
+    if(button.dataset.bulkShot||button.dataset.bulkShotRemove)return bulkShotAction(button);
     if(button.hasAttribute('data-preview'))return preview();
     if(button.dataset.filter){state.filter=button.dataset.filter;renderQueue();return;}
     if(button.dataset.review){const row=state.queue.find(r=>r.id===button.dataset.review);if(row)uploadForm(row);return;}

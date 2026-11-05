@@ -9,10 +9,5 @@
   },
   "engines": {
     "node": "24.x"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "1.4.0",
-    "@sparticuz/chromium": "153.0.0",
-    "puppeteer-core": "25.16.0"
   }
 }

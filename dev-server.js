@@ -4,10 +4,8 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const handler = require('./api/tools');
-const autofill = require('./api/autofill');
 http.createServer(async (req, res) => {
-  const api = req.url.startsWith('/api/tools') ? handler : req.url.startsWith('/api/autofill') ? autofill : null;
-  if (api) {
+  if (req.url.startsWith('/api/tools')) {
     let body = '', oversized = false;
     for await (const chunk of req) {
       body += chunk;
@@ -17,7 +15,7 @@ http.createServer(async (req, res) => {
     res.json = value => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(value)); };
     if (oversized) return res.status(413).json({error:'파일이 너무 커요.'});
     try { req.body = body ? JSON.parse(body) : {}; } catch { return res.status(400).json({error:'잘못된 요청이에요.'}); }
-    return api(req, res);
+    return handler(req, res);
   }
   const allowed = new Set(['/index.html','/tools.js','/tools.css','/assets/chamssaem.png','/favicon.ico','/assets/favicon.svg','/assets/favicon-32.png','/assets/favicon-192.png','/assets/apple-touch-icon.png']);
   const file = new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname;

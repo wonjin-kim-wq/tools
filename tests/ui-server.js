@@ -74,11 +74,4 @@ global.fetch=async(input,options={})=>{
   }else throw new Error('Unexpected fixture request');
   return new Response(data===null?null:JSON.stringify(data),{status:data===null?204:200,headers:{'content-type':'application/json'}});
 };
-// AI 자동 채우기: 실제 브라우저·Claude 대신 정해진 초안과 예시 이미지를 1초 뒤에 돌려준다.
-process.env.ANTHROPIC_API_KEY='fixture-only';
-require.cache[require.resolve('../lib/autofill')]={exports:{autofill:async url=>{
-  await new Promise(r=>setTimeout(r,1200));
-  if(url.includes('fail'))throw new (require('../lib/tools-core').AppError)('웹앱을 열지 못했어요. 공개된 주소인지, 로그인 없이 열리는지 확인해 주세요.');
-  return {fields:{name:'분수 크기 비교 놀이',short:'두 분수를 보고 더 큰 쪽을 골라 보며 분수의 크기를 익히는 앱이에요.',description:'분수의 크기를 비교하는 감각을 기르는 연습 앱이에요.\n\n화면에 나온 두 분수 중 더 큰 쪽을 누르면 바로 정답을 알려 줘요.\n\n수업 도입에서 5분 정도 함께 풀거나, 모둠별 대결로 활용해 보세요.',cat:'교과 교육',subjects:['수학'],grade:'초등학교 3-4학년',notes:[],video_url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'},screenshot:{data:require('node:fs').readFileSync(require('node:path').join(__dirname,'../assets/chamssaem.png')).toString('base64'),type:'image/png',caption:'두 분수 중 더 큰 쪽을 고르는 첫 화면'}};
-}}};
 require('../dev-server');
