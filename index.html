@@ -76,6 +76,15 @@ body{padding-left:var(--side)}
 .head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:28px 0 18px}
 .head h1{font-size:24px;font-weight:700;letter-spacing:-.03em;display:flex;align-items:center;gap:8px}
 .head .total{font-size:14px;font-weight:700;color:#fff;background:var(--ink);border-radius:999px;padding:2px 10px;letter-spacing:0}
+/* 교과별 보기: 웹앱 개수 옆 작은 버튼. 여러 교과에 걸친 앱은 해당 교과마다 보인다 */
+.head-main{display:flex;align-items:center;gap:14px;min-width:0;flex:1}
+.head h1{flex:none;white-space:nowrap}
+.subj{display:flex;flex-wrap:wrap;gap:6px;min-width:0;padding:2px 0}
+.subj button{flex:none;border:1px solid #e1e4e8;background:#fff;color:var(--sub);height:28px;padding:0 10px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
+.subj button small{margin-left:4px;font-size:11px;font-weight:700;opacity:.7}
+.subj button:hover{border-color:#c9ced6;color:var(--ink)}
+.subj button.on{background:var(--ink);border-color:var(--ink);color:#fff}.subj button.on small{opacity:.85}
+.subj button.none:not(.on){opacity:.45}
 .head p{font-size:14px;color:var(--sub);margin-top:6px}
 .head p b{color:var(--ink);font-weight:600}
 .seg{position:relative;display:flex;background:#eaecef;border-radius:12px;padding:4px;flex:none}
@@ -380,6 +389,8 @@ body{padding-left:var(--side)}
   .wrap{padding:0 16px}
   .head{flex-direction:column;align-items:stretch;gap:14px;padding:20px 0 14px}
   .head h1{font-size:20px}
+  .head-main{flex-direction:column;align-items:flex-start;gap:10px}
+  .subj{width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.subj::-webkit-scrollbar{display:none}
   .seg button{flex:1}
   .card{padding:0 16px 0 0}
   .card:hover{transform:none}
@@ -445,7 +456,8 @@ body{padding-left:var(--side)}
     <div class="voices-track"><div class="voices-row" id="voicesRow"></div></div>
   </section>
   <div class="head">
-    <h1>웹앱 <span class="total" id="total"></span></h1>
+    <div class="head-main"><h1>웹앱 <span class="total" id="total"></span></h1>
+    <div class="subj" id="subj" role="group" aria-label="교과별 보기"></div></div>
     <div class="seg" id="seg" role="tablist" aria-label="정렬">
       <span class="knob"></span>
       <button data-k="created" class="on" role="tab">최신순</button>
@@ -489,7 +501,7 @@ $('#logo').insertAdjacentHTML('afterbegin', mark());
 
 /* ===== 카드 ===== */
 const grid = $('#grid'), seg = $('#seg'), knob = seg.querySelector('.knob');
-let key = 'created', cat = 'all', level = 'all', query = '';
+let key = 'created', cat = 'all', level = 'all', subject = 'all', query = '';
 // 적용 학교급: 적용 학년 글자 앞의 학교급으로 판단한다(예: '중학교 1-3학년'). 학교급이 없는 기존 값은 초등학교로 본다.
 const LEVELS = [{k:'초', name:'초등학교'}, {k:'중', name:'중학교'}, {k:'고', name:'고등학교'}];
 const levelOf = a => /^\s*중학교/.test(a.grade||'') ? '중' : /^\s*고등학교/.test(a.grade||'') ? '고' : '초';
@@ -530,8 +542,28 @@ $('#sidePanel').addEventListener('click', e=>{ if (e.target.closest('#uploadButt
 const readQuery = () => { query = $('#q').value.trim().toLowerCase(); };
 readQuery();   // 뒤로가기 등으로 브라우저가 입력값을 복원한 경우에도 맞춰 둔다
 $('#q').addEventListener('input', ()=>{ readQuery(); layout(); });
-const matches = a => (cat==='all' || a.cat===cat) && (level==='all' || levelOf(a)===level) &&
+// 교과 버튼(서버 lib/tools-core.js SUBJECTS와 같은 13개). 여러 교과를 가진 앱은 각 교과에 모두 나온다
+const SUBJECTS = ['국어','수학','사회','과학','영어','도덕','실과(정보)','음악','미술','체육','통합교과','창의적 체험활동','교과 무관'];
+const subjEl = $('#subj');
+subjEl.innerHTML = ['all',...SUBJECTS].map(k=>`<button type="button" data-subj="${escapeHtml(k)}" aria-pressed="${k==='all'}" class="${k==='all'?'on':''}">${k==='all'?'전체':escapeHtml(k)}<small></small></button>`).join('');
+subjEl.addEventListener('click', e=>{
+  const b = e.target.closest('[data-subj]'); if (!b || b.dataset.subj===subject) return;
+  subject = b.dataset.subj;
+  subjEl.querySelectorAll('[data-subj]').forEach(x=>{ const on = x.dataset.subj===subject; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+  layout();
+});
+const hasSubject = a => subject==='all' || (a.subjects||[]).includes(subject);
+// 교과 버튼의 숫자는 고른 분류·학교급·검색어 안에서 센다
+function updateSubjects(base){
+  subjEl.querySelectorAll('[data-subj]').forEach(x=>{
+    const k = x.dataset.subj, n = k==='all' ? base.length : base.filter(a=>(a.subjects||[]).includes(k)).length;
+    x.querySelector('small').textContent = appsLoading ? '' : n;
+    x.classList.toggle('none', !appsLoading && n===0);
+  });
+}
+const baseMatches = a => (cat==='all' || a.cat===cat) && (level==='all' || levelOf(a)===level) &&
   (!query || [a.name,a.short,a.desc,a.cat,a.grade,...(a.subjects||[]),a.author_name||''].join(' ').toLowerCase().includes(query));
+const matches = a => baseMatches(a) && hasSubject(a);
 
 function renderSideCats(){
   const count = n => appsLoading ? '' : n;
@@ -626,12 +658,13 @@ const gridLoading = $('#gridLoading');
 const mobileMQ = matchMedia('(max-width:640px)');
 function layout(){
   gridLoading.hidden = !appsLoading;
-  if (appsLoading){ $('#total').textContent = '…'; $('#empty').hidden = true; grid.style.height = '0px'; moveKnob(); return; }
+  if (appsLoading){ updateSubjects([]); $('#total').textContent = '…'; $('#empty').hidden = true; grid.style.height = '0px'; moveKnob(); return; }
   const W = grid.clientWidth;
   const mobile = mobileMQ.matches;
   const gap = mobile ? 12 : 16;
   const cols = mobile ? 1 : clamp(Math.floor((W+gap)/(300+gap)), 2, 5);
   const cw = (W - gap*(cols-1))/cols;
+  updateSubjects(apps.filter(baseMatches));
   const shown = apps.filter(matches);
   const shownSet=new Set(shown);
   apps.forEach(a => {
