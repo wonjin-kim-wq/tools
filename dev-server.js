@@ -17,7 +17,7 @@ http.createServer(async (req, res) => {
     try { req.body = body ? JSON.parse(body) : {}; } catch { return res.status(400).json({error:'잘못된 요청이에요.'}); }
     return handler(req, res);
   }
-  const allowed = new Set(['/index.html','/tools.js','/tools.css','/assets/chamssaem.png','/favicon.ico','/assets/favicon.svg','/assets/favicon-32.png','/assets/favicon-192.png','/assets/apple-touch-icon.png']);
+  const allowed = new Set(['/index.html','/tools.js','/tools.css','/recommend.js','/assets/chamssaem.png','/favicon.ico','/assets/favicon.svg','/assets/favicon-32.png','/assets/favicon-192.png','/assets/apple-touch-icon.png']);
   const file = new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname;
   if (!allowed.has(file)) { res.statusCode=404; return res.end('Not found'); }
   const extension = path.extname(file);

@@ -36,10 +36,12 @@
     try {
       const data = await api('apps');
       apps.splice(0, apps.length, ...data.apps.map(normalize));
+      appsLoadFailed = false;
       appsLoading = false; renderCatalog(); layout(); banner.hidden = true;
     } catch {
       // 예시 앱은 보여 주지 않는다. 빈 목록과 다시 불러오기 안내만 보인다.
       apps.splice(0, apps.length);
+      appsLoadFailed = true;
       appsLoading = false; renderCatalog(); layout();
       banner.textContent = '최신 목록을 불러오지 못했어요. 연결을 확인한 뒤 새로고침해 주세요.';
       banner.hidden = false;
