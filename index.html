@@ -393,6 +393,7 @@ body{padding-left:var(--side)}
 @keyframes say-in{from{opacity:0;transform:translateY(6px) scale(.6)}to{opacity:1;transform:none}}
 @keyframes say-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .cap-bot.gone{opacity:0;transform:translateY(-80px) scale(.6);pointer-events:none}
+.cap-bot.taken{transition:none}   /* 캐릭터가 머리에 쓰는 순간 그 자리에서 바로 사라진다 */
 @keyframes cap-bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-5px) rotate(3deg)}}
 @keyframes tassel{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}
 
@@ -1169,7 +1170,8 @@ const Chat = (()=>{
       const r = btn.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2;
       if (!busy) return;
       // 모자를 다 쓰고 착지한 뒤에 채팅창을 연다 → 열리고 나서 아이콘 자리로 올라간다
-      if (!Buddy.wearCap(cx - 2.6, cy + 75, () => setTimeout(show, 450))) show();
+      // 머리에 쓰는 순간 위에 떠 있던 모자는 바로 없앤다(모자는 캐릭터와 함께 움직인다)
+      if (!Buddy.wearCap(cx - 2.6, cy + 75, () => { btn.classList.add('gone','taken'); setTimeout(show, 450); })) show();
     }, 360);
   }
   function closeChat(){
@@ -1178,7 +1180,7 @@ const Chat = (()=>{
     panel.classList.remove('show'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false');
     Buddy.undock(); Buddy.takeOffCap();
     panel.classList.remove('wait-buddy');
-    btn.classList.remove('gone','lift');
+    btn.classList.remove('gone','lift','taken');
     btn.focus({preventScroll:true});
   }
   Buddy.onCapLost = () => { if (busy) show(); panel.classList.remove('wait-buddy'); };
