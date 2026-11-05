@@ -26,7 +26,11 @@ const AppRecommendations = (() => {
     '가능한 적합한 다른 하나 하나만 더 새로 이번 이번엔 이번에는 그러면 그럼 대신 좋아 부탁 전용 전학년 전체 모든 ' +
     '난 나는 안녕 안녕하세요 필요해 필요해요 해줘 주세요 준비 준비하는 대한 만 할수있는 하고싶어요 활동할 ' +
     '학년 으로 으로는 에서 에서는 에는 하고 하고는 까지 부터 더요 한거 건 거 ' +
-    '바꿔 바꿔줘 바꿔주세요 바꾸면 별로 쓰는 써볼 함께 같이 교실 학급 반에서').split(' '));
+    '바꿔 바꿔줘 바꿔주세요 바꾸면 별로 쓰는 써볼 함께 같이 교실 학급 반에서 ' +
+    // '수업자료', '자료' 같은 말은 찾을 주제가 아니라 '무언가 추천해 달라'는 뜻이다
+    '자료 수업자료 학습자료 교육자료 교수자료 수업용자료 학습 교구 교재 사이트 웹사이트 홈페이지 링크 프로그램 앱 어플 애플리케이션 ' +
+    '수업에 수업할 수업시간 시간 시간에 때 쓸만한 볼만한 할만한거 추천좀 추천부탁 추천부탁해요 부탁해 부탁해요 추천해줄래 알려줄래 찾아줄래 ' +
+    '줄래 줄래요 주실래요 주실 줘 줘요 줄 수 있어 있을까 있을까요 있니 있나 해줄 해줄래 해주실 학습지 활동지 워크시트').split(' '));
   const normalize = value => String(value ?? '').normalize('NFKC').toLowerCase();
   const compact = value => normalize(value).replace(/[^가-힣a-z0-9]/g, '');
   const schoolOf = value => {
@@ -60,7 +64,8 @@ const AppRecommendations = (() => {
     const words = (rest.match(/[가-힣a-z0-9]+/g) || [])
       .filter(word => !fillers.has(word))
       .map(word => {
-        const stem = word.replace(/(?:으로는|에서는|으로|에서|에는|이나|하고|하고는|부터|까지|[을를은는이가에과와의로도만])$/, '');
+        const stem = word.replace(/(?:으로는|에서는|으로|에서|에는|이나|하고|하고는|부터|까지|[을를은는이가에과와의로도만])$/, '')
+          .replace(/(?:수업자료|학습자료|교육자료|자료|수업용|수업)$/, '');   // '분수수업자료' → '분수'
         return stem.length >= 2 || fillers.has(stem) ? stem : word;
       })
       .filter(word => word.length >= 2 && !fillers.has(word) && !/^\d+$/.test(word));
@@ -70,7 +75,7 @@ const AppRecommendations = (() => {
     };
   }
 
-  function matchApp(app, context) {
+  function matchApp(app, context, softTopic = false) {
     const gradeText = normalize(app.grade);
     const school = schoolOf(gradeText) || '초등학교';
     const grade = gradeOf(gradeText);
@@ -92,7 +97,7 @@ const AppRecommendations = (() => {
       const term = compact(word);
       return { word, points: title.includes(term) ? 6 : brief.includes(term) ? 4 : description.includes(term) ? 2 : 0 };
     }).filter(term => term.points);
-    if (context.topic.length && !topics.length) return null;
+    if (context.topic.length && !topics.length && !softTopic) return null;
     const gradeMatches = context.grade && (grade || /전\s*학년|모든\s*학년/.test(gradeText));
     return {
       app,
@@ -144,10 +149,17 @@ const AppRecommendations = (() => {
         return { message: '어떤 수업이나 활동에 쓰실 건가요? 학년, 교과 또는 주제를 알려 주세요.', matches: [] };
       }
       const conditions = labels.join(' · ');
-      const ranked = apps.map(app => matchApp(app, context)).filter(Boolean).sort((a, b) => b.score - a.score);
+      let ranked = apps.map(app => matchApp(app, context)).filter(Boolean).sort((a, b) => b.score - a.score);
+      // 주제어까지 맞는 앱이 없어도 교과(또는 분류)가 맞는 앱이 있으면 그것을 추천한다(학년·학교급 조건은 그대로)
+      let loose = false;
+      if (!ranked.length && topic.length && (subject.length || category.length)) {
+        ranked = apps.map(app => matchApp(app, context, true)).filter(Boolean).sort((a, b) => b.score - a.score);
+        loose = ranked.length > 0;
+      }
       const matches = ranked.filter(({ app }) => !more || !shown.has(app.id)).slice(0, 3);
       for (const { app } of matches) shown.add(app.id);
-      const message = matches.length ? `${conditions} 조건으로 찾았어요.`
+      const strict = [[school, gradeLabel].filter(Boolean).join(' '), ...subject, ...category, ...activity].filter(Boolean).join(' · ');
+      const message = matches.length ? (loose ? `‘${topic.join(', ')}’에 딱 맞는 웹앱은 없어서 ${strict} 조건으로 찾았어요.` : `${conditions} 조건으로 찾았어요.`)
         : more && ranked.length ? `${conditions} 조건에서 아직 보여드리지 않은 웹앱이 없어요. 조건을 바꿔서 물어봐 주세요.`
         : `${conditions} 조건에 맞는 웹앱을 찾지 못했어요. 교과나 활동 조건을 바꿔서 물어봐 주세요.`;
       return { message, matches };

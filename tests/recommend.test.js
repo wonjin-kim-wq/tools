@@ -38,3 +38,18 @@ test('keeps other conditions when clearing a grade and returns no unrelated resu
   assert.deepEqual(ids(ask('학년 상관없이', catalogue)), ['quiz', 'team']);
   assert.deepEqual(ids(ask('새 질문 화산 실험 앱 찾아줘', catalogue)), []);
 });
+
+test('generic words like 수업자료 do not block grade and subject matches', () => {
+  const apps = [
+    { id: 'eco', name: '생태몬스터', grade: '초등학교 2-6학년', subjects: ['국어', '수학', '과학'] },
+    { id: 'pe', name: '체육교실', grade: '초등학교 1-6학년', subjects: ['체육'] },
+    { id: 'high', name: '고학년 수학', grade: '초등학교 5-6학년', subjects: ['수학'] }
+  ];
+  for (const question of ['4학년 수학 수업자료 추천해줘', '4학년 수학수업자료', '4학년 수학 자료 있을까요?', '초4 수학 학습지 추천해 줄래?']) {
+    assert.deepEqual(ids(createConversation().ask(question, apps)), ['eco'], question);
+  }
+  const loose = createConversation().ask('4학년 수학 분수 앱', apps);
+  assert.deepEqual(ids(loose), ['eco']);
+  assert.match(loose.message, /‘분수’에 딱 맞는 웹앱은 없어서/);
+  assert.deepEqual(ids(createConversation().ask('4학년 미술 자료', apps)), []);
+});
