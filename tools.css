@@ -53,3 +53,10 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .ai-fill-status{font-size:12.5px;line-height:1.6;color:var(--sub);margin-top:8px}.ai-fill-status:empty{display:none}.ai-fill-status[data-tone=error]{color:#b43b28}.ai-fill-status[data-tone=done]{color:#7a5600;font-weight:600}
 .app-form .ai-filled:is(input,textarea,select){background:#fffbea;border-color:#f2d36b}.subject-pick.ai-filled .subject-list,.grade-pick.ai-filled .grade-row{padding:6px;margin:-6px;border-radius:12px;background:#fffbea}
 @media(max-width:480px){.ai-fill{padding:16px}.ai-fill-row{flex-direction:column}.ai-fill-row input{flex:none;width:100%}.ai-fill-row .btn{width:100%}}
+/* 내 AI에게 업로드 준비 맡기기: 복사용 프롬프트 */
+.ai-prep{padding:18px 20px;margin:-14px 0 28px;background:#f8f9fb;border:1px solid var(--line);border-radius:16px}.ai-prep-head b{font-size:15px}
+.ai-prep-steps{margin:10px 0 0 18px;font-size:13px;line-height:1.7;color:#4e5968}.ai-prep-steps b{color:var(--ink)}
+.ai-prep-note{margin:10px 0 12px;padding:10px 12px;border-radius:10px;background:#fff6e0;color:#7a5600;font-size:12.5px;line-height:1.65}.ai-prep-note b{color:#5c4100}
+.ai-prep-prompt{display:block;width:100%;font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink);background:#fff;border:1px solid var(--line2);border-radius:12px;padding:12px 14px;resize:vertical;min-height:150px}
+.ai-prep-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}.ai-prep-copied{font-size:12.5px;color:#247849;font-weight:600}
+@media(max-width:480px){.ai-prep{padding:16px}.ai-prep-actions .btn{width:100%}}

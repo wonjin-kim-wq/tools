@@ -219,6 +219,60 @@
       <p>웹앱 주소를 넣으면 AI가 앱을 열어 보고 이름·소개·설명·카테고리·교과·학년과 첫 화면 스크린샷을 채워요. AI가 쓴 내용은 꼭 확인하고 고쳐 주세요.</p>
       <div class="ai-fill-row"><input id="aiFillUrl" type="url" inputmode="url" maxlength="2000" value="${esc(url||'')}" placeholder="https://my-app.vercel.app" aria-label="AI로 채울 웹앱 주소"><button type="button" class="btn solid" data-ai-fill>AI로 채우기</button></div>
       <p class="ai-fill-status" role="status" aria-live="polite"></p></section>`;
+  /* ===== 내 AI로 업로드 준비하기 =====
+     업로더가 Claude Code·Codex·ChatGPT Work 같은 AI에 붙여 넣어, 바탕화면에 스크린샷과 폼 내용을 준비하게 하는 프롬프트.
+     폼 규칙(카테고리·교과·학년 형식·글자 수·사진 6장)이 바뀌면 이 문구도 함께 고친다. */
+  const prepPrompt = () => `너는 내 웹앱을 '참코딩'(https://tools-one-nu.vercel.app/) 웹앱 목록에 올리기 위한 업로드 준비를 돕는 조수야.
+
+[내 웹앱 주소]
+웹앱 주소: (여기에 내 웹앱 주소를 붙여 넣으세요)
+
+[해야 할 일]
+1. 위 주소를 브라우저로 열고, 첫 화면과 주요 메뉴·기능을 직접 눌러 보며 어떤 앱인지 파악해 줘.
+   - 로그인·결제·이메일 전송·제출·삭제 같은 버튼은 누르지 마.
+   - 실제 개인정보는 입력하지 마. 입력해야만 다음 화면이 열리면 teacher@example.com, 학생1 같은 예시 값만 써.
+2. 스크린샷을 최대 6장 찍어 줘(대표 썸네일 포함).
+   - 01번 대표 썸네일: 창을 정사각형(예: 900×900)으로 맞추고 첫 화면을 찍어. 목록 카드에 정사각형으로 보여.
+   - 02~06번: 1280×800 정도 창에서 메인 화면과 핵심 기능이 실제로 동작하는 화면을 골라 찍어. 시작 설정 화면보다 버튼을 눌러 결과·진행 상황이 보이는 화면이 좋아.
+   - PNG 또는 JPG, 장당 15MB 이하. 학생 이름·얼굴 같은 개인정보가 보이면 그 화면은 빼.
+3. 바탕화면에 '참코딩 업로드 준비' 폴더를 만들고 그 안에 앱 이름 폴더를 만들어 줘. 사진은 01-대표썸네일.png, 02-메인화면.png처럼 순서와 내용이 보이는 이름으로 저장해.
+4. 같은 폴더에 '업로드 내용.md'를 만들고, 아래 업로드 폼 칸을 순서대로 채워 줘. 폼에 바로 복사해 붙일 수 있게 칸마다 내용을 따로 적어.
+
+[업로드 폼 칸과 규칙]
+- 앱 이름: 60자 이내
+- 제작자 이름: 화면에서 확실히 알 수 없으면 '직접 입력'이라고 남겨
+- 웹앱 주소: 위 주소(https://로 시작)
+- 체험하기 주소: 체험용 주소가 따로 있을 때만
+- 소개 영상 주소: 사이트에 유튜브·비메오 링크가 실제로 있을 때만
+- 카테고리(하나): ${CATS.filter(c=>c.k!=='all').map(c=>c.name).join(' / ')}
+- 적용 학년: '초등학교 4-6학년'처럼 학교급 + 시작-끝 학년(초등학교 1~6, 중학교·고등학교 1~3). 3학년만이면 '초등학교 3-3학년'. 추정했다면 그렇다고 적어
+- 교과(1개 이상, 여러 개 가능, 이 목록에서만): ${SUBJECTS.join(', ')}
+- 대표 색상: #RRGGBB(앱의 대표 색)
+- 한 줄 소개: 어떤 수업에서 무엇을 하는 앱인지 한 문장, 160자 이내(70자 안팎 권장)
+- 상세 설명: 앱의 목적 → 사용 방법(화면의 버튼·단계) → 수업 활용 팁 순서, 해요체, 6000자 이내. 화면에서 확인하지 못한 기능은 지어내지 마
+- 새로운 소식 · 변경 사항: 한 줄에 하나, 최대 12줄(알 수 없으면 비워 둬)
+- 스크린샷 설명: 사진마다 한 문장, 250자 이내
+- 연락 이메일과 '공개 권한·개인정보 확인' 체크는 내가 직접 할 테니 비워 둬
+
+[마지막에 알려 줄 것]
+- 만든 폴더 위치와 파일 목록
+- 내가 직접 확인하거나 고쳐야 할 칸(추정한 학년, 제작자 이름 등)
+
+[브라우저를 쓰거나 파일을 만들 수 없는 경우]
+너에게 웹사이트를 직접 열거나 바탕화면에 파일을 저장하는 기능이 없으면 먼저 그렇다고 말해 줘. 그다음 '업로드 내용.md'에 들어갈 내용을 이 채팅에 그대로 적어 주고, 내가 직접 찍으면 좋을 스크린샷 목록(어떤 화면, 몇 장)을 알려 줘. 사이트 내용을 볼 수 없으면 지어내지 말고 나에게 앱 설명을 물어봐.`;
+  const prepBox = () => `<section class="ai-prep" aria-labelledby="aiPrepTitle"><div class="ai-fill-head"><b id="aiPrepTitle">🤖 내 AI에게 업로드 준비 맡기기</b></div>
+      <ol class="ai-prep-steps"><li><b>프롬프트 복사</b>를 누르고, 프롬프트의 <b>웹앱 주소:</b> 뒤에 내 앱 주소를 넣어 주세요.</li>
+      <li><b>Claude Code, Codex, ChatGPT Work(에이전트)</b>처럼 컴퓨터·브라우저를 다룰 수 있는 AI에 붙여 넣으면, 바탕화면 <b>'참코딩 업로드 준비'</b> 폴더에 스크린샷과 '업로드 내용.md'가 만들어져요.</li>
+      <li>만들어진 사진과 내용을 아래 폼에 넣고 업로드 요청을 보내 주세요.</li></ol>
+      <p class="ai-prep-note">일반 AI 채팅(ChatGPT·Claude·Gemini 채팅창)은 사이트를 직접 캡처하거나 바탕화면에 파일을 만들지 못할 수 있어요. 이때는 <b>Claude Code나 ChatGPT Work</b>를 쓰거나, 채팅방에서 정리된 내용을 받아 복사해 쓰고 스크린샷은 직접 찍어 주세요.</p>
+      <textarea id="aiPrepPrompt" class="ai-prep-prompt" rows="8" readonly aria-label="업로드 준비 프롬프트">${esc(prepPrompt())}</textarea>
+      <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt>프롬프트 복사</button><span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
+  async function copyPrepPrompt() {
+    const area=$('#aiPrepPrompt'),done=workspace.querySelector('.ai-prep-copied');if(!area)return;
+    try{await navigator.clipboard.writeText(area.value);}
+    catch{area.focus();area.select();document.execCommand('copy');}
+    done.textContent='복사했어요. AI에 붙여 넣고 웹앱 주소를 채워 주세요.';toast('프롬프트를 복사했어요.');
+  }
   async function runAiFill() {
     const input=$('#aiFillUrl'),button=workspace.querySelector('[data-ai-fill]'),status=workspace.querySelector('.ai-fill-status'),form=$('#appForm');
     if(!input||!form||state.aiFill)return;
@@ -272,7 +326,7 @@
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
     state.shots = (row?.screenshots || []).map(s=>({...s,key:crypto.randomUUID()}));
     openShell(row?'요청 검토 · 내용 수정':'웹앱 업로드 요청',row?'내용을 확인하고 상태를 선택해 저장해 주세요.':'만든 웹앱을 소개해 주세요. 승인 후 참코딩에 함께 올라가요.','upload');
-    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':aiFillBox(value.web_url)}
+    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':aiFillBox(value.web_url)+prepBox()}
       <div class="form-intro"><span>01</span><div><h3>기본 정보</h3><p>예시 앱의 카드와 상세 화면에 표시될 내용이에요.</p></div></div>
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
@@ -569,6 +623,7 @@
       if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='inquiries')await inquiryQueueView();else if(button.dataset.view==='inquiry')inquiryForm();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else await queueView();return;
     }
     if(button.hasAttribute('data-ai-fill'))return runAiFill();
+    if(button.hasAttribute('data-copy-prompt'))return copyPrepPrompt();
     if(button.hasAttribute('data-preview'))return preview();
     if(button.dataset.filter){state.filter=button.dataset.filter;renderQueue();return;}
     if(button.dataset.review){const row=state.queue.find(r=>r.id===button.dataset.review);if(row)uploadForm(row);return;}
