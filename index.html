@@ -696,24 +696,37 @@ $('#voicesRow').innerHTML = VOICES.map(v=>voiceCard(v,false)).join('') + VOICES.
    관리자가 '메인 홍보 배너'로 고른 앱을 보여주고, 고른 앱이 없으면 인기 1위를 보여준다. */
 const hero = $('#hero');
 let heroTimer = 0, heroIndex = 0;
+// 맨 위 배너: 참코딩 추천 · 인기 1위 · 최근 업데이트 · 가장 최신, 4개를 6초마다 돌린다.
+// 같은 앱이 여러 자리에 걸리면 그 자리의 다음 앱을 쓴다. 관리자가 고른 추천 앱(featured)이 없으면 남은 앱 중 인기순으로 채운다.
 function heroApps(){
-  const featured = apps.filter(a=>a.featured).slice(0,5);
-  if (featured.length) return {list:featured, label:'참코딩 추천'};
-  const top = [...apps].sort((x,y)=>y.uses-x.uses)[0];
-  return {list: top ? [top] : [], label:'지금 인기 1위'};
+  const time = (a, k) => Date.parse(a[k+'_at'] || a[k] || 0) || 0;
+  const byUses = [...apps].sort((x,y)=>y.uses-x.uses);
+  const slots = [
+    ['참코딩 추천', [...apps.filter(a=>a.featured), ...byUses]],
+    ['인기 1위', byUses],
+    ['최근 업데이트', [...apps].sort((x,y)=>time(y,'updated')-time(x,'updated'))],
+    ['가장 최신', [...apps].sort((x,y)=>time(y,'created')-time(x,'created'))]
+  ];
+  // 인기 1위·최근 업데이트·가장 최신을 먼저 정하고(진짜 1위가 밀리지 않게) 추천은 마지막에 고른다. 보여 주는 순서는 위 순서 그대로.
+  const used = new Set(), picked = [];
+  for (const i of [1,2,3,0]){
+    const app = slots[i][1].find(a=>!used.has(a.id));
+    if (app){ used.add(app.id); picked[i] = {app, label:slots[i][0]}; }
+  }
+  return picked.filter(Boolean);
 }
 function renderHero(){
   clearInterval(heroTimer);
-  const {list, label} = heroApps();
+  const list = heroApps();
   hero.hidden = !list.length;
   if (!list.length) return;
   heroIndex = Math.min(heroIndex, list.length-1);
   const thumb = a => a.screenshots?.[0]?.url ? `<img src="${escapeHtml(a.screenshots[0].url)}" alt="" loading="lazy">` : '';
-  hero.innerHTML = list.map(a=>`<article class="hero-slide" data-open-app="${escapeHtml(a.id)}" style="--c:${escapeHtml(a.color)}" aria-label="${escapeHtml(label)} · ${escapeHtml(a.name)}">
+  hero.innerHTML = list.map(({app:a, label})=>`<article class="hero-slide" data-open-app="${escapeHtml(a.id)}" style="--c:${escapeHtml(a.color)}" aria-label="${escapeHtml(label)} · ${escapeHtml(a.name)}">
       <div class="hero-art">${thumb(a) || `<span class="hero-emoji">${escapeHtml(a.icon||'🧩')}</span>`}</div>
       <div class="hero-copy"><span class="hero-eyebrow">${escapeHtml(label)}</span><h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p>
         <div class="hero-app"><span class="hero-thumb">${thumb(a) || escapeHtml(a.icon||'🧩')}</span><div><b>${escapeHtml(a.name)}</b><small>${escapeHtml([a.author_name,a.cat].filter(Boolean).join(' · '))}</small></div><button class="hero-open" type="button">보기</button></div></div>
-    </article>`).join('') + (list.length>1 ? `<div class="hero-dots">${list.map((a,i)=>`<button type="button" data-hero="${i}" aria-label="${i+1}번째 추천 앱 보기"></button>`).join('')}</div>` : '');
+    </article>`).join('') + (list.length>1 ? `<div class="hero-dots">${list.map((a,i)=>`<button type="button" data-hero="${i}" aria-label="${i+1}번째 배너 보기"></button>`).join('')}</div>` : '');
   showHero(heroIndex);
   if (list.length>1) heroTimer = setInterval(()=>{ if (!hero.matches(':hover')) showHero((heroIndex+1)%list.length); }, 6000);
 }
