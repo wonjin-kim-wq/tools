@@ -138,7 +138,8 @@ async function handler(req, res) {
     }
     if (req.method === 'GET' && action === 'apps') {
       const [rows, extras] = await Promise.all([
-        db('/rest/v1/tools_apps?status=eq.approved&select=*&order=created_at.desc&limit=500'),
+        // 예시 앱(is_example)은 공개 목록에서 뺀다. 관리자 검토 화면에서는 계속 보인다.
+        db('/rest/v1/tools_apps?status=eq.approved&is_example=eq.false&select=*&order=created_at.desc&limit=500'),
         // 별점·순위는 부가 정보라서 실패해도 목록은 그대로 보여준다.
         Promise.allSettled([
           db('/rest/v1/tools_reviews?hidden=eq.false&rating=not.is.null&select=app_id,rating&limit=20000'),

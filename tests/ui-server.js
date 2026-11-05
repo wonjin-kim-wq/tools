@@ -8,7 +8,7 @@ const rows=[],uploads=[],devRequests=[],reviews=[],inquiries=[],useDaily=[];
 const fixtureMember={id:'00000000-0000-4000-8000-000000000001',email:'member@local.test',email_confirmed_at:'2026-11-04T00:00:00Z',app_metadata:{chamcoding_member:true,chamcoding_content_access:true},user_metadata:{display_name:'테스트 회원'}};
 if(process.env.UI_FIXTURE_SEED){
   setTimeout(()=>{for(const r of rows)for(let d=0;d<60;d++){const n=Math.max(0,Math.round((r.uses/900)*(1+Math.sin(d*0.7+r.name.length))));if(n)useDaily.push({app_id:r.id,day:new Date(Date.now()+9*3600e3-d*86400e3).toISOString().slice(0,10),count:n});}},0);
-  require('../lib/examples.json').forEach((e,i)=>rows.push({id:randomUUID(),name:e.name,web_url:'https://example.com/',demo_url:'',video_url:i===0?'https://www.youtube.com/watch?v=dQw4w9WgXcQ':'',short:e.short,description:e.desc,category:e.cat,grade:i===3?'중학교 1-3학년':i===6?'고등학교 2-3학년':e.grade,icon:e.icon,color:e.color,notes:e.notes,screenshots:[],author_name:i%3===0?'참쌤스쿨':'코딩 연구회',contact_email:'',status:'approved',review_note:'',subjects:[['수학'],['실과(정보)','수학'],['교과 무관'],['국어','실과(정보)'],['미술','실과(정보)','수학'],['실과(정보)'],['과학','실과(정보)'],['교과 무관'],['실과(정보)','사회'],['창의적 체험활동']][i]||[],uses:e.uses,is_example:true,featured:i<2,version:1,created_at:new Date(e.created).toISOString(),updated_at:new Date(e.updated).toISOString()}));
+  require('../lib/examples.json').forEach((e,i)=>rows.push({id:randomUUID(),name:e.name,web_url:'https://example.com/',demo_url:'',video_url:i===0?'https://www.youtube.com/watch?v=dQw4w9WgXcQ':'',short:e.short,description:e.desc,category:e.cat,grade:i===3?'중학교 1-3학년':i===6?'고등학교 2-3학년':e.grade,icon:e.icon,color:e.color,notes:e.notes,screenshots:[],author_name:i%3===0?'참쌤스쿨':'코딩 연구회',contact_email:'',status:'approved',review_note:'',subjects:[['수학'],['실과(정보)','수학'],['교과 무관'],['국어','실과(정보)'],['미술','실과(정보)','수학'],['실과(정보)'],['과학','실과(정보)'],['교과 무관'],['실과(정보)','사회'],['창의적 체험활동']][i]||[],uses:e.uses,is_example:!!process.env.UI_FIXTURE_EXAMPLES,featured:i<2,version:1,created_at:new Date(e.created).toISOString(),updated_at:new Date(e.updated).toISOString()}));
 }
 let visits=0;
 Object.assign(process.env,{SUPABASE_URL:'https://ui-fixture.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture-key',SESSION_SECRET:'fixture-session-secret-only',UPLOAD_PASSWORD:'local-upload-test-only',PORT:'8742'});
@@ -67,7 +67,7 @@ global.fetch=async(input,options={})=>{
       const row=rows.find(r=>r.id===url.searchParams.get('id')?.slice(3)&&r.version===Number(url.searchParams.get('version')?.slice(3)));
       if(row){Object.assign(row,body,{version:row.version+1,updated_at:new Date().toISOString()});data=[row];}else data=[];
     }else{
-      data=rows.filter(row=>(!url.searchParams.has('id')||row.id===url.searchParams.get('id').slice(3))&&(!url.searchParams.has('status')||row.status===url.searchParams.get('status').slice(3)));
+      data=rows.filter(row=>(!url.searchParams.has('id')||row.id===url.searchParams.get('id').slice(3))&&(!url.searchParams.has('status')||row.status===url.searchParams.get('status').slice(3))&&(!url.searchParams.has('is_example')||String(!!row.is_example)===url.searchParams.get('is_example').slice(3)));
       const select=url.searchParams.get('select');
       if(select&&select!=='*')data=data.map(row=>Object.fromEntries(select.split(',').map(k=>[k,row[k]])));
     }

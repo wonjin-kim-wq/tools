@@ -38,10 +38,10 @@
       apps.splice(0, apps.length, ...data.apps.map(normalize));
       appsLoading = false; renderCatalog(); layout(); banner.hidden = true;
     } catch {
-      // 서버 목록을 못 불러올 때만 예시 목록을 보여 준다
-      apps.splice(0, apps.length, ...EXAMPLE_APPS.map(a => ({ ...a, is_example: true })));
+      // 예시 앱은 보여 주지 않는다. 빈 목록과 다시 불러오기 안내만 보인다.
+      apps.splice(0, apps.length);
       appsLoading = false; renderCatalog(); layout();
-      banner.textContent = '최신 목록을 불러오지 못했어요. 연결을 확인한 뒤 새로고침해 주세요. 현재는 예시 목록을 보여드려요.';
+      banner.textContent = '최신 목록을 불러오지 못했어요. 연결을 확인한 뒤 새로고침해 주세요.';
       banner.hidden = false;
     }
   }
