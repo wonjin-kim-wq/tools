@@ -258,13 +258,16 @@
 - 만든 폴더 위치와 파일 목록
 - 내가 직접 확인하거나 고쳐야 할 칸(추정한 학년, 제작자 이름 등)
 
-[브라우저를 쓰거나 파일을 만들 수 없는 경우]
-너에게 웹사이트를 직접 열거나 바탕화면에 파일을 저장하는 기능이 없으면 먼저 그렇다고 말해 줘. 그다음 '업로드 내용.md'에 들어갈 내용을 이 채팅에 그대로 적어 주고, 내가 직접 찍으면 좋을 스크린샷 목록(어떤 화면, 몇 장)을 알려 줘. 사이트 내용을 볼 수 없으면 지어내지 말고 나에게 앱 설명을 물어봐.`;
+[Codex·Claude Code가 아닌 일반 채팅인 경우]
+바탕화면에 폴더를 만들 수 없으면, 이 채팅 안에서 쓸 수 있는 기능(웹 브라우징, 코드 실행, 인앱 브라우저 등)으로 위 1~2번을 똑같이 진행해 줘.
+- 찍은 스크린샷은 파일 이름(01-대표썸네일.png 등)을 붙여 이 채팅에 이미지 파일로 바로 보내 줘. 여러 장이면 zip으로 묶어 내려받을 수 있게 해도 좋아.
+- '업로드 내용.md'도 파일로 만들어 채팅에 보내 주고, 같은 내용을 칸별로 채팅에도 적어 줘. 나는 채팅에서 바로 저장해서 업로드 폼에 쓸 거야.
+- 이 채팅에서 사이트를 열거나 캡처할 수 없으면 먼저 그렇다고 말해 줘. 그때는 내가 직접 찍을 스크린샷 목록(어떤 화면, 몇 장)을 알려 주고, 사이트 내용을 볼 수 없으면 지어내지 말고 나에게 앱 설명을 물어봐.`;
   const prepBox = () => `<section class="ai-prep" aria-labelledby="aiPrepTitle"><div class="ai-fill-head"><b id="aiPrepTitle">🤖 내 AI에게 업로드 준비 맡기기</b></div>
       <ol class="ai-prep-steps"><li><b>프롬프트 복사</b>를 누르고, 프롬프트의 <b>웹앱 주소:</b> 뒤에 내 앱 주소를 넣어 주세요.</li>
       <li><b>Claude Code, Codex, ChatGPT Work(에이전트)</b>처럼 컴퓨터·브라우저를 다룰 수 있는 AI에 붙여 넣으면, 바탕화면 <b>'참코딩 업로드 준비'</b> 폴더에 스크린샷과 '업로드 내용.md'가 만들어져요.</li>
       <li>만들어진 사진과 내용을 아래 폼에 넣고 업로드 요청을 보내 주세요.</li></ol>
-      <p class="ai-prep-note">일반 AI 채팅(ChatGPT·Claude·Gemini 채팅창)은 사이트를 직접 캡처하거나 바탕화면에 파일을 만들지 못할 수 있어요. 이때는 <b>Claude Code나 ChatGPT Work</b>를 쓰거나, 채팅방에서 정리된 내용을 받아 복사해 쓰고 스크린샷은 직접 찍어 주세요.</p>
+      <p class="ai-prep-note">일반 AI 채팅(ChatGPT·Claude·Gemini 채팅창)은 바탕화면에 폴더를 만들 수 없어요. 대신 <b>채팅 안에서 캡처본과 정리된 내용을 파일로 보내 주니</b>, 채팅에서 바로 저장해 쓰세요. 채팅에서 사이트를 열지 못하면 <b>Claude Code나 ChatGPT Work</b>를 쓰거나 스크린샷을 직접 찍어 주세요.</p>
       <textarea id="aiPrepPrompt" class="ai-prep-prompt" rows="8" readonly aria-label="업로드 준비 프롬프트">${esc(prepPrompt())}</textarea>
       <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt>프롬프트 복사</button><span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
   async function copyPrepPrompt() {
