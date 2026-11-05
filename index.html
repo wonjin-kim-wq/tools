@@ -371,7 +371,7 @@ body{padding-left:var(--side)}
 @keyframes buddy-blink{0%,90%,98%,100%{opacity:0}92%,96%{opacity:1}}
 @media (max-width:640px),(hover:none){#buddy{display:none}}
 /* 캐릭터가 쓰는 학사모: 머리 꼭대기에 끼운다 (몸과 함께 좌우로 뒤집힌다) */
-#buddy .hat{position:absolute;left:16px;top:-11px;width:36px;height:27px;transform-origin:50% 90%;transform:rotate(-8deg) scale(0);opacity:0;pointer-events:none}
+#buddy .hat{position:absolute;left:12px;top:-9px;width:44px;height:36px;transform-origin:50% 90%;transform:rotate(-8deg) scale(0);opacity:0;pointer-events:none}
 #buddy.lofty{z-index:20}   /* 채팅창 머리로 뛰어오를 때는 채팅창 위로 */
 #buddy.on.docked{opacity:0;transition:none}
 #buddy.capped .hat{opacity:1;animation:hat-on .32s cubic-bezier(.3,1.6,.5,1) forwards}
@@ -403,7 +403,7 @@ body{padding-left:var(--side)}
 .chat-head{display:flex;align-items:center;gap:10px;padding:16px 16px 14px 18px;border-bottom:1px solid var(--line)}
 .chat-ava{position:relative;flex:none;width:58px;height:48px;margin:-4px 0 -4px -6px}
 .chat-ava img{position:absolute;inset:0;width:100%;height:100%;user-select:none}
-.chat-ava .hat{position:absolute;left:16px;top:-11px;width:36px;height:27px;transform:rotate(-8deg)}
+.chat-ava .hat{position:absolute;left:12px;top:-9px;width:44px;height:36px;transform:rotate(-8deg)}
 .chat.wait-buddy .chat-ava{visibility:hidden}   /* 캐릭터가 뛰어올라 앉으면 그 모습 그대로 이 아이콘으로 바뀐다 */
 .chat-head h2{margin:0;font-size:16px;font-weight:800;color:var(--ink)}
 #chatTitle:focus{outline:none}
@@ -560,7 +560,7 @@ const stack = (n,top='') => Array.from({length:n},(_,z)=>`<i style="transform:tr
 // 원본 그림을 다리 2장 · 몸통 · ㅊ 으로 잘라 둔 레이어를 같은 자리에 겹쳐 쌓는다
 const charLayers = () => Object.entries(CHAR).map(([k,src])=>`<img class="${k}" src="${src}" alt="" draggable="false">`).join('');
 // 학사모 (AI 도우미 버튼·채팅창 머리·캐릭터가 쓰는 모자에 함께 쓴다)
-const CAP_SVG = (cls='') => `<svg class="${cls}" viewBox="0 0 64 52" aria-hidden="true"><path d="M15 21V33Q32 42 49 33V21Z" fill="#3a332e" stroke="#2a2522" stroke-width="3" stroke-linejoin="round"/><path d="M32 4L62 16L32 28L2 16Z" fill="#2a2522" stroke="#2a2522" stroke-width="3" stroke-linejoin="round"/><path d="M6 16L32 6L58 16" fill="none" stroke="#5a514b" stroke-width="1.6" stroke-linecap="round"/><g class="tassel"><path d="M32 16L47 20V34" fill="none" stroke="#ffc928" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M44 33H50L51.5 42H42.5Z" fill="#ffc928" stroke="#e0a800" stroke-width="1" stroke-linejoin="round"/></g><circle cx="32" cy="16" r="3.2" fill="#ffc928"/></svg>`;
+const CAP_SVG = (cls='') => `<svg class="${cls}" viewBox="0 0 64 52" aria-hidden="true"><path d="M11 20V33Q32 43 53 33V20Z" fill="#3a332e" stroke="#2a2522" stroke-width="3" stroke-linejoin="round"/><path d="M32 4L62 16L32 28L2 16Z" fill="#2a2522" stroke="#2a2522" stroke-width="3" stroke-linejoin="round"/><path d="M6 16L32 6L58 16" fill="none" stroke="#5a514b" stroke-width="1.6" stroke-linecap="round"/><g class="tassel"><path d="M32 16L47 20V34" fill="none" stroke="#ffc928" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M44 33H50L51.5 42H42.5Z" fill="#ffc928" stroke="#e0a800" stroke-width="1" stroke-linejoin="round"/></g><circle cx="32" cy="16" r="3.2" fill="#ffc928"/></svg>`;
 const mark = () =>`<span class="mark char" aria-hidden="true">${charLayers()}</span>`;
 $('#logo').insertAdjacentHTML('afterbegin', mark());
 
