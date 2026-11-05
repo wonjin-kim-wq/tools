@@ -292,6 +292,11 @@ body{padding-left:var(--side)}
   opacity:0;pointer-events:none;transform:translate(-50%,-48%) scale(.98);transition:opacity .12s,transform .14s cubic-bezier(.2,.8,.2,1);
   max-height:88vh;overflow:auto;overscroll-behavior:contain}
 .sheet.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+/* 스크롤 막대가 둥근 모서리 밖으로 삐져나오지 않게 위아래를 모서리 반지름만큼 띄우고 얇게 그린다 */
+.sheet::-webkit-scrollbar{width:10px}
+.sheet::-webkit-scrollbar-track{background:transparent;margin:24px 0}
+.sheet::-webkit-scrollbar-thumb{background:#c9ced6;border-radius:999px;border:3px solid #fff}
+.sheet::-webkit-scrollbar-thumb:hover{background:#aeb4bd}
 .app-sheet{width:min(760px,calc(100% - 48px))}
 .auth-sheet{width:min(420px,calc(100% - 48px));padding:36px 32px 28px}
 .x{position:absolute;right:16px;top:16px;width:32px;height:32px;border-radius:50%;border:0;background:var(--chip);font-size:14px;color:var(--sub);z-index:1}
@@ -405,6 +410,7 @@ body{padding-left:var(--side)}
   .sheet{left:0;right:0;top:auto;bottom:0;width:100%;max-height:92vh;border-radius:22px 22px 0 0;
     transform:translateY(100%);padding-bottom:env(safe-area-inset-bottom)}
   .sheet.show{transform:translateY(0)}
+  .sheet::-webkit-scrollbar-track{margin:22px 0 0}
   .sheet::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:#d1d6db;margin:10px auto 0}
   .auth-sheet{width:100%;padding:20px 20px 24px}
   .auth-sheet::before{margin:-10px auto 16px}
