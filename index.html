@@ -372,6 +372,8 @@ body{padding-left:var(--side)}
 @media (max-width:640px),(hover:none){#buddy{display:none}}
 /* 캐릭터가 쓰는 학사모: 머리 꼭대기에 끼운다 (몸과 함께 좌우로 뒤집힌다) */
 #buddy .hat{position:absolute;left:16px;top:-11px;width:36px;height:27px;transform-origin:50% 90%;transform:rotate(-8deg) scale(0);opacity:0;pointer-events:none}
+#buddy.lofty{z-index:20}   /* 채팅창 머리로 뛰어오를 때는 채팅창 위로 */
+#buddy.on.docked{opacity:0;transition:none}
 #buddy.capped .hat{opacity:1;animation:hat-on .32s cubic-bezier(.3,1.6,.5,1) forwards}
 @keyframes hat-on{from{transform:rotate(-8deg) translateY(-6px) scale(1.15)}to{transform:rotate(-8deg) translateY(0) scale(1)}}
 
@@ -382,11 +384,14 @@ body{padding-left:var(--side)}
 .cap-bot .tassel{transform-origin:47px 20px;animation:tassel 2.6s ease-in-out infinite}
 .cap-bot:hover svg{animation-duration:1.2s}
 .cap-bot:focus-visible{outline:3px solid var(--yel);outline-offset:4px;border-radius:16px}
-.cap-bot .tip{position:absolute;right:100%;top:50%;margin-right:6px;transform:translate(6px,-50%);white-space:nowrap;background:var(--ink);color:#fff;font-size:12.5px;font-weight:600;
-  padding:6px 10px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s}
-.cap-bot:hover .tip,.cap-bot:focus-visible .tip{opacity:1;transform:translate(0,-50%)}
 .cap-bot.lift{transform:translateY(-80px)}
-.cap-bot.lift .tip{display:none}
+/* 학사모 위 말풍선: 늘 떠 있다가 모자가 떠오르면 사라진다 */
+.cap-bot .say{position:absolute;right:-6px;bottom:100%;margin-bottom:8px;white-space:nowrap;background:#fff;color:var(--ink);border:1.5px solid var(--ink);
+  font-size:13px;font-weight:700;padding:7px 12px;border-radius:14px;transform-origin:80% 120%;animation:say-in .45s cubic-bezier(.3,1.6,.5,1) 1.2s both,say-bob 2.6s ease-in-out 1.65s infinite;transition:opacity .2s}
+.cap-bot .say::after{content:"";position:absolute;right:30px;bottom:-6px;width:10px;height:10px;background:#fff;border:solid var(--ink);border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.cap-bot.lift .say,.cap-bot.gone .say{opacity:0}
+@keyframes say-in{from{opacity:0;transform:translateY(6px) scale(.6)}to{opacity:1;transform:none}}
+@keyframes say-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .cap-bot.gone{opacity:0;transform:translateY(-80px) scale(.6);pointer-events:none}
 @keyframes cap-bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-5px) rotate(3deg)}}
 @keyframes tassel{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}
@@ -396,8 +401,12 @@ body{padding-left:var(--side)}
   opacity:0;transform:translateX(24px) scale(.98);transform-origin:100% 100%;pointer-events:none;visibility:hidden;transition:opacity .22s,transform .3s cubic-bezier(.2,.9,.3,1),visibility 0s .3s}
 .chat.show{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .22s,transform .3s cubic-bezier(.2,.9,.3,1)}
 .chat-head{display:flex;align-items:center;gap:10px;padding:16px 16px 14px 18px;border-bottom:1px solid var(--line)}
-.chat-head svg{width:38px;height:31px;flex:none}
+.chat-ava{position:relative;flex:none;width:58px;height:48px;margin:-4px 0 -4px -6px}
+.chat-ava img{position:absolute;inset:0;width:100%;height:100%;user-select:none}
+.chat-ava .hat{position:absolute;left:16px;top:-11px;width:36px;height:27px;transform:rotate(-8deg)}
+.chat.wait-buddy .chat-ava{visibility:hidden}   /* 캐릭터가 뛰어올라 앉으면 그 모습 그대로 이 아이콘으로 바뀐다 */
 .chat-head h2{margin:0;font-size:16px;font-weight:800;color:var(--ink)}
+#chatTitle:focus{outline:none}
 .chat-head p{margin:2px 0 0;font-size:12.5px;color:var(--sub)}
 .chat-close{margin-left:auto;width:32px;height:32px;flex:none;border:0;border-radius:50%;background:var(--chip);color:var(--sub);font-size:14px;cursor:pointer}
 .chat-close:hover{background:#e5e8eb;color:var(--ink)}
@@ -409,6 +418,7 @@ body{padding-left:var(--side)}
 .chat-form :disabled{opacity:.55;cursor:not-allowed}
 @media (max-width:640px){
   .cap-bot{right:14px;bottom:14px;width:64px;height:52px}
+  .cap-bot .say{font-size:12px;padding:6px 10px}
   .chat{left:12px;right:12px;bottom:12px;width:auto;height:min(560px,calc(100vh - 24px))}
 }
 
@@ -525,7 +535,7 @@ body{padding-left:var(--side)}
 <div class="sheet app-sheet" id="appSheet" role="dialog" aria-modal="true"></div>
 <div class="sheet auth-sheet" id="authSheet" role="dialog" aria-modal="true"></div>
 <div class="toast" id="toast"></div>
-<button class="cap-bot" id="capBot" type="button" aria-label="AI 도우미 열기" aria-controls="chat" aria-expanded="false"><span class="tip">AI 도우미</span></button>
+<button class="cap-bot" id="capBot" type="button" aria-label="AI 챗봇에게 물어보세요! 채팅창 열기" aria-controls="chat" aria-expanded="false"><span class="say">AI 챗봇에게 물어보세요!</span></button>
 <section class="chat" id="chat" role="dialog" aria-labelledby="chatTitle" aria-hidden="true">
   <div class="chat-head"><span class="chat-cap"></span><div><h2 id="chatTitle" tabindex="-1">참코딩 AI 도우미</h2><p>AI 기능 준비 중</p></div><button class="chat-close" id="chatClose" type="button" aria-label="채팅창 닫기">✕</button></div>
   <div class="chat-log" id="chatLog"><div class="chat-msg">안녕하세요! 저는 참코딩 AI 도우미예요.<br>대화 기능은 곧 열릴 예정이에요. 조금만 기다려 주세요!</div></div>
@@ -978,14 +988,25 @@ const Buddy = (()=>{
     } else if (cap && cap.phase === 'jump' && s.jv >= 0){   // 가장 높이 뛰었을 때 모자가 머리에 쏙
       s.cap = null; el.classList.add('capped'); s.cheer = t; cap.done();
     }
-    const card = ready && !s.cap && s.card && t-s.cardSince >= 500 ? s.card : null;
+    const card = ready && !s.cap && !s.dock && s.card && t-s.cardSince >= 500 ? s.card : null;
     if (s.perch && s.perch.card !== card){ s.perch = null; s.vx = s.vy = 0; if (s.jy === 0) s.jv = -4; }   // 카드를 벗어나면 폴짝 내려와 다시 따라간다
     const anchor = card?.getBoundingClientRect();
     const seatX = anchor ? clamp(anchor.right-30,32,innerWidth-32) : 0, seatY = anchor ? Math.max(52,anchor.top+14) : 0;
     // 모서리에서 멀면 먼저 달려가고, 가까워지면(200px 안) 점프한다
     if (card && !s.perch && Math.hypot(seatX-s.x, seatY-s.y) <= 200){ s.perch = {card, fx:s.x, fy:s.y, t0:t, sat:false}; s.face = Math.sign(seatX - s.x) || s.face; }
     const perch = s.perch;
-    if (s.cap?.phase === 'jump'){ s.vx = s.vy = 0; }
+    const dock = s.dock;
+    if (dock){
+      // 모자를 쓴 채 채팅창 머리의 아이콘 자리로 크게 뛰어올라 앉는다 → 앉으면 같은 모습의 아이콘과 바꿔치기
+      const p = Math.min(1, (t-dock.t0)/620), e = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+      if (p < 1){ s.x = lerp(dock.fx, dock.x, e); s.y = lerp(dock.fy, dock.y, e) - 70*4*p*(1-p); }
+      else {
+        s.x = dock.x; s.y = dock.y;
+        if (!dock.in){ dock.in = true; s.faceS = 1; s.amp = 0; s.cheer = 0; s.squash = 0; s.lean = 0; el.classList.add('docked'); dock.done(); }
+      }
+      s.vx = s.vy = 0; s.jy = 0; s.jv = 0;
+    }
+    else if (s.cap?.phase === 'jump'){ s.vx = s.vy = 0; }
     else if (perch){
       // 포물선으로 뛰어올라 모서리에 앉는다. 앉은 뒤에는 방향을 고정해 좌우로 돌아보지 않는다.
       const p = Math.min(1, (t-perch.t0)/480), e = p<.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
@@ -1012,7 +1033,7 @@ const Buddy = (()=>{
     el.classList.toggle('waiting', !!perch?.sat && !s.cheer);
 
     // 방향 전환: 움직이면 진행 방향, 멈추면 커서 쪽. 폭이 줄었다 늘며 몸을 돌린다 (카드 위에서는 고정)
-    if (perch) {}
+    if (perch || dock) {}
     else if (Math.abs(s.vx) > .6) s.face = Math.sign(s.vx);
     else if (s.hasMouse && Math.abs(s.mx - s.x) > 30) s.face = Math.sign(s.mx - s.x);
     s.faceS = lerp(s.faceS, s.face, .22);
@@ -1039,7 +1060,7 @@ const Buddy = (()=>{
     const breathe = Math.sin(t/420)*.025*(1-s.amp);
     const sy = 1 - s.squash + breathe + pop + (s.jy < 0 ? .05 : 0), sx = 1 + s.squash - breathe*.6 + pop*.5;
     let legA = sw*30*s.amp + kick, legB = -legA, sitDrop = 0;
-    if (perch && !perch.sat){ legA = -22; legB = 22; }                                   // 점프 중에는 다리를 모은다
+    if ((perch && !perch.sat) || (dock && !dock.in)){ legA = -22; legB = 22; }                                   // 점프 중에는 다리를 모은다
     else if (perch){ legA = Math.sin(t/380)*14 + kick; legB = Math.sin(t/380+1.3)*14 - kick; sitDrop = 2; }   // 걸터앉아 다리를 달랑달랑
 
     el.style.transform = `translate3d(${s.x-31.4}px,${s.y-47.8}px,0)`;
@@ -1049,7 +1070,7 @@ const Buddy = (()=>{
     legL.style.transform = `rotate(${legA}deg)`;
     legR.style.transform = `rotate(${legB}deg)`;
     sh.style.transform = `scale(${(1 + s.jy/50 - s.amp*.08)*popS})`;
-    sh.style.opacity = perch ? 0 : 1 + s.jy/70;   // 공중·카드 위에서는 바닥 그림자를 숨긴다
+    sh.style.opacity = perch || dock ? 0 : 1 + s.jy/70;   // 공중·카드 위에서는 바닥 그림자를 숨긴다
     raf = requestAnimationFrame(tick);
   }
 
@@ -1080,6 +1101,20 @@ const Buddy = (()=>{
     s.cap = { x, y, phase:'go', t0:performance.now(), done };
     return true;
   };
+  // 채팅창 머리의 아이콘(rect) 자리로 뛰어올라 앉는다. 앉으면 done()으로 아이콘을 보여 주고 캐릭터는 숨는다.
+  api.dock = (rect, done) => {
+    if (!api.active) return false;
+    s.perch = null; s.card = null;
+    s.dock = { x:rect.left+31.4, y:rect.top+47.8, fx:s.x, fy:s.y+s.jy, t0:performance.now(), in:false, done };
+    s.face = 1; el.classList.add('lofty');
+    return true;
+  };
+  // 채팅창을 닫으면 아이콘 자리에서 다시 나타나 폴짝 뛰어내린다
+  api.undock = () => {
+    if (!api.active || !s.dock) return;
+    s.dock = null; el.classList.remove('docked'); s.jy = 0; s.jv = -5;
+    setTimeout(() => el.classList.remove('lofty'), 450);
+  };
   api.takeOffCap = () => { if (!api.active) return; s.cap = null; el.classList.remove('capped'); };
   api.cheer = () => {
     if (!api.active) return;
@@ -1106,10 +1141,17 @@ const Buddy = (()=>{
 const Chat = (()=>{
   const btn = $('#capBot'), panel = $('#chat'), title = $('#chatTitle');
   btn.insertAdjacentHTML('afterbegin', CAP_SVG());
-  panel.querySelector('.chat-cap').outerHTML = CAP_SVG();
+  panel.querySelector('.chat-cap').outerHTML = `<span class="chat-ava" aria-hidden="true">${charLayers()}${CAP_SVG('hat')}</span>`;
+  const ava = panel.querySelector('.chat-ava');
   let open = false, busy = false;
   function show(){
+    const viaBuddy = busy && Buddy.active;
     busy = false; open = true;
+    panel.classList.toggle('wait-buddy', viaBuddy);
+    if (viaBuddy) setTimeout(() => {            // 채팅창이 다 열린 뒤 모자 쓴 캐릭터가 아이콘 자리로 올라간다
+      if (!open || !panel.classList.contains('wait-buddy')) return;
+      if (!Buddy.dock(ava.getBoundingClientRect(), () => panel.classList.remove('wait-buddy'))) panel.classList.remove('wait-buddy');
+    }, 340);
     btn.classList.add('gone');
     panel.classList.add('show'); panel.setAttribute('aria-hidden','false'); btn.setAttribute('aria-expanded','true');
     title.focus({preventScroll:true});
@@ -1129,11 +1171,12 @@ const Chat = (()=>{
     if (!open) return;
     open = false;
     panel.classList.remove('show'); panel.setAttribute('aria-hidden','true'); btn.setAttribute('aria-expanded','false');
-    Buddy.takeOffCap?.();
+    Buddy.undock(); Buddy.takeOffCap();
+    panel.classList.remove('wait-buddy');
     btn.classList.remove('gone','lift');
     btn.focus({preventScroll:true});
   }
-  Buddy.onCapLost = () => { if (busy) show(); };
+  Buddy.onCapLost = () => { if (busy) show(); panel.classList.remove('wait-buddy'); };
   btn.addEventListener('click', () => open ? closeChat() : openChat());
   $('#chatClose').addEventListener('click', closeChat);
   $('#chatForm').addEventListener('submit', e => e.preventDefault());
