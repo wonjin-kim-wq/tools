@@ -533,13 +533,13 @@ body{padding-left:var(--side)}
     <div class="subj" id="subj" role="group" aria-label="교과별 보기"></div></div>
     <div class="seg" id="seg" role="tablist" aria-label="정렬">
       <span class="knob"></span>
-      <button data-k="created" class="on" role="tab">최신순</button>
-      <button data-k="popular" role="tab">인기순</button>
+      <button data-k="created" role="tab">최신순</button>
+      <button data-k="popular" class="on" role="tab">인기순</button>
       <button data-k="updated" role="tab">업데이트순</button>
     </div>
   </div>
   <div class="cats" id="cats" role="tablist" aria-label="카테고리"></div>
-  <div class="period" id="period" role="tablist" aria-label="인기순 기간" inert>
+  <div class="period show" id="period" role="tablist" aria-label="인기순 기간">
     <button type="button" data-p="day" role="tab">일별</button><button type="button" data-p="week" class="on" role="tab">주별</button><button type="button" data-p="month" role="tab">월별</button>
   </div>
   <div class="grid-loading" id="gridLoading" role="status" aria-label="웹앱 목록을 불러오고 있어요"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
@@ -584,7 +584,7 @@ $('#logo').insertAdjacentHTML('afterbegin', mark());
 
 /* ===== 카드 ===== */
 const grid = $('#grid'), seg = $('#seg'), knob = seg.querySelector('.knob');
-let key = 'created', cat = 'all', level = 'all', subject = 'all', query = '';
+let key = 'popular', cat = 'all', level = 'all', subject = 'all', query = '';
 // 적용 학교급: 적용 학년 글자 앞의 학교급으로 판단한다(예: '중학교 1-3학년'). 학교급이 없는 기존 값은 초등학교로 본다.
 const LEVELS = [{k:'초', name:'초등학교'}, {k:'중', name:'중학교'}, {k:'고', name:'고등학교'}];
 const levelOf = a => /^\s*중학교/.test(a.grade||'') ? '중' : /^\s*고등학교/.test(a.grade||'') ? '고' : '초';
@@ -752,9 +752,13 @@ const PERIODS = { day:{cur:'d0', prev:'d1', label:'오늘'}, week:{cur:'w0', pre
 const popCount = (a, which) => a.use_periods ? a.use_periods[PERIODS[period][which]] || 0 : which==='cur' ? a.uses : 0;
 const gridLoading = $('#gridLoading');
 const mobileMQ = matchMedia('(max-width:640px)');
+function syncPeriod(){
+  periodEl.classList.toggle('show', key==='popular'); periodEl.inert = key!=='popular';
+  if (key==='popular') periodEl.style.width = seg.offsetWidth+'px';
+}
 function layout(){
   gridLoading.hidden = !appsLoading;
-  if (appsLoading){ updateSubjects([]); $('#total').textContent = '…'; $('#empty').hidden = true; grid.style.height = '0px'; moveKnob(); return; }
+  if (appsLoading){ updateSubjects([]); $('#total').textContent = '…'; $('#empty').hidden = true; grid.style.height = '0px'; syncPeriod(); moveKnob(); return; }
   const W = grid.clientWidth;
   const mobile = mobileMQ.matches;
   const gap = mobile ? 12 : 16;
@@ -785,8 +789,7 @@ function layout(){
   }
   // 인기순은 서버가 매긴 전체 순위를 따르고, 순위가 없으면(예시 목록) 사용 횟수로 정렬한다
   // 인기순: 고른 기간(일별·주별·월별)의 사용 횟수로 정렬하고, 바로 앞 같은 길이의 기간과 순위를 비교한다
-  periodEl.classList.toggle('show', key==='popular'); periodEl.inert = key!=='popular';
-  if (key==='popular') periodEl.style.width = seg.offsetWidth+'px';
+  syncPeriod();
   const byCount = which => (x,y)=> popCount(y,which)-popCount(x,which) || y.uses-x.uses || String(x.created).localeCompare(String(y.created));
   const curRank = new Map([...apps].sort(byCount('cur')).map((a,i)=>[a,i+1]));
   const prevRank = new Map([...apps].sort(byCount('prev')).map((a,i)=>[a,i+1]));
