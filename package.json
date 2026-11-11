@@ -9,5 +9,13 @@
   },
   "engines": {
     "node": "24.x"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "^0.7.13",
+    "@astryxdesign/theme-neutral": "^0.7.13",
+    "@stylexjs/stylex": "^0.19.1"
+  },
+  "devDependencies": {
+    "@astryxdesign/cli": "^0.7.13"
   }
 }

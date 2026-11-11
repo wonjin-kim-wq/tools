@@ -1,0 +1,385 @@
+/* Astryx Neutral tokens for the existing HTML controls and surfaces. */
+:root {
+  --bg: color-mix(in srgb, var(--color-background-body, #f1f1f1) 25%, #eff6ff);
+  --card: var(--color-background-card, #fff);
+  --line: var(--color-border, #00000014);
+  --line2: var(--color-border-emphasized, #d4d4d4);
+  --ink: var(--color-accent, #1b1b1b);
+  --sub: var(--color-text-secondary, #474747);
+  --mute: var(--color-icon-secondary, #6a6a6a);
+  --brand: var(--color-text-info, #0067ce);
+  --brand-on: var(--color-on-info, #fff);
+  --brand-ink: var(--color-on-info-muted, #003978);
+  --brand-highlight: var(--color-info-muted, #b9d7ff);
+  --brand-surface: color-mix(in srgb, var(--brand) 4%, var(--card));
+  --brand-soft: color-mix(in srgb, var(--brand) 11%, var(--card));
+  --brand-border: color-mix(in srgb, var(--brand) 27%, var(--line2));
+  --brand-hover: color-mix(in srgb, var(--brand) 82%, var(--brand-ink));
+  --chip: color-mix(in srgb, var(--brand) 4%, var(--color-background-muted, #f1f1f1));
+  --control-radius: var(--radius-element, .625rem);
+  --panel-radius: var(--radius-page, 1.75rem);
+  --focus-ring: var(--color-info, #0074e2);
+  --shadow: 0 1px 2px color-mix(in srgb, var(--color-shadow, #0000001a) 45%, transparent);
+  --shadow-h: var(--shadow-low, 0 4px 12px #0000001a);
+}
+
+/* Side Nav, Text Input, Button */
+.side {
+  background: var(--brand-surface);
+}
+
+.side-item,
+.side-sub button,
+.menu-toggle,
+.btn {
+  border-radius: var(--control-radius);
+}
+
+.side-item.on {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  box-shadow: inset 0 0 0 1px var(--brand-border);
+}
+
+.side-item.on .ic {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.search {
+  background: var(--card);
+  border-color: var(--line2);
+  border-radius: var(--control-radius);
+}
+
+.search:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 22%, transparent);
+}
+
+.btn.solid,
+a.btn.solid,
+.side-sub button.on,
+.chat-form button {
+  background: var(--brand);
+  color: var(--brand-on);
+}
+
+.btn.solid:hover:not(:disabled),
+.chat-form button:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+.topbar .visit-stats span {
+  white-space: nowrap;
+}
+
+.topbar .btn {
+  flex-shrink: 0;
+}
+
+/* Carousel: retain app artwork and give text a stable dark surface. */
+.hero {
+  border-radius: var(--panel-radius);
+}
+
+.hero-slide {
+  background: linear-gradient(115deg, #132544, color-mix(in srgb, var(--c) 52%, #1a3a66) 54%, color-mix(in srgb, var(--c) 65%, #b9d7ff));
+}
+
+.hero-slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(105deg, #0d1c37f2 4%, #0d1c37e8 32%, #0d1c377d 65%, #0d1c3714);
+  pointer-events: none;
+}
+
+.hero-copy {
+  z-index: 2;
+  width: 100%;
+  max-width: 460px;
+  color: var(--color-on-dark, #fff);
+}
+
+.hero-eyebrow {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--brand-highlight);
+  color: var(--brand-ink);
+  opacity: 1;
+}
+
+.hero-copy h2,
+.hero-copy > p,
+.hero-app small {
+  color: inherit;
+}
+
+.hero-copy h2 {
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hero-app > div {
+  min-width: 0;
+}
+
+.hero-app b,
+.hero-app small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hero-open {
+  flex: none;
+  background: var(--card);
+  color: var(--brand-ink);
+}
+
+.hero-open:hover {
+  background: var(--brand-soft);
+}
+
+.hero-dots {
+  z-index: 3;
+  gap: 2px;
+  padding: 2px 4px;
+  background: #0d1c37a8;
+}
+
+.hero-dots button,
+.hero-dots button.on {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 28px;
+  border-radius: var(--radius-full, 999px);
+  background: transparent;
+}
+
+.hero-dots button::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: inherit;
+  background: #ffffffa6;
+}
+
+.hero-dots button.on::before {
+  width: 15px;
+  background: var(--brand-highlight);
+}
+
+/* Card Grid, Badge, Segmented Control */
+.card,
+.voice,
+.grid-loading .sk {
+  background-color: var(--card);
+  border-radius: calc(var(--radius-container, .75rem) + .375rem);
+  border-color: var(--line);
+}
+
+.card:hover {
+  border-color: var(--brand-border);
+  box-shadow: var(--shadow-h);
+}
+
+.txt h2 {
+  letter-spacing: -.025em;
+}
+
+.head .total {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  box-shadow: inset 0 0 0 1px var(--brand-border);
+}
+
+.subj button,
+.cat {
+  background: var(--card);
+  border-color: var(--line2);
+}
+
+.subj button.on,
+.cat.on {
+  background: var(--brand-soft);
+  border-color: var(--brand-border);
+  color: var(--brand-ink);
+}
+
+.cat.on .ic { background: var(--card); }
+.cat.on small { color: var(--sub); }
+.subj button.none:not(.on) { opacity: .72; }
+
+.seg,
+.period,
+.tabs {
+  background: var(--chip);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.seg .knob,
+.period button.on,
+.tabs button.on {
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.seg button.on,
+.period button.on,
+.tabs button.on {
+  color: var(--brand-ink);
+}
+
+/* Dialog, form fields and chat use the same surface and focus states. */
+.sheet,
+.workspace,
+.preview-dialog,
+.chat {
+  background: var(--card);
+  box-shadow: var(--shadow-high, 0 16px 40px #00000026);
+}
+
+.workspace,
+.chat {
+  border-color: var(--line2);
+}
+
+.workspace-head,
+.chat-head {
+  background: var(--brand-surface);
+}
+
+.workspace-nav { background: var(--chip); }
+.workspace-nav button.active { box-shadow: var(--shadow); }
+
+.entry-icon,
+.form-intro > span,
+.ai-prep-note,
+.membership-state {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.ai-prep-note b { color: inherit; }
+
+.hd > div:last-child,
+.chat-head > div,
+.more-app > span:nth-child(2) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.hd h3 {
+  line-height: 1.22;
+  padding-right: 32px;
+}
+
+.facts {
+  background: var(--chip);
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+}
+
+.facts + :is(.desc, .detail-sec) {
+  padding-top: var(--spacing-4, 1rem);
+}
+
+.field :is(input:not([type="checkbox"], [type="radio"]), textarea, select),
+.grade-row select,
+.review-form textarea,
+.chat-form input {
+  border-color: var(--line2);
+  border-radius: var(--control-radius);
+  background: var(--card);
+}
+
+.field :is(input:not([type="checkbox"], [type="radio"]), textarea, select):focus,
+.grade-row select:focus,
+.review-form textarea:focus,
+.chat-form input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 22%, transparent);
+}
+
+.chat-msg.question {
+  background: var(--brand-soft);
+  border-color: var(--brand-border);
+}
+
+.btn:focus-visible,
+.card:focus-visible,
+.side-item:focus-visible,
+.side-sub button:focus-visible,
+.menu-toggle:focus-visible,
+.subj button:focus-visible,
+.cat:focus-visible,
+.seg button:focus-visible,
+.period button:focus-visible,
+.workspace-nav button:focus-visible,
+.hero-open:focus-visible,
+.hero-dots button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.seg button:focus-visible,
+.period button:focus-visible,
+.subj button:focus-visible,
+.hero-dots button:focus-visible {
+  outline-offset: -2px;
+}
+
+.hero-open:focus-visible,
+.hero-dots button:focus-visible {
+  outline-color: var(--brand-highlight);
+}
+
+.hero-open:focus-visible { outline-offset: 3px; }
+.cap-bot:focus-visible { outline-color: var(--focus-ring); }
+
+@media (max-width: 900px) {
+  .menu-toggle,
+  .side .search { min-height: 44px; }
+  .side-panel { background: var(--card); }
+  .subj {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: 2px;
+  }
+  .subj button { height: 34px; }
+}
+
+@media (max-width: 640px) {
+  .topbar { gap: 10px; }
+  .topbar .visit-stats { gap: 4px 10px; }
+  .topbar .btn { min-height: 40px; padding-inline: 14px; }
+  .hero { border-radius: calc(var(--radius-container, .75rem) + .5rem); }
+  .hero-slide::before {
+    background: linear-gradient(0deg, #0d1c37f5 7%, #0d1c37db 59%, #0d1c3727);
+  }
+  .hero-copy { max-width: 100%; padding-block: 14px 18px; }
+  .hero-app { gap: 8px; }
+  .hero-open { min-height: 38px; padding-inline: 14px; }
+  .hero-dots { top: 10px; right: 12px; }
+  .seg button, .period button { height: 40px; }
+  .sheet { max-height: 92dvh; }
+  .sheet .x { width: 40px; height: 40px; }
+  .chat {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    height: min(560px, calc(100dvh - 24px - env(safe-area-inset-bottom)));
+  }
+  .chat-head { gap: 7px; padding-inline: 12px; }
+  .field :is(textarea, select), .grade-row select, .review-form textarea { font-size: 16px; }
+  .grade-row select { padding-inline: 6px; }
+}
