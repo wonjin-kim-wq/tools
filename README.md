@@ -2,9 +2,9 @@
 
 기존 카드·검색·분류 화면과 업로드 요청, 대기 목록, 관리자 검토를 제공하는 Vercel 정적 사이트 + Node API입니다. 데이터와 이미지는 Supabase에 보관합니다.
 
-최근 변경 사항과 카드·캐릭터의 현재 동작 설정은 [작업 기록](WORK_LOG.md)에 정리했습니다.
+최근 변경 사항과 카드·캐릭터의 현재 동작 설정은 [작업 기록](WORK_LOG.md)에 정리했습니다. 작업을 마칠 때마다 `WORK_LOG.md` 맨 위에 날짜별 항목(바뀐 점·확인·남은 일)을 추가하고, 이 README의 관련 절도 함께 고칩니다.
 
-최종 내용 갱신: 2026-11-03. 운영 사이트는 https://tools-one-nu.vercel.app/ 이며, GitHub `main`에 푸시하면 연결된 Vercel에서 자동 배포합니다. 함수 실행 지역은 서울 `icn1`입니다.
+최종 내용 갱신: 2026-11-18. 운영 사이트는 https://www.chamssaem.kr/ (기존 https://tools-one-nu.vercel.app/ 는 www.chamssaem.kr로 자동 이동)이며, GitHub `main`에 푸시하면 연결된 Vercel에서 자동 배포합니다. 함수 실행 지역은 서울 `icn1`입니다.
 
 ## AI 에이전트로 앱 등록
 
@@ -84,16 +84,16 @@ git diff --check
 
 ## Supabase
 
-`supabase/schema.sql`은 방문 집계 테이블을 포함한 `tools_` 전용 테이블 6개와 `chamcoding-screenshots` 비공개 버킷을 만듭니다. `supabase/seed.sql`은 기존 예시 앱 10개를 추가하며 같은 ID가 있으면 기존 내용을 보존합니다. 기존 프로젝트의 다른 테이블과 인증 설정은 변경하지 않습니다.
+`supabase/schema.sql` 하나로 `tools_` 전용 테이블 12개, 함수 7개, 트리거 4개와 `chamcoding-screenshots` 비공개 버킷을 만듭니다(지금까지의 마이그레이션이 모두 들어 있음). `supabase/seed.sql`은 기존 예시 앱 10개를 추가하며 같은 ID가 있으면 기존 내용을 보존합니다.
 
-참코딩은 2026-11-18부터 전용 Supabase 프로젝트(`chamssaem`, 서울)를 씁니다. 이전에는 quiz-games(옛 이름 `mono`) 프로젝트를 함께 썼습니다. 옮기는 방법과 대조 도구는 아래 'DB 분리'를 참고합니다.
+참코딩은 2026-11-18부터 전용 Supabase 프로젝트(`chamssaem`, 참조 ID `ivraxclebyfkyimirole`, 서울 ap-northeast-2)를 씁니다. 이전에는 quiz-games(옛 이름 `mono`) 프로젝트를 함께 썼습니다. 옮긴 방법과 대조 도구는 아래 'DB 분리'를 참고합니다.
 
 환경 변수는 Vercel **서버 비밀 변수**로 설정합니다. 클라이언트에 키를 넣거나 `NEXT_PUBLIC_` 같은 공개 접두사를 붙이지 않습니다.
 
 | 변수 | 용도 |
 | --- | --- |
 | `SUPABASE_URL` | Supabase 프로젝트 URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | 서버 전용 API 키 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 서버 전용 API 키(새 형식 secret 키 `sb_secret_…`) |
 | `SESSION_SECRET` | 충분히 긴 무작위 세션 서명 키 |
 | `UPLOAD_PASSWORD` | 연구회 업로더 공통 비밀번호 |
 | `ADMIN_SETUP_TOKEN` | 최초 관리자 등록용 무작위 일회성 토큰 |
@@ -108,7 +108,11 @@ quiz-games 프로젝트에 함께 있던 참코딩 데이터를 전용 프로젝
 - 데이터·스크린샷: `node --env-file=.env.migration scripts/split-copy.js copy|check`. 새 프로젝트의 `tools_` 데이터를 비우고 다시 채운 뒤 표마다 내용 해시와 스크린샷 파일 내용을 비교합니다. `tools_rate_limits`는 옮기지 않습니다. 키는 Git에서 제외되는 `.env.migration`에만 둡니다.
 - 회원: `supabase/split/export-members.sql`(기존) → `import-members.sql`(새). 참코딩 회원만 같은 id·이메일·비밀번호 해시로 옮기므로 같은 비밀번호로 로그인합니다.
 - 새 프로젝트 인증 설정: Site URL `https://www.chamssaem.kr`, Redirect URL `https://www.chamssaem.kr/?email-confirmed=1`, 이메일 인증 켜짐. 서버 키는 secret 키(`sb_secret_…`)를 `SUPABASE_SERVICE_ROLE_KEY`에 넣습니다.
-- 전환: 직전에 `copy`를 다시 실행(그사이 새 회원이 있으면 회원 SQL도 다시 실행) → Vercel의 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`를 새 값으로 바꾸고 재배포 → 운영 확인. quiz-games 쪽 `tools_` 데이터는 안정화 전까지 백업으로 남깁니다.
+- 메일: Gmail SMTP(`smtp.gmail.com:465`, 보내는 이름 `참코딩`, Gmail 앱 비밀번호)로 인증·비밀번호 재설정 메일을 보냅니다. 메일은 시간당 30통까지입니다. 도메인 주소(`noreply@…chamssaem.kr`)로 보내려면 Resend 등에 도메인을 인증해야 하고, 가비아 DNS 접근이 필요합니다.
+- 요청 제한(새 프로젝트 Authentication → Rate Limits): 가입·로그인 5분당 300회, 토큰 갱신 5분당 600회. 회원 요청은 Vercel 서버에서 보내므로 이 값은 사이트 전체가 나눠 씁니다.
+- 전환(2026-11-18 14:43): 직전에 `copy`로 다시 복사·대조(전부 일치) → Vercel의 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`(Production)를 새 값으로 교체 → `0d9da1c`·`731d4e4` 푸시와 Vercel Production 배포 성공 → 운영 확인.
+- 운영 확인: 홈·공개 목록 200, 공개 앱 23개와 사진 63장이 새 프로젝트에서 나옴, 실제 가입 → Gmail 인증 메일 도착 → 링크로 자동 로그인 성공, 옛 주소 308 이동. 옮긴 회원 2명은 비밀번호를 몰라 운영 로그인은 확인하지 못했습니다(로그인이 안 되면 '비밀번호 찾기').
+- quiz-games 쪽 `tools_` 데이터와 회원은 안정화 전까지 백업으로 남깁니다. 지울 때는 quiz-games의 다른 서비스 데이터에 영향이 없도록 `tools_` 표·함수·`chamcoding-screenshots` 버킷만 대상으로 합니다.
 
 ## 요청과 검토
 
@@ -134,7 +138,7 @@ quiz-games 프로젝트에 함께 있던 참코딩 데이터를 전용 프로젝
 
 서버가 가입 시 `app_metadata.chamcoding_member`, `app_metadata.chamcoding_content_access`를 설정합니다. 사용자 수정이 가능한 `user_metadata`는 접근 권한으로 사용하지 않습니다. `/api/tools?action=member-content`는 실제 Supabase 사용자 검증과 회원 권한 확인 후 응답합니다. 현재 콘텐츠 목록은 비어 있으며 향후 전용 콘텐츠 API에도 같은 검사를 적용합니다. `chamcoding_content_access=false`로 이용 권한을 중지할 수 있습니다. 일반 회원 자격은 업로드 승인·관리자 권한을 부여하지 않습니다.
 
-Supabase의 이메일 인증 설정과 SMTP 발송 제한을 적용합니다. 운영용 회원가입에는 Supabase의 발송 설정을 확인해야 합니다. 기존 mono 앱의 인증 설정을 일괄 변경하지 않습니다.
+이메일 인증은 켜져 있고, 메일은 새 프로젝트의 Gmail SMTP로 보냅니다(위 'DB 분리' 참고). Supabase 쪽 비밀번호 최소 길이는 6자이지만 참코딩 서버와 화면이 8자 이상을 요구합니다.
 
 대표 썸네일은 업로드한 첫 번째 이미지이며 기존 JSON 스크린샷 구조를 그대로 사용합니다. 대표 사진 교체와 순서 변경은 관리자 수정 화면에서 처리할 수 있습니다.
 
@@ -147,7 +151,7 @@ Supabase의 이메일 인증 설정과 SMTP 발송 제한을 적용합니다. �
 
 ## 남은 운영 확인
 
-일반 회원가입은 이메일 인증을 유지합니다. 전용 프로젝트 `chamssaem`에도 아직 **사용자 지정 SMTP가 없어** Supabase 기본 메일(프로젝트 전체 시간당 2통, 프로젝트 팀원 주소로만 발송)을 씁니다. 이 상태로는 일반 교사에게 인증·비밀번호 재설정 메일이 가지 않으므로 SMTP 연결이 필요합니다. 또 Supabase의 가입·로그인 제한(5분당 30회)은 IP별인데 회원 요청은 Vercel 서버에서 보내므로 사이트 전체가 이 한도를 나눠 씁니다. 이제 참코딩 전용 설정이므로 Authentication → Rate Limits에서 올릴 수 있습니다. 기존 mono 서비스의 인증 설정을 일괄 변경하지 않습니다. 회원 전용 콘텐츠 목록은 현재 비어 있습니다.
+일반 회원가입은 이메일 인증을 유지하며 Gmail SMTP로 실제 메일이 오는 것을 확인했습니다(2026-11-18). 남은 확인: 옮겨 온 회원 2명의 운영 로그인(비밀번호를 몰라 미확인), quiz-games 쪽 참코딩 백업 데이터 정리 시점, 도메인 주소로 메일을 보내려면 가비아 DNS 접근. 회원 전용 콘텐츠 목록은 현재 비어 있습니다.
 
 ## 2026-11-03 앱스토어형 개편
 
