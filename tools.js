@@ -213,6 +213,24 @@ ${codexConfig(token)}
 내가 앱 등록을 요청하면 공개 주소와 실제 화면을 확인하고 앱 소개를 작성해 줘. 스크린샷 파일에서 base64를 로컬로 읽어 upload_screenshot의 data_base64에 넣고, 이미지 원문은 채팅에 출력하지 마. 도구로 파일 내용을 직접 전달하기 어렵다면 로컬 스크립트에서 파일을 읽어 ${mcpUrl}에 JSON-RPC tools/call POST를 보내 줘. Authorization에는 개인 설정의 Bearer 토큰을 쓰고, 로그에는 남기지 마.
 register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을 보여 줘. 내가 직접 “네”라고 답하면 같은 정보와 confirmation_id, confirm_own_work: true로 접수해 줘.`;
 
+  const requestIcons={
+    agent:'<rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 7V3m-3 9h.01M15 12h.01M9 16h6"/>',
+    prompt:'<path d="M20 15a3 3 0 0 1-3 3H9l-5 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3zM8 8h8M8 12h5"/>',
+    direct:'<path d="M12 15V3m-4 4 4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>',
+    copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+    arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>'
+  };
+  const requestIcon=name=>`<svg class="request-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${requestIcons[name]}</svg>`;
+  const requestExample='이 앱을 참코딩에 등록해 줘: (내 웹앱 주소)';
+  async function copyRequestText(value){
+    try{await navigator.clipboard.writeText(value);return true;}catch{}
+    const field=document.createElement('textarea'),focused=document.activeElement;
+    field.className='request-copy-buffer';
+    field.value=value;field.readOnly=true;workspace.append(field);
+    field.select();
+    try{return document.execCommand('copy');}catch{return false;}
+    finally{field.remove();if(focused?.isConnected)focused.focus({preventScroll:true});}
+  }
   const requestTabs = [['agent','에이전트 요청'],['prompt','프롬프트 요청'],['direct','직접 업로드']];
   function selectRequestTab(id, focus=false) {
     for(const [key] of requestTabs){
@@ -230,7 +248,7 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
     $('#singleRequest').hidden=mode!=='single';
     $('#bulkRequest').hidden=mode!=='bulk';
   }
-  const requestLogin = tab => `<button type="button" class="btn solid" data-request-login="${tab}">회원 로그인 · 가입</button>`;
+  const requestLogin = tab => `<button type="button" class="btn solid" data-request-login="${tab}">${requestIcon('arrow')} 로그인하고 시작</button>`;
   async function uploadRequests(initial='agent', mode='single') {
     state.area='member';
     state.shots.forEach(revokePreview);state.shots=[];
@@ -238,40 +256,43 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
     const revision=openShell('업로드 요청','만든 웹앱을 참코딩에 소개해 주세요. 요청한 앱은 관리자 승인 후 공개돼요.','requests');
     $('#workspaceBody').innerHTML=`<section class="upload-requests">
       <div class="request-tabs" role="tablist" aria-label="업로드 요청 방법">
-        ${requestTabs.map(([key,label])=>`<button type="button" id="request-tab-${key}" role="tab" data-request-tab="${key}" aria-controls="request-panel-${key}" aria-selected="false" tabindex="-1">${label}</button>`).join('')}
+        ${requestTabs.map(([key,label])=>`<button type="button" id="request-tab-${key}" role="tab" data-request-tab="${key}" aria-controls="request-panel-${key}" aria-selected="false" tabindex="-1">${requestIcon(key)}<span>${label}</span></button>`).join('')}
       </div>
       <section id="request-panel-agent" role="tabpanel" aria-labelledby="request-tab-agent" tabindex="0" hidden>
         <section class="mcp-setup" aria-label="MCP로 업로드 요청하기">
-          <header class="request-intro"><span class="eyebrow">추천 · MCP 연결</span><h3>에이전트에 업로드 요청 맡기기</h3><p>MCP로 참코딩과 연결하면 Claude Code나 Codex가 앱 설명과 스크린샷을 준비하고, 확인받은 뒤 요청까지 보내요.</p></header>
-          <ol class="mcp-steps">
-            <li class="mcp-card"><h4>참코딩 토큰 만들기</h4>
-              <p>이메일 인증을 마친 참코딩 회원으로 로그인해 토큰을 만들어 주세요. 처음 연결할 때만 필요해요.</p>
-              <section id="mcpControls" aria-label="토큰 발급"><p role="status">로그인 상태를 확인하고 있어요…</p></section>
-            </li>
-            <li class="mcp-card"><h4>설정 프롬프트를 에이전트에 붙여 넣기</h4>
-              <p>토큰이 들어 있는 설정 프롬프트를 복사해 내 Claude Code 또는 Codex에 붙여 넣으세요. 연결 후 새 세션을 열어야 할 수 있어요.</p>
-              <button type="button" class="btn solid" data-mcp-copy="prompt" disabled>설정 프롬프트 복사</button>
-              <details><summary>직접 연결하기</summary>
-                <div class="tabs mcp-clients" role="group" aria-label="연결할 AI 선택">
-                  <button type="button" data-mcp-client="claude" aria-pressed="true" class="on">Claude Code</button>
-                  <button type="button" data-mcp-client="codex" aria-pressed="false">Codex</button>
-                  <button type="button" data-mcp-client="app" aria-pressed="false">Claude 앱</button>
-                </div>
-                <p class="mcp-client-help"></p>
-                <pre><code id="mcpCommand"></code></pre>
-                <button type="button" class="btn line" data-mcp-copy="command">연결 설정 복사</button>
-              </details>
-            </li>
-            <li class="mcp-card"><h4>앱 주소를 주고 요청 보내기</h4>
-              <p>에이전트에게 “이 웹앱을 참코딩에 등록해 줘: https://내-웹앱-주소”라고 요청하세요. 에이전트가 준비한 내용을 검토하고 본인 제작 확인 질문에 “네”라고 답하면 관리자에게 접수돼요.</p>
-            </li>
-          </ol>
-          <section id="mcpTokenList" class="mcp-card" aria-labelledby="mcpTokensTitle" hidden>
-            <h3 id="mcpTokensTitle">내 토큰</h3>
-            <p class="field-help">토큰은 최대 3개까지 사용할 수 있어요. 폐기하면 연결이 해제돼요.</p>
-            <ul id="mcpTokens"></ul>
+          <header class="request-intro"><span class="mcp-tag">MCP 연결</span><h3>AI에게 앱 등록 맡기기</h3><p>Claude Code나 Codex가 앱 소개와 스크린샷을 준비해요.</p></header>
+          <section class="mcp-card mcp-connect" aria-labelledby="mcpConnectTitle">
+            <p class="mcp-kicker">처음 한 번만</p>
+            <h4 id="mcpConnectTitle">설정 프롬프트 붙여 넣기</h4>
+            <p>아래 버튼으로 복사한 내용을 내 Claude Code 또는 Codex 채팅에 붙여 넣으세요.</p>
+            <section id="mcpControls" aria-label="연결 준비"><p role="status">로그인 상태를 확인하고 있어요…</p></section>
+            <p class="mcp-feedback" role="status"></p>
+            <label class="field mcp-fallback" hidden><span>설정 프롬프트 직접 복사</span><textarea readonly rows="4" autocomplete="off" spellcheck="false"></textarea></label>
           </section>
-          <p class="mcp-feedback" role="status"></p>
+          <section class="mcp-card mcp-request" aria-labelledby="mcpRequestTitle">
+            <p class="mcp-kicker">연결했다면</p>
+            <h4 id="mcpRequestTitle">앱 주소와 함께 등록 부탁하기</h4>
+            <div class="mcp-example"><code>${requestExample}</code><button type="button" class="btn line" data-mcp-copy="example">${requestIcon('copy')} 예시 복사</button></div>
+            <p>준비된 내용을 확인하고 직접 만든 앱이라면 동의해 주세요. 동의하면 관리자에게 접수돼요.</p>
+            <p class="mcp-example-status" role="status"></p>
+          </section>
+          <details class="mcp-details"><summary>직접 연결하기</summary>
+            <section class="mcp-details-body" aria-label="직접 연결 설정">
+              <div class="tabs mcp-clients" role="group" aria-label="연결할 AI 선택">
+                <button type="button" data-mcp-client="claude" aria-pressed="true" class="on">Claude Code</button>
+                <button type="button" data-mcp-client="codex" aria-pressed="false">Codex</button>
+                <button type="button" data-mcp-client="app" aria-pressed="false">Claude 앱</button>
+              </div>
+              <p class="mcp-client-help"></p>
+              <pre tabindex="0"><code id="mcpCommand"></code></pre>
+              <button type="button" class="btn line" data-mcp-copy="command">${requestIcon('copy')} 연결 설정 복사</button>
+              <button type="button" class="btn line" data-mcp-copy="token" hidden>${requestIcon('copy')} 토큰 복사</button>
+              <p class="mcp-manual-status" role="status"></p>
+            </section>
+          </details>
+          <details id="mcpTokenList" class="mcp-details" hidden><summary>연결 토큰 관리 <span id="mcpTokenCount"></span></summary>
+            <section class="mcp-details-body" aria-label="내 연결 토큰"><p class="field-help">최대 3개까지 쓸 수 있어요. 폐기하면 그 토큰으로 연결한 에이전트에서 등록할 수 없어요.</p><ul id="mcpTokens"></ul></section>
+          </details>
         </section>
       </section>
       <section id="request-panel-prompt" role="tabpanel" aria-labelledby="request-tab-prompt" tabindex="0" hidden>
@@ -284,7 +305,8 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
       <footer class="request-footer" id="requestFooter"></footer>
     </section>`;
     workspace.scrollTop=0;
-    selectRequestTab(initial,true);
+    selectRequestTab(initial);
+    const heading=$('#workspaceTitle');heading.tabIndex=-1;heading.focus({preventScroll:true});
     const mcp=bindMcpSetup($('#request-panel-agent'));
     const direct=$('#directControls');
     try {
@@ -295,7 +317,7 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         direct.innerHTML=`<section class="request-intro"><h3>웹앱 정보를 직접 입력하기</h3><p>회원으로 로그인하면 소개와 스크린샷을 등록해 승인 요청을 보낼 수 있어요.</p>${requestLogin(mode==='bulk'?'bulk':'direct')}</section>`;
         return;
       }
-      $('#requestFooter').innerHTML='<button type="button" data-view="queue" class="btn line">내 요청 보기</button>';
+      $('#requestFooter').innerHTML=`<button type="button" data-view="queue" class="btn line">${requestIcon('arrow')} 내 요청 보기</button>`;
       direct.innerHTML=`<header class="request-intro"><h3>웹앱 정보를 직접 입력하기</h3><p>설명과 스크린샷을 확인한 뒤 요청을 보내세요.</p></header>
         <div class="direct-modes" role="group" aria-label="올릴 앱 개수"><button type="button" class="btn line" data-direct-mode="single">앱 한 개</button><button type="button" class="btn line" data-direct-mode="bulk">여러 앱 일괄 업로드</button></div>
         <section id="singleRequest"></section><section id="bulkRequest" hidden></section>`;
@@ -310,12 +332,19 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
   }
   function bindMcpSetup(root) {
     const controls=root.querySelector('#mcpControls'), list=root.querySelector('#mcpTokenList');
-    const feedback=root.querySelector('.mcp-feedback');
-    let tokens=[], secret, issuedId;
+    const feedback=root.querySelector('.mcp-feedback'), manualStatus=root.querySelector('.mcp-manual-status');
+    const fallback=root.querySelector('.mcp-fallback'), fallbackText=fallback.querySelector('textarea');
+    let tokens=[], issued, promptButton;
+    const clearFallback=()=>{fallback.hidden=true;fallbackText.value='';};
     const renderTokens=()=>{
+      root.querySelector('#mcpTokenCount').textContent=`${tokens.length}/3`;
       root.querySelector('#mcpTokens').innerHTML=tokens.length?tokens.map(token=>
         `<li><div><strong>${esc(token.name)}</strong> <code>${esc(token.prefix)}…</code><p class="field-help">발급 ${date(token.created_at)} · 마지막 사용 ${token.last_used_at?date(token.last_used_at):'없음'}</p></div><button type="button" class="btn line" data-mcp-revoke="${esc(token.id)}" aria-label="${esc(token.name)} 토큰 폐기">폐기</button></li>`
       ).join(''):'<li>사용 중인 토큰이 없어요.</li>';
+      const full=!issued&&tokens.length>=3;
+      promptButton.disabled=full;
+      root.querySelector('#mcpCapacity').hidden=!full;
+      root.querySelector('[data-mcp-copy="token"]').hidden=!issued;
     };
     const setClient=client=>{
       root.querySelectorAll('[data-mcp-client]').forEach(button=>{
@@ -324,42 +353,58 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
       });
       const placeholder='<발급받은 토큰>';
       const clients={
-        claude:['터미널에서 명령을 실행하고 Claude Code 세션을 다시 여세요.',claudeCommand(placeholder)],
-        codex:['개인 ~/.codex/config.toml에 추가하고 Codex 세션을 다시 여세요.',codexConfig(placeholder)],
-        app:['Claude의 설정 → 커넥터 → 사용자 지정 커넥터에서 URL을 추가하면 공개 앱을 찾아볼 수 있어요.',mcpUrl]
+        claude:['토큰 자리만 바꿔 터미널에서 실행한 뒤 Claude Code를 다시 여세요.',claudeCommand(placeholder)],
+        codex:['토큰 자리만 바꿔 개인 config.toml에 넣은 뒤 Codex를 다시 여세요.',codexConfig(placeholder)],
+        app:['Claude의 설정 → 커넥터 → 사용자 지정 커넥터에 이 주소를 추가하면 공개 앱을 찾아볼 수 있어요.',mcpUrl]
       };
       root.querySelector('.mcp-client-help').textContent=clients[client][0];
       root.querySelector('#mcpCommand').textContent=clients[client][1];
+      manualStatus.textContent='';
     };
     setClient('claude');
     async function loadTokens(){
-      controls.innerHTML='<p role="status">토큰 정보를 불러오고 있어요…</p>';
+      controls.innerHTML='<p role="status">연결을 준비하고 있어요…</p>';
       try { ({tokens}=await api('mcp-tokens')); }
       catch(error){
         controls.innerHTML=`<p class="form-error" role="alert">${esc(error.message)}</p><button type="button" class="btn line" data-mcp-retry>다시 시도</button>`;
         return;
       }
       if(!controls.isConnected)return;
-      controls.innerHTML=`<form id="mcpCreate"><label class="field"><span>토큰 이름</span><input name="name" placeholder="예: 내 노트북 Codex" maxlength="60" required></label>
-        <button type="submit" class="btn solid">토큰 만들기</button><p class="form-error" role="alert" hidden></p></form>
-        <section class="mcp-issued" aria-label="새 토큰" hidden><label class="field"><span>새 토큰</span><input id="mcpSecret" type="text" autocomplete="off" spellcheck="false" readonly></label>
-          <button type="button" class="btn line" data-mcp-copy="token">토큰 복사</button>
-          <p class="field-help">원문은 발급 직후 한 번만 보여요. 토큰을 포함한 설정 프롬프트는 본인의 에이전트에만 붙여 넣으세요.</p></section>`;
-      const form=controls.querySelector('#mcpCreate');
-      secret=controls.querySelector('#mcpSecret');
+      controls.innerHTML=`<button type="button" class="btn solid mcp-copy-prompt" data-mcp-copy="prompt">${requestIcon('copy')} <span>설정 프롬프트 복사</span></button>
+        <p class="mcp-capacity" id="mcpCapacity" hidden>토큰 3개를 사용 중이에요. 새 연결이 필요하면 아래에서 기존 토큰을 폐기해 주세요.</p>`;
+      promptButton=controls.querySelector('[data-mcp-copy="prompt"]');
       renderTokens();list.hidden=false;
-      form.onsubmit=event=>{
-        event.preventDefault();
-        form.querySelector('.form-error').hidden=true;
-        withBusy(form,async()=>{
-          const {token,record}=await api('mcp-token',{method:'POST',body:Object.fromEntries(new FormData(form))});
-          issuedId=record.id;secret.value=token;tokens.unshift(record);
-          root.querySelector('.mcp-issued').hidden=false;
-          root.querySelector('[data-mcp-copy="prompt"]').disabled=false;
-          form.reset();renderTokens();
-          feedback.textContent='토큰을 만들었어요.';
-        });
-      };
+    }
+    async function copySetup(){
+      state.busy=true;
+      promptButton.disabled=true;
+      const label=promptButton.querySelector('span');
+      label.textContent=issued?'복사 중…':'연결 프롬프트 만드는 중…';
+      feedback.textContent='';
+      try {
+        if(!issued){
+          const names=new Set(tokens.map(token=>token.name));
+          let number=1;
+          while(names.has(`에이전트 연결 ${number}`))number++;
+          issued=await api('mcp-token',{method:'POST',body:{name:`에이전트 연결 ${number}`}});
+          tokens.unshift(issued.record);
+        }
+        const value=mcpPrompt(issued.token);
+        if(await copyRequestText(value)){
+          clearFallback();
+          feedback.textContent='복사했어요. 내 에이전트 채팅에 붙여 넣으세요.';
+        }else{
+          fallback.hidden=false;fallbackText.value=value;fallbackText.focus();fallbackText.select();
+          feedback.textContent='자동으로 복사하지 못했어요. 아래에 선택된 내용을 복사해 주세요.';
+        }
+      } catch(error) {
+        feedback.textContent=error.message;
+      } finally {
+        state.busy=false;
+        label.textContent='설정 프롬프트 복사';
+        renderTokens();
+        if(fallback.hidden&&document.activeElement===document.body&&!promptButton.disabled)promptButton.focus({preventScroll:true});
+      }
     }
     root.querySelector('.mcp-setup').addEventListener('click',async event=>{
       const button=event.target.closest('button');
@@ -373,20 +418,23 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         try {
           await api('mcp-token',{method:'PATCH',body:{id}});
           tokens=tokens.filter(token=>token.id!==id);
-          if(issuedId===id){
-            secret.value='';root.querySelector('.mcp-issued').hidden=true;
-            root.querySelector('[data-mcp-copy="prompt"]').disabled=true;
-          }
-          renderTokens();feedback.textContent='토큰을 폐기했어요.';
-        } catch(error) {feedback.textContent=error.message;}
+          if(issued?.record.id===id){issued=null;clearFallback();}
+          renderTokens();
+          list.querySelector('summary').focus({preventScroll:true});
+          toast('연결 토큰을 폐기했어요.');
+        } catch(error) {toast(error.message);}
         finally {state.busy=false;button.disabled=false;}
         return;
       }
       const copy=button.dataset.mcpCopy;
-      if(copy){
-        const value=copy==='command'?root.querySelector('#mcpCommand').textContent:copy==='prompt'?mcpPrompt(secret.value):secret.value;
-        try{await navigator.clipboard.writeText(value);feedback.textContent='복사했어요.';toast('복사했어요.');}
-        catch{feedback.textContent='클립보드에 복사하지 못했어요. 브라우저 권한을 확인해 주세요.';toast(feedback.textContent);}
+      if(copy==='prompt')return copySetup();
+      if(copy==='example'){
+        const copied=await copyRequestText(requestExample);
+        root.querySelector('.mcp-example-status').textContent=copied?'복사했어요. 괄호 안을 내 웹앱 주소로 바꿔 주세요.':'예시 문장을 선택해서 복사해 주세요.';
+      }
+      if(copy==='command'||copy==='token'){
+        const value=copy==='command'?root.querySelector('#mcpCommand').textContent:issued?.token;
+        if(value)manualStatus.textContent=await copyRequestText(value)?'복사했어요.':'복사하지 못했어요. 브라우저의 클립보드 권한을 확인해 주세요.';
       }
     });
     return {loadTokens};
@@ -507,7 +555,7 @@ ${promptChat('일괄 업로드 내용.md')}`;
       <ol class="ai-prep-steps">${steps}<li><b>Claude Code, Codex, ChatGPT Work(에이전트)</b>처럼 컴퓨터·브라우저를 다룰 수 있는 AI에 붙여 넣으면, 바탕화면 <b>'${folder}'</b> 폴더에 스크린샷과 정리된 내용이 만들어져요.</li></ol>
       <p class="ai-prep-note">일반 AI 채팅(ChatGPT·Claude·Gemini 채팅창)은 바탕화면에 폴더를 만들 수 없어요. 대신 <b>채팅 안에서 캡처본과 정리된 내용을 파일로 보내 주니</b>, 채팅에서 바로 저장해 쓰세요. 채팅에서 사이트를 열지 못하면 <b>Claude Code나 ChatGPT Work</b>를 쓰거나 스크린샷을 직접 찍어 주세요.</p>
       <textarea id="${id}" class="ai-prep-prompt" rows="8" readonly aria-label="${esc(title)} 프롬프트">${esc(prompt)}</textarea>
-      <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt="${id}">프롬프트 복사</button><button type="button" class="btn line" data-request-target="direct" data-target-mode="${id==='bulkPrepPrompt'?'bulk':'single'}">직접 업로드로 이동</button><span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
+      <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt="${id}">${requestIcon('copy')} 프롬프트 복사</button><button type="button" class="btn line" data-request-target="direct" data-target-mode="${id==='bulkPrepPrompt'?'bulk':'single'}">직접 업로드로 이동 ${requestIcon('arrow')}</button><span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
   const prepBox = () => promptBox({id:'aiPrepPrompt',title:'웹앱 한 개 준비하기',folder:'참코딩 업로드 준비',prompt:prepPrompt(),
     steps:'<li><b>프롬프트 복사</b>를 누르고, 프롬프트의 <b>웹앱 주소:</b> 뒤에 내 앱 주소를 넣어 주세요.</li>'});
   const bulkPromptBox = () => promptBox({id:'bulkPrepPrompt',title:'웹앱 여러 개 준비하기',folder:'참코딩 업로드 준비/일괄 업로드',prompt:bulkPrompt(),
