@@ -273,8 +273,8 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
           <header class="request-intro"><span class="mcp-tag">MCP 연결</span><h3>AI에게 앱 등록 맡기기</h3><p>Claude Code나 Codex가 앱 소개와 스크린샷을 준비해요.</p></header>
           <section class="mcp-card mcp-connect" aria-labelledby="mcpConnectTitle">
             <p class="mcp-kicker">처음 한 번만</p>
-            <h4 id="mcpConnectTitle">설정 프롬프트 붙여 넣기</h4>
-            <p>아래 버튼으로 복사한 내용을 내 Claude Code 또는 Codex 채팅에 붙여 넣으세요.</p>
+            <h4 id="mcpConnectTitle">새 에이전트 연결하기</h4>
+            <p>새 에이전트나 기기를 연결할 때만 토큰을 만드세요. 설정 프롬프트를 복사해 Claude Code나 Codex 채팅에 붙여 넣으면 돼요.</p>
             <section id="mcpControls" aria-label="연결 준비"><p role="status">로그인 상태를 확인하고 있어요…</p></section>
             <p class="mcp-feedback" role="status"></p>
             <label class="field mcp-fallback" hidden><span>설정 프롬프트 직접 복사</span><textarea readonly rows="4" autocomplete="off" spellcheck="false"></textarea></label>
@@ -344,7 +344,7 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
     const controls=root.querySelector('#mcpControls'), list=root.querySelector('#mcpTokenList');
     const feedback=root.querySelector('.mcp-feedback'), manualStatus=root.querySelector('.mcp-manual-status');
     const fallback=root.querySelector('.mcp-fallback'), fallbackText=fallback.querySelector('textarea');
-    let tokens=[], issued, promptButton;
+    let tokens=[], issued, issueButton, promptButton;
     const clearFallback=()=>{fallback.hidden=true;fallbackText.value='';};
     const renderTokens=()=>{
       root.querySelector('#mcpTokenCount').textContent=`${tokens.length}/3`;
@@ -352,7 +352,9 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         `<li><div><strong>${esc(token.name)}</strong> <code>${esc(token.prefix)}…</code><p class="field-help">발급 ${date(token.created_at)} · 마지막 사용 ${token.last_used_at?date(token.last_used_at):'없음'}</p></div><button type="button" class="btn line" data-mcp-revoke="${esc(token.id)}" aria-label="${esc(token.name)} 토큰 폐기">폐기</button></li>`
       ).join(''):'<li>사용 중인 토큰이 없어요.</li>';
       const full=!issued&&tokens.length>=3;
-      promptButton.disabled=full;
+      issueButton.hidden=Boolean(issued);
+      issueButton.disabled=full;
+      promptButton.hidden=!issued;
       root.querySelector('#mcpCapacity').hidden=!full;
       root.querySelector('[data-mcp-copy="token"]').hidden=!issued;
     };
@@ -380,46 +382,63 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         return;
       }
       if(!controls.isConnected)return;
-      controls.innerHTML=`<button type="button" class="btn solid mcp-copy-prompt" data-mcp-copy="prompt">${requestIcon('copy')} <span>설정 프롬프트 복사</span></button>
+      controls.innerHTML=`<button type="button" class="btn solid" data-mcp-issue>새 토큰 만들기</button>
+        <button type="button" class="btn solid" data-mcp-copy="prompt" hidden>${requestIcon('copy')} <span>설정 프롬프트 복사</span></button>
         <p class="mcp-capacity" id="mcpCapacity" hidden>토큰 3개를 사용 중이에요. 새 연결이 필요하면 아래에서 기존 토큰을 폐기해 주세요.</p>`;
+      issueButton=controls.querySelector('[data-mcp-issue]');
       promptButton=controls.querySelector('[data-mcp-copy="prompt"]');
       renderTokens();list.hidden=false;
     }
-    async function copySetup(){
+    async function issueToken(){
+      if(issued||tokens.length>=3)return;
       state.busy=true;
-      promptButton.disabled=true;
-      const label=promptButton.querySelector('span');
-      label.textContent=issued?'복사 중…':'연결 프롬프트 만드는 중…';
+      issueButton.disabled=true;
+      issueButton.textContent='토큰 만드는 중…';
       feedback.textContent='';
       try {
-        if(!issued){
-          const names=new Set(tokens.map(token=>token.name));
-          let number=1;
-          while(names.has(`에이전트 연결 ${number}`))number++;
-          issued=await api('mcp-token',{method:'POST',body:{name:`에이전트 연결 ${number}`}});
-          tokens.unshift(issued.record);
-        }
-        const value=mcpPrompt(issued.token);
-        if(await copyRequestText(value)){
-          clearFallback();
-          feedback.textContent='복사했어요. 내 에이전트 채팅에 붙여 넣으세요.';
-        }else{
-          fallback.hidden=false;fallbackText.value=value;fallbackText.focus();fallbackText.select();
-          feedback.textContent='자동으로 복사하지 못했어요. 아래에 선택된 내용을 복사해 주세요.';
-        }
+        const names=new Set(tokens.map(token=>token.name));
+        let number=1;
+        while(names.has(`에이전트 연결 ${number}`))number++;
+        issued=await api('mcp-token',{method:'POST',body:{name:`에이전트 연결 ${number}`}});
+        tokens.unshift(issued.record);
+        feedback.textContent='토큰을 만들었어요. 창을 닫기 전에 설정 프롬프트를 복사하세요.';
       } catch(error) {
         feedback.textContent=error.message;
       } finally {
         state.busy=false;
-        label.textContent='설정 프롬프트 복사';
+        issueButton.textContent='새 토큰 만들기';
         renderTokens();
-        if(fallback.hidden&&document.activeElement===document.body&&!promptButton.disabled)promptButton.focus({preventScroll:true});
+        const next=issued?promptButton:issueButton;
+        if(!next.disabled)next.focus({preventScroll:true});
+      }
+    }
+    async function copySetup(){
+      if(!issued)return;
+      const value=mcpPrompt(issued.token);
+      state.busy=true;
+      promptButton.disabled=true;
+      try {
+        if(await copyRequestText(value)){
+          clearFallback();
+          feedback.textContent='복사했어요. 내 에이전트 채팅에 붙여 넣으세요.';
+        }else{
+          fallback.hidden=false;
+          fallbackText.value=value;
+          fallbackText.focus();
+          fallbackText.select();
+          feedback.textContent='자동으로 복사하지 못했어요. 아래에 선택된 내용을 복사해 주세요.';
+        }
+      } finally {
+        state.busy=false;
+        promptButton.disabled=false;
+        if(fallback.hidden&&document.activeElement===document.body)promptButton.focus({preventScroll:true});
       }
     }
     root.querySelector('.mcp-setup').addEventListener('click',async event=>{
       const button=event.target.closest('button');
       if(!button||state.busy)return;
       if(button.hasAttribute('data-mcp-retry'))return loadTokens();
+      if(button.hasAttribute('data-mcp-issue'))return issueToken();
       if(button.dataset.mcpClient)return setClient(button.dataset.mcpClient);
       const id=button.dataset.mcpRevoke;
       if(id){
@@ -428,7 +447,7 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         try {
           await api('mcp-token',{method:'PATCH',body:{id}});
           tokens=tokens.filter(token=>token.id!==id);
-          if(issued?.record.id===id){issued=null;clearFallback();}
+          if(issued?.record.id===id){issued=null;clearFallback();feedback.textContent='';}
           renderTokens();
           list.querySelector('summary').focus({preventScroll:true});
           toast('연결 토큰을 폐기했어요.');
