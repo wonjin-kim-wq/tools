@@ -86,7 +86,7 @@ git diff --check
 
 `supabase/schema.sql`은 방문 집계 테이블을 포함한 `tools_` 전용 테이블 6개와 `chamcoding-screenshots` 비공개 버킷을 만듭니다. `supabase/seed.sql`은 기존 예시 앱 10개를 추가하며 같은 ID가 있으면 기존 내용을 보존합니다. 기존 프로젝트의 다른 테이블과 인증 설정은 변경하지 않습니다.
 
-현재 기존 `mono` 프로젝트를 공유하므로 참코딩 전용 테이블·저장 공간 범위에서만 작업합니다.
+참코딩은 2026-11-18부터 전용 Supabase 프로젝트(`chamssaem`, 서울)를 씁니다. 이전에는 quiz-games(옛 이름 `mono`) 프로젝트를 함께 썼습니다. 옮기는 방법과 대조 도구는 아래 'DB 분리'를 참고합니다.
 
 환경 변수는 Vercel **서버 비밀 변수**로 설정합니다. 클라이언트에 키를 넣거나 `NEXT_PUBLIC_` 같은 공개 접두사를 붙이지 않습니다.
 
@@ -99,6 +99,16 @@ git diff --check
 | `ADMIN_SETUP_TOKEN` | 최초 관리자 등록용 무작위 일회성 토큰 |
 
 `tools_admins`에 등록한 사이트 관리자는 Supabase 대시보드 계정과 별개입니다. 최초 등록은 소유자에게 전달하는 `/#setup=…` 링크에서만 가능합니다. 첫 계정이 생성되면 추가 등록은 서버에서 차단됩니다. 관리자 비밀번호는 scrypt와 개별 salt로 해시하며, 로그인 세션은 HttpOnly·Secure·SameSite=Strict 쿠키를 사용합니다. 설정 토큰은 URL fragment에서 읽은 직후 주소 표시줄에서 제거됩니다. 등록이 끝나면 Vercel의 `ADMIN_SETUP_TOKEN`을 제거할 수 있습니다.
+
+## DB 분리 (2026-11-18)
+
+quiz-games 프로젝트에 함께 있던 참코딩 데이터를 전용 프로젝트 `chamssaem`(ap-northeast-2)으로 옮겼습니다.
+
+- 구조: `supabase/schema.sql`을 새 프로젝트에 적용하고 `supabase/split/introspect.sql`로 칸·제약·인덱스·RLS·정책·트리거·권한을 기존 운영과 대조했습니다(기준값 `supabase/split/baseline-quiz-games.json`).
+- 데이터·스크린샷: `node --env-file=.env.migration scripts/split-copy.js copy|check`. 새 프로젝트의 `tools_` 데이터를 비우고 다시 채운 뒤 표마다 내용 해시와 스크린샷 파일 내용을 비교합니다. `tools_rate_limits`는 옮기지 않습니다. 키는 Git에서 제외되는 `.env.migration`에만 둡니다.
+- 회원: `supabase/split/export-members.sql`(기존) → `import-members.sql`(새). 참코딩 회원만 같은 id·이메일·비밀번호 해시로 옮기므로 같은 비밀번호로 로그인합니다.
+- 새 프로젝트 인증 설정: Site URL `https://www.chamssaem.kr`, Redirect URL `https://www.chamssaem.kr/?email-confirmed=1`, 이메일 인증 켜짐. 서버 키는 secret 키(`sb_secret_…`)를 `SUPABASE_SERVICE_ROLE_KEY`에 넣습니다.
+- 전환: 직전에 `copy`를 다시 실행(그사이 새 회원이 있으면 회원 SQL도 다시 실행) → Vercel의 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`를 새 값으로 바꾸고 재배포 → 운영 확인. quiz-games 쪽 `tools_` 데이터는 안정화 전까지 백업으로 남깁니다.
 
 ## 요청과 검토
 
@@ -113,7 +123,14 @@ git diff --check
 
 ## 일반 회원 로그인
 
-일반 회원은 Supabase Auth의 이메일·비밀번호 가입과 인증을 사용합니다. 기존 업로더·관리자 쿠키와 분리한 `chamcoding_member` HttpOnly 쿠키를 사용하며 세션 유효시간은 최대 1시간입니다. 비밀번호와 Supabase 토큰은 프런트엔드 응답이나 로컬 저장소에 보관하지 않습니다.
+일반 회원은 Supabase Auth의 이메일·비밀번호 가입과 인증을 사용합니다. 기존 업로더·관리자 쿠키와 분리한 HttpOnly 쿠키 두 개를 씁니다. `chamcoding_member`(접근 토큰, 최대 59분)와 `chamcoding_member_refresh`(갱신 토큰, `Path=/api`, 14일)입니다. 접근 토큰이 끝나면 서버가 갱신 토큰으로 새로 받아 1시간마다 로그아웃되지 않습니다. 회원 로그아웃은 쿠키를 지우고 Supabase 세션도 끊습니다. 비밀번호와 Supabase 토큰은 프런트엔드 응답이나 로컬 저장소에 보관하지 않습니다.
+
+- **회원 표시 복구**: 가입 도중 권한 저장에 실패했거나 대시보드에서 직접 만든 계정은 비밀번호 로그인이나 메일 링크로 본인이 확인되면 참코딩 회원(`chamcoding_member`)으로 연결됩니다. 관리자가 `chamcoding_member=false`로 막은 계정은 연결하지 않습니다.
+- **메일 링크**: 인증·재설정 메일은 모두 허용 목록에 있는 `https://www.chamssaem.kr/?email-confirmed=1`로 돌아옵니다. 화면은 주소 해시의 토큰을 `member-link`로 서버 쿠키에 옮기고 주소에서 바로 지웁니다. `type=recovery`면 새 비밀번호 화면을, 만료·오류면 다시 받기 안내를 보여줍니다.
+- **API**: `member-signup`·`member-login`·`member-logout`·`member-resend`(인증 메일 다시 받기)·`member-recover`(비밀번호 찾기)·`member-link`(메일 링크 토큰을 쿠키로)·`member-password`(로그인 상태에서 비밀번호 변경). 다시 받기·찾기는 가입 여부를 드러내지 않도록 같은 안내를 돌려줍니다.
+- **요청 제한**: 학교처럼 여러 교사가 같은 공인 IP를 쓰므로 IP 제한은 넉넉히, 이메일별 제한은 촘촘히 둡니다. 가입 IP 60회·이메일 5회/시간, 로그인 IP 100회·이메일 10회/15분, 다시 받기·찾기 IP 30회·이메일 3회/시간.
+- **오류 안내**: Supabase 오류 코드(약한 비밀번호, 유출 비밀번호, 잘못된 주소, 메일 발송 제한 등)를 각각의 안내로 바꾸고, JSON이 아닌 게이트웨이 오류도 500 대신 503 안내로 돌려줍니다.
+- 옛 주소 `tools-one-nu.vercel.app`는 `vercel.json`에서 `https://www.chamssaem.kr`로 영구 이동합니다.
 
 서버가 가입 시 `app_metadata.chamcoding_member`, `app_metadata.chamcoding_content_access`를 설정합니다. 사용자 수정이 가능한 `user_metadata`는 접근 권한으로 사용하지 않습니다. `/api/tools?action=member-content`는 실제 Supabase 사용자 검증과 회원 권한 확인 후 응답합니다. 현재 콘텐츠 목록은 비어 있으며 향후 전용 콘텐츠 API에도 같은 검사를 적용합니다. `chamcoding_content_access=false`로 이용 권한을 중지할 수 있습니다. 일반 회원 자격은 업로드 승인·관리자 권한을 부여하지 않습니다.
 
@@ -130,7 +147,7 @@ Supabase의 이메일 인증 설정과 SMTP 발송 제한을 적용합니다. �
 
 ## 남은 운영 확인
 
-일반 회원가입은 이메일 인증을 유지합니다. SMTP 연결과 실제 인증 메일 발송 확인은 별도 필요한 작업이며, 운영 메일 발송이 검증된 상태로 간주하지 않습니다. 기존 mono 서비스의 인증 설정을 일괄 변경하지 않습니다. 회원 전용 콘텐츠 목록은 현재 비어 있습니다.
+일반 회원가입은 이메일 인증을 유지합니다. 전용 프로젝트 `chamssaem`에도 아직 **사용자 지정 SMTP가 없어** Supabase 기본 메일(프로젝트 전체 시간당 2통, 프로젝트 팀원 주소로만 발송)을 씁니다. 이 상태로는 일반 교사에게 인증·비밀번호 재설정 메일이 가지 않으므로 SMTP 연결이 필요합니다. 또 Supabase의 가입·로그인 제한(5분당 30회)은 IP별인데 회원 요청은 Vercel 서버에서 보내므로 사이트 전체가 이 한도를 나눠 씁니다. 이제 참코딩 전용 설정이므로 Authentication → Rate Limits에서 올릴 수 있습니다. 기존 mono 서비스의 인증 설정을 일괄 변경하지 않습니다. 회원 전용 콘텐츠 목록은 현재 비어 있습니다.
 
 ## 2026-11-03 앱스토어형 개편
 

@@ -24,7 +24,7 @@
       if (response.status === 401) {state.role = null;invalidateSession();}
       throw new Error(data.error || '요청을 처리하지 못했어요.');
     }
-    if(['login','logout','setup','member-login','member-signup','member-logout'].includes(action))invalidateSession();
+    if(['login','logout','setup','member-login','member-signup','member-logout','member-link','member-password'].includes(action))invalidateSession();
     return data;
   }
   function date(value) { return new Date(value).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'}); }
@@ -130,28 +130,72 @@
   }
   // 관리자 로그인은 회원 로그인 창(로그인 상태면 내 계정 창) 아래에서 들어간다
   const adminEntry='<div class="admin-entry"><span>참코딩 운영자이신가요?</span><button type="button" class="btn line" data-admin-login>관리자로 로그인</button></div>';
-  async function memberEntry(mode='login', next=null) {
+  const memberTitles={login:'회원 로그인',signup:'회원가입',reset:'비밀번호 찾기',resend:'인증 메일 다시 받기',newpass:'새 비밀번호 설정'};
+  const memberLinks='<p class="member-links"><button type="button" class="text-link" data-member-mode="reset">비밀번호 찾기</button><span aria-hidden="true">·</span><button type="button" class="text-link" data-member-mode="resend">인증 메일 다시 받기</button></p>';
+  const passwordFields=(label='비밀번호')=>`<label class="field"><span>${label} *</span><input type="password" name="password" minlength="8" maxlength="256" autocomplete="new-password" required></label><label class="field"><span>${label} 확인 *</span><input type="password" name="confirm" minlength="8" maxlength="256" autocomplete="new-password" required></label>`;
+  async function memberEntry(mode='login', next=null, notice=null) {
     memberNext=next;
-    const revision=loadingShell(mode==='signup'?'회원가입':'회원 로그인','member');
+    if(!memberTitles[mode])mode='login';
+    const revision=loadingShell(memberTitles[mode],'member');
     try {await refreshSession();} catch(error){if(revision===viewRevision)errorIn($('#workspaceBody'),error);return;}
     if(revision!==viewRevision||!workspace.open)return;
+    const note=notice?`<p class="form-notice${notice.error?' error':''}" role="${notice.error?'alert':'status'}">${esc(notice.text)}</p>`:'';
+    if(mode==='newpass'){
+      if(!state.member)return memberEntry('reset',next,{error:true,text:'로그인이 만료됐어요. 비밀번호 찾기를 다시 하거나 로그인해 주세요.'});
+      openShell(memberTitles.newpass,'앞으로 로그인할 때 쓸 비밀번호를 정해 주세요.','member');
+      $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form">${note}${passwordFields('새 비밀번호')}<p class="field-help">8자 이상, 다른 사이트와 다른 비밀번호를 권장해요.</p><p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">비밀번호 바꾸기</button></form>`;
+      $('#memberForm').onsubmit=e=>{e.preventDefault();const form=e.target;withBusy(form,async()=>{
+        const data=Object.fromEntries(new FormData(form));
+        if(data.password!==data.confirm)throw new Error('새 비밀번호 확인이 일치하지 않아요.');
+        await api('member-password',{method:'POST',body:data});form.reset();
+        await memberEntry('login',next,{text:'비밀번호를 바꿨어요. 다음 로그인부터 새 비밀번호를 사용해 주세요.'});
+      });};
+      return;
+    }
     if(state.member){
       if(next==='mcp')return mcpView();
       openShell('내 계정','참코딩 회원 정보와 콘텐츠 이용 권한을 확인해요.','member');
-      $('#workspaceBody').innerHTML=`<div class="entry-form"><div class="entry-icon">👤</div><h3>${esc(state.member.name)}님</h3><p class="field-help">${esc(state.member.email)}</p><p class="membership-state">${state.member.contentAccess?'회원 전용 콘텐츠 이용 권한이 있어요.':'콘텐츠 이용 권한 확인이 필요해요.'}</p><p class="field-help">회원 전용 콘텐츠는 준비되는 대로 추가돼요.</p><button type="button" class="btn line" id="memberLogout">회원 로그아웃</button></div>${adminEntry}`;
+      $('#workspaceBody').innerHTML=`<div class="entry-form">${note}<div class="entry-icon">👤</div><h3>${esc(state.member.name)}님</h3><p class="field-help">${esc(state.member.email)}</p><p class="membership-state">${state.member.contentAccess?'회원 전용 콘텐츠 이용 권한이 있어요.':'콘텐츠 이용 권한 확인이 필요해요.'}</p><p class="field-help">회원 전용 콘텐츠는 준비되는 대로 추가돼요.</p><div class="member-actions"><button type="button" class="btn line" data-member-mode="newpass">비밀번호 바꾸기</button><button type="button" class="btn line" id="memberLogout">회원 로그아웃</button></div></div>${adminEntry}`;
       $('#memberLogout').onclick=async()=>{try{await api('member-logout',{method:'POST',body:{}});state.member=null;await refreshSession();closeWorkspace();toast('로그아웃했어요.');}catch(error){toast(error.message);}};
+      return;
+    }
+    if(mode==='reset'||mode==='resend'){
+      const reset=mode==='reset';
+      openShell(memberTitles[mode],reset?'가입한 이메일로 비밀번호를 다시 정하는 링크를 보내요.':'가입할 때 받은 인증 메일이 없거나 링크가 만료됐을 때 새 메일을 받아요.','member');
+      $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form">${note}${field('이메일','email','',{type:'email',max:254})}<p class="field-help">메일이 보이지 않으면 스팸함도 확인해 주세요.</p><p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">${reset?'재설정 링크 받기':'인증 메일 다시 받기'}</button><p class="member-links"><button type="button" class="text-link" data-member-mode="login">로그인으로 돌아가기</button><span aria-hidden="true">·</span><button type="button" class="text-link" data-member-mode="${reset?'resend':'reset'}">${reset?'인증 메일 다시 받기':'비밀번호 찾기'}</button></p></form>`;
+      $('#memberForm').onsubmit=e=>{e.preventDefault();const form=e.target;withBusy(form,async()=>{
+        const data=Object.fromEntries(new FormData(form));
+        await api(reset?'member-recover':'member-resend',{method:'POST',body:data});form.reset();
+        $('#workspaceBody').innerHTML=`<div class="success-state"><span>✉️</span><h3>메일함을 확인해 주세요</h3><p>${reset?'가입한 이메일이라면 비밀번호를 다시 정하는 링크를 보냈어요.<br>링크를 누르면 새 비밀번호를 정할 수 있어요.':'아직 인증하지 않은 가입 이메일이라면 새 인증 메일을 보냈어요.<br>이미 인증했다면 바로 로그인해 주세요.'}</p><button class="btn solid" data-member-mode="login">로그인으로 이동</button></div>`;
+      });};
       return;
     }
     const signup=mode==='signup';
     openShell(signup?'회원가입':'회원 로그인',next==='mcp'?'이메일을 인증한 참코딩 회원으로 로그인해 주세요.':'참코딩 회원으로 로그인하고 회원 전용 콘텐츠를 이용하세요.','member');
-    $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form"><div class="tabs"><button type="button" data-member-mode="login" class="${!signup?'on':''}">로그인</button><button type="button" data-member-mode="signup" class="${signup?'on':''}">회원가입</button></div>${signup?field('이름','name','',{max:60}):''}${field('이메일','email','',{type:'email',max:254})}<label class="field"><span>비밀번호 *</span><input type="password" name="password" minlength="8" maxlength="256" autocomplete="${signup?'new-password':'current-password'}" required></label>${signup?'<label class="field"><span>비밀번호 확인 *</span><input type="password" name="confirm" minlength="8" maxlength="256" autocomplete="new-password" required></label><p class="field-help">가입 후 받은 인증 메일의 링크를 눌러 이메일을 확인해 주세요.</p>':''}<p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">${signup?'회원가입':'로그인'}</button></form>${signup?'':adminEntry}`;
+    $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form"><div class="tabs"><button type="button" data-member-mode="login" class="${!signup?'on':''}">로그인</button><button type="button" data-member-mode="signup" class="${signup?'on':''}">회원가입</button></div>${note}${signup?field('이름','name','',{max:60}):''}${field('이메일','email','',{type:'email',max:254})}${signup?passwordFields()+'<p class="field-help">가입 후 받은 인증 메일의 링크를 눌러 이메일을 확인해 주세요.</p>':'<label class="field"><span>비밀번호 *</span><input type="password" name="password" minlength="8" maxlength="256" autocomplete="current-password" required></label>'}<p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">${signup?'회원가입':'로그인'}</button>${memberLinks}</form>${signup?'':adminEntry}`;
     $('#memberForm').onsubmit=e=>{e.preventDefault();const form=e.target;withBusy(form,async()=>{
       const data=Object.fromEntries(new FormData(form));
       if(signup&&data.password!==data.confirm)throw new Error('비밀번호 확인이 일치하지 않아요.');
       const result=await api(signup?'member-signup':'member-login',{method:'POST',body:data});form.reset();
-      if(signup&&result.needsConfirmation){$('#workspaceBody').innerHTML='<div class="success-state"><span>✉️</span><h3>이메일을 확인해 주세요</h3><p>인증 메일의 링크를 누른 뒤 다시 로그인해 주세요.</p><button class="btn solid" data-member-mode="login">로그인으로 이동</button></div>';}
+      if(signup&&result.needsConfirmation){$('#workspaceBody').innerHTML='<div class="success-state"><span>✉️</span><h3>이메일을 확인해 주세요</h3><p>인증 메일의 링크를 누르면 바로 로그인돼요.<br>메일이 보이지 않으면 스팸함을 확인하거나 인증 메일을 다시 받아 주세요.</p><button class="btn solid" data-member-mode="login">로그인으로 이동</button><button class="btn line" data-member-mode="resend">인증 메일 다시 받기</button></div>';}
       else{await refreshSession();await memberEntry('login',next);}
     });};
+  }
+  // 인증·비밀번호 재설정 메일 링크로 돌아왔을 때: 토큰은 서버의 HttpOnly 쿠키로 옮기고, 실패 사유를 안내한다.
+  async function memberFromMail(tokens,error,recovery,description=''){
+    if(error){
+      // 오류 주소에는 인증 메일인지 비밀번호 재설정 메일인지가 없으므로 두 경우를 함께 안내한다.
+      const expired=/expired/i.test(error+' '+description);
+      return memberEntry('resend',null,{error:true,text:(expired?'메일 링크가 만료됐거나 이미 사용됐어요. ':'메일 링크를 확인하지 못했어요. ')+'가입 인증이라면 아래에서 새 인증 메일을 받고, 비밀번호를 찾던 중이라면 ‘비밀번호 찾기’에서 새 링크를 받아 주세요. 이미 인증했다면 로그인해 주세요.'});
+    }
+    if(tokens){
+      loadingShell(recovery?'비밀번호 찾기':'이메일 인증','member');
+      try{await api('member-link',{method:'POST',body:tokens});}
+      catch(e){return memberEntry('login',null,{error:true,text:e.message});}
+      if(recovery)return memberEntry('newpass',null,{text:'본인 확인을 마쳤어요. 새 비밀번호를 정해 주세요.'});
+      return memberEntry('login',null,{text:'이메일 인증을 마쳤어요. 참코딩 회원으로 로그인됐어요.'});
+    }
+    return memberEntry('login',null,{text:recovery?'메일 링크를 확인했어요. 새 비밀번호로 로그인해 주세요.':'이메일 인증을 마쳤어요. 가입한 이메일과 비밀번호로 로그인해 주세요.'});
   }
   const mcpUrl='https://www.chamssaem.kr/mcp';
   const claudeCommand=token=>`claude mcp add --transport http --scope user chamcoding ${mcpUrl} --header "Authorization: Bearer ${token}"`;
@@ -880,9 +924,18 @@ ${promptChat('일괄 업로드 내용.md')}`;
   });
   $('#uploadButton').onclick=()=>enter('upload');$('#memberButton').onclick=()=>memberEntry();$('#adminMenuButton').onclick=()=>enter('admin');$('#devRequestButton').onclick=()=>devRequestForm();$('#inquiryButton').onclick=()=>inquiryForm();
   $('#mcpButton').onclick=()=>mcpView();
-  const authHash=new URLSearchParams(location.hash.slice(1));
-  if(authHash.has('access_token')||authHash.has('error'))history.replaceState(null,'',location.pathname+location.search);
-  if(new URLSearchParams(location.search).has('email-confirmed'))memberEntry();
+  const authHash=new URLSearchParams(location.hash.slice(1)),pageQuery=new URLSearchParams(location.search);
+  const fromMail=pageQuery.has('email-confirmed');
+  if(fromMail||authHash.has('access_token')||authHash.has('error')){
+    const recovery=authHash.get('type')==='recovery';
+    const tokens=authHash.has('access_token')?{access_token:authHash.get('access_token'),refresh_token:authHash.get('refresh_token')||'',expires_in:Number(authHash.get('expires_in'))||3600}:null;
+    const error=authHash.get('error_code')||authHash.get('error'),description=authHash.get('error_description')||'';
+    // 토큰과 표시용 주소 값을 바로 지워 새로고침·공유 때 다시 쓰이지 않게 한다.
+    pageQuery.delete('email-confirmed');
+    const rest=pageQuery.toString();
+    history.replaceState(null,'',location.pathname+(rest?`?${rest}`:''));
+    memberFromMail(tokens,error,recovery,description);
+  }
   const setupToken=authHash.get('setup');
   if(setupToken){history.replaceState(null,'',location.pathname+location.search);setup(setupToken);}
   // Count once per page load, independently of catalogue rendering and login.

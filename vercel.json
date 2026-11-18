@@ -7,6 +7,14 @@
   "regions": [
     "icn1"
   ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "tools-one-nu.vercel.app" }],
+      "destination": "https://www.chamssaem.kr/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/mcp", "destination": "/api/mcp" }
   ],

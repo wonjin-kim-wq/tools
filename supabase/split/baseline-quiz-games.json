@@ -1,0 +1,9 @@
+{
+  "capturedAt": "2026-11-18",
+  "project": "quiz-games (abwgznhxffbuwnonjxla)",
+  "note": "introspect.sql 결과의 항목별 개수와 SHA-256 앞 12자리. 새 프로젝트에서 같은 값이 나와야 한다.",
+  "structure": {"columns":"93:d189420c9f43","constraints":"40:6c2f70d088fe","function_grants":"0:74234e98afe7","functions":"7:b088e1f2534e","indexes":"21:c4a868c6ba14","policies":"0:74234e98afe7","rls":"12:0ab15d086b4f","table_grants":"0:74234e98afe7","triggers":"4:c29777a2f117"},
+  "rows": {"tools_api_tokens":0,"tools_uploads":66,"tools_rate_limits":4,"tools_apps":36,"tools_admins":1,"tools_visit_total":1,"tools_visit_daily":15,"tools_reviews":5,"tools_dev_requests":0,"tools_inquiries":0,"tools_rank_daily":451,"tools_use_daily":43},
+  "storage": {"bucket":"chamcoding-screenshots","files":66,"mb":5.7,"public":false,"file_size_limit":2097152},
+  "members": {"chamcoding_members":2,"confirmed":2,"email_password":2,"google_only":0}
+}

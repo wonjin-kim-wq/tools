@@ -1,4 +1,4 @@
--- 참코딩 전용 테이블. 기존 프로젝트의 다른 테이블, 사용자, 버킷은 변경하지 않는다.
+-- 참코딩 전용 Supabase 프로젝트(chamssaem)의 tools_ 테이블·함수·스크린샷 버킷. 새 프로젝트에는 이 파일 하나로 같은 구조를 만든다.
 begin;
 create table if not exists public.tools_apps (
   id uuid primary key default gen_random_uuid(),

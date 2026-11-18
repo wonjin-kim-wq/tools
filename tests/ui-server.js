@@ -5,6 +5,7 @@ const credential=hashPassword('local-admin-test-only');
 const admin={id:1,username:'local-admin',salt:credential.salt,password_hash:credential.hash};
 const rows=[],uploads=[],devRequests=[],reviews=[],inquiries=[],useDaily=[],tokens=[];
 // UI_FIXTURE_SEED=1 이면 예시 앱을 승인 상태로 넣어 둔다. 테스트 회원: member@local.test / local-member-test-only
+let fixturePassword='local-member-test-only';
 const fixtureMember={id:'00000000-0000-4000-8000-000000000001',email:'member@local.test',email_confirmed_at:'2026-11-04T00:00:00Z',app_metadata:{chamcoding_member:true,chamcoding_content_access:true},user_metadata:{display_name:'테스트 회원'}};
 if(process.env.UI_FIXTURE_SEED){
   setTimeout(()=>{for(const r of rows)for(let d=0;d<60;d++){const n=Math.max(0,Math.round((r.uses/900)*(1+Math.sin(d*0.7+r.name.length))));if(n)useDaily.push({app_id:r.id,day:new Date(Date.now()+9*3600e3-d*86400e3).toISOString().slice(0,10),count:n});}},0);
@@ -29,13 +30,21 @@ global.fetch=async(input,options={})=>{
     data=Object.fromEntries(ranked.map((r,i)=>[r.id,{rank:i+1,prev:i===4?null:Math.max(1,i+1+[2,-1,0,1,0,-2,3,0,-1,1][i%10])}]));
   }
   else if(url.pathname==='/auth/v1/token'){
-    if(body.email!==fixtureMember.email||body.password!=='local-member-test-only')return new Response(JSON.stringify({error_code:'invalid_credentials'}),{status:400,headers:{'content-type':'application/json'}});
-    data={access_token:'fixture-member-token',expires_in:3600,user:fixtureMember};
+    // 비밀번호 로그인과 갱신 토큰(fixture-refresh) 모두 같은 회원 토큰을 준다.
+    const refresh=url.searchParams.get('grant_type')==='refresh_token';
+    if(refresh?body.refresh_token!=='fixture-refresh':(body.email!==fixtureMember.email||body.password!==fixturePassword))return new Response(JSON.stringify({error_code:refresh?'refresh_token_not_found':'invalid_credentials'}),{status:400,headers:{'content-type':'application/json'}});
+    data={access_token:'fixture-member-token',refresh_token:'fixture-refresh',expires_in:3600,user:fixtureMember};
   }
   else if(url.pathname==='/auth/v1/user'){
-    if(options.headers?.Authorization!=='Bearer fixture-member-token')return new Response('{}',{status:401,headers:{'content-type':'application/json'}});
+    // fixture.mail.token은 인증·비밀번호 재설정 메일 링크가 주소 해시로 돌려준 토큰 역할이다.
+    if(!['Bearer fixture-member-token','Bearer fixture.mail.token'].includes(options.headers?.Authorization))return new Response('{}',{status:401,headers:{'content-type':'application/json'}});
+    if(options.method==='PUT'){if(body.password===fixturePassword)return new Response(JSON.stringify({error_code:'same_password'}),{status:422});fixturePassword=body.password;}
     data=fixtureMember;
   }
+  else if(url.pathname==='/auth/v1/signup')data={id:randomUUID(),email:body.email,identities:[{id:'fixture'}],app_metadata:{provider:'email'},user_metadata:body.data};
+  else if(['/auth/v1/resend','/auth/v1/recover'].includes(url.pathname))data={};
+  else if(url.pathname==='/auth/v1/logout')return new Response(null,{status:204});
+  else if(url.pathname.startsWith('/auth/v1/admin/users/')&&options.method==='PUT')data={id:url.pathname.split('/').pop(),app_metadata:body.app_metadata};
   else if(url.pathname===`/auth/v1/admin/users/${fixtureMember.id}`)data=fixtureMember;
   else if(url.pathname==='/rest/v1/rpc/tools_issue_api_token'){
     if(tokens.filter(token=>token.member_id===body.p_member_id&&!token.revoked_at).length>=3)data=null;

@@ -145,7 +145,7 @@ async function handler(req, res) {
     }
     if (req.method === 'GET' && action === 'session') {
       const actor = session(req);
-      const [account, member] = await Promise.all([adminAccount(req), members.member(req)]);
+      const [account, member] = await Promise.all([adminAccount(req), members.member(req, false, { res })]);
       const role = actor?.role === 'admin' ? account?.salt === actor.av ? 'admin' : null : validUploaderSession(actor, account) ? 'uploader' : null;
       return send({ role, configured: true, adminReady: !!account, member });
     }
@@ -188,7 +188,7 @@ async function handler(req, res) {
     const body = req.body || {};
     if ((req.method === 'GET' && action === 'mcp-tokens') ||
         (['POST', 'PATCH'].includes(req.method) && action === 'mcp-token')) {
-      return send(await manageToken(req, body, { db, rate, uuid }), req.method === 'POST' ? 201 : 200);
+      return send(await manageToken(req, body, { db, rate, uuid, res }), req.method === 'POST' ? 201 : 200);
     }
     if (req.method === 'GET' && action === 'upload-password') {
       await requireRole(req, true);
@@ -220,17 +220,24 @@ async function handler(req, res) {
       if (!rows.length) throw new AppError('다른 창에서 비밀번호가 변경됐어요. 설정을 다시 열어 주세요.', 409);
       return send({ ok: true, updatedAt: rows[0].upload_password_changed_at });
     }
-    if(req.method==='POST' && action==='member-signup') {
-      await rate(req,'member-signup',5,3600);
-      return send(await members.signup(body,res,`${process.env.NODE_ENV==='development'?'http':'https'}://${req.headers.host}`),201);
+    // 회원 인증: 학교처럼 여러 사람이 같은 공인 IP를 쓰므로 IP 제한은 넉넉히, 이메일별 제한은 촘촘히 둔다.
+    if (req.method === 'POST' && action.startsWith('member-')) {
+      const site = `${process.env.NODE_ENV === 'development' ? 'http' : 'https'}://${req.headers.host}`;
+      const limited = async (name, ipLimit, emailLimit, seconds) => {
+        await rate(req, name, ipLimit, seconds);
+        const email = members.normalEmail(body.email);
+        if (email) await rate(req, `${name}:email`, emailLimit, seconds, email);
+      };
+      if (action === 'member-signup') { await limited('member-signup', 60, 5, 3600); return send(await members.signup(body, res, site), 201); }
+      if (action === 'member-login') { await limited('member-login', 100, 10, 900); return send(await members.login(body, res)); }
+      if (action === 'member-resend') { await limited('member-resend', 30, 3, 3600); return send(await members.resend(body, site)); }
+      if (action === 'member-recover') { await limited('member-recover', 30, 3, 3600); return send(await members.recover(body, site)); }
+      if (action === 'member-link') { await rate(req, 'member-link', 30, 900); return send(await members.linkSession(body, res)); }
+      if (action === 'member-password') { await rate(req, 'member-password', 20, 3600); return send(await members.changePassword(req, res, body)); }
+      if (action === 'member-logout') return send(await members.logout(req, res));
     }
-    if(req.method==='POST' && action==='member-login') {
-      await rate(req,'member-login',10,900);
-      return send(await members.login(body,res));
-    }
-    if(req.method==='POST' && action==='member-logout') {members.clearMember(res);return send({ok:true});}
     if(req.method==='GET' && action==='member-content') {
-      const account=await members.member(req,true);
+      const account=await members.member(req,true,{res});
       return send({member:account,items:[]});
     }
     if (req.method === 'POST' && action === 'login') {
@@ -307,7 +314,7 @@ async function handler(req, res) {
       const appId = uuid(url.searchParams.get('app'), '앱 번호');
       const [rows, member, admin] = await Promise.all([
         db(`/rest/v1/tools_reviews?app_id=eq.${appId}&hidden=eq.false&select=id,member_id,rating,body,created_at,updated_at&order=updated_at.desc&limit=200`),
-        members.member(req), isAdmin(req)
+        members.member(req, false, { res }), isAdmin(req)
       ]);
       const rated = rows.filter(r => r.rating);
       const dist = [1, 2, 3, 4, 5].map(n => rated.filter(r => r.rating === n).length);
@@ -319,7 +326,7 @@ async function handler(req, res) {
       });
     }
     if (req.method === 'POST' && action === 'app-review') {
-      const member = await members.member(req);
+      const member = await members.member(req, false, { res });
       await rate(req, member ? 'app-review' : 'app-review-anon', member ? 10 : 5, 3600);
       const appId = uuid(body.appId, '앱 번호');
       const rating = Number(body.rating);
