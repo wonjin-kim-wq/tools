@@ -6,6 +6,18 @@
 
 최종 내용 갱신: 2026-11-03. 운영 사이트는 https://tools-one-nu.vercel.app/ 이며, GitHub `main`에 푸시하면 연결된 Vercel에서 자동 배포합니다. 함수 실행 지역은 서울 `icn1`입니다.
 
+## AI 에이전트로 앱 등록
+
+MCP 주소는 `https://www.chamssaem.kr/mcp`입니다. 사이트의 **AI 에이전트로 등록**에서 이메일 인증을 마친 참코딩 회원으로 로그인하고 토큰을 만드세요. 설정 프롬프트를 Claude Code 또는 Codex에 붙여 넣은 뒤 “이 앱 참코딩에 등록해 줘”라고 요청합니다. 에이전트가 보여주는 내용과 본인 제작 확인 질문을 읽고 “네”라고 답하면 관리자 검토가 시작됩니다. Claude 앱의 사용자 지정 커넥터에는 URL만 추가해 공개 앱을 볼 수 있습니다.
+
+- 회원당 활성 토큰은 3개, 발급은 시간당 5회까지입니다. 토큰 원문은 발급 직후 한 번 표시하며 서버에는 SHA-256 해시를 저장합니다. 토큰을 폐기하면 해당 연결의 사용이 중단됩니다.
+- 공개 도구는 `list_options`, `search_apps`, `get_app`입니다. 등록 도구는 `upload_screenshot`, `register_app`, `list_my_apps`, `update_app`이며 회원 Bearer 토큰이 필요합니다.
+- 스크린샷은 PNG·JPG·WebP, 장당 2 MB, 1~6장입니다. 에이전트가 로컬 이미지의 base64를 `upload_screenshot`에 전달합니다. 직접 도구 입력이 어려우면 로컬 스크립트에서 파일을 읽어 `Content-Type: application/json`과 Bearer 인증 헤더를 붙이고 `/mcp`로 `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"upload_screenshot","arguments":{"data_base64":"…","caption":"시작 화면"}}}`을 POST할 수 있습니다. 토큰과 이미지 원문을 로그에서 제외하세요.
+- `register_app`은 먼저 `dry_run: true`로 검증합니다. 30분 안에 같은 앱 정보와 `confirmation_id`, `confirm_own_work: true`를 보내면 승인 대기로 접수됩니다. 같은 회원이 같은 주소를 다시 제출하면 기존 요청을 반환합니다. `update_app`은 승인 대기·수정 요청에만 적용되며 `list_my_apps`가 반환하는 최신 `version`이 필요합니다.
+- 토큰당 시간당 스크린샷 업로드 36회, 등록 검증 24회, 등록 12회, 수정 12회까지입니다.
+
+배포 전 운영 Supabase `quiz-games`의 SQL Editor에서 [MCP 마이그레이션](supabase/migrations/20261118_mcp.sql)을 적용하세요. 새 환경에는 [스키마](supabase/schema.sql)를 사용합니다. MCP는 기존 Supabase·세션 환경 변수를 사용합니다. 로컬 주소는 `npm run dev`의 `http://127.0.0.1:8741/mcp`입니다. `node tests/ui-server.js`에서는 운영 데이터와 분리한 테스트 회원과 대기열로 흐름을 검증할 수 있습니다.
+
 ## 현재 화면과 캐릭터 동작
 
 | 항목 | 동작 |

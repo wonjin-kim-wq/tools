@@ -69,3 +69,45 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .bulk-shots{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}.bulk-shots:empty{display:none}
 .bulk-add-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 8px}.bulk-add{height:46px;padding:0 20px;font-weight:700;border-style:dashed}
 @media(max-width:480px){.bulk-card{padding:14px}.bulk-add{width:100%}}
+.mcp-setup {
+  display: grid;
+  width: min(100%, 44rem);
+  gap: 1rem;
+  margin-inline: auto;
+}
+.mcp-card {
+  display: grid;
+  justify-items: start;
+  gap: .75rem;
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--line2);
+  border-radius: var(--control-radius);
+  background: var(--brand-surface);
+}
+.mcp-card h3, .mcp-card p { margin: 0; }
+.mcp-card p { color: var(--sub); overflow-wrap: anywhere; }
+.mcp-card form, .mcp-card details, .mcp-issued, #mcpTokens { width: 100%; min-width: 0; }
+.mcp-card form .field, .mcp-issued .field { margin-bottom: .75rem; }
+.mcp-card details summary { cursor: pointer; font-weight: 700; }
+.mcp-card details[open] summary { margin-bottom: .75rem; }
+.mcp-card .mcp-clients { display: flex; flex-wrap: wrap; gap: .375rem; margin-bottom: .75rem; }
+.mcp-card pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--card);
+  border: 1px solid var(--line2);
+  border-radius: var(--control-radius);
+  padding: .75rem;
+  margin-block: .75rem;
+}
+.mcp-issued p { margin-top: .5rem; }
+#mcpTokens { list-style: none; margin: 0; padding: 0; }
+#mcpTokens li { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding-block: .75rem; border-top: 1px solid var(--line2); }
+#mcpTokens li > div { min-width: 0; overflow-wrap: anywhere; }
+#mcpTokens button { flex-shrink: 0; }
+.mcp-feedback { margin: 0; color: var(--sub); }
+.mcp-feedback:empty { display: none; }
+.mcp-review, .mcp-badge { color: var(--brand-ink); background: var(--brand-soft); border-radius: var(--control-radius); overflow-wrap: anywhere; }
+.mcp-review { padding: .75rem; }
+.mcp-badge { display: inline-block; margin-inline-start: .375rem; padding: .2rem .5rem; font-size: .75rem; font-weight: 700; }

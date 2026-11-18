@@ -4,16 +4,18 @@ const { AppError, DEV_STATUSES, INQUIRY_STATUSES, equal, text, validateApp, vali
 const BUCKET = 'chamcoding-screenshots';
 const COOKIE = 'chamcoding_session';
 const members = require('../lib/member-auth');
+const { manageToken } = require('../lib/mcp-tokens');
 const config = () => ({ url: process.env.SUPABASE_URL?.replace(/\/$/, ''), key: process.env.SUPABASE_SERVICE_ROLE_KEY, secret: process.env.SESSION_SECRET });
 const isConfigured = () => Object.values(config()).every(Boolean);
 
-async function db(path, { method = 'GET', body, headers = {}, raw = false } = {}) {
+async function db(path, { method = 'GET', body, headers = {}, raw = false, conflictMessage } = {}) {
   const { url, key } = config();
   const response = await fetch(`${url}${path}`, {
     method, headers: { apikey: key, Authorization: `Bearer ${key}`, ...(raw ? {} : { 'Content-Type': 'application/json' }), ...headers },
     body: body == null ? undefined : raw ? body : JSON.stringify(body), signal: AbortSignal.timeout(15000)
   });
   if (!response.ok) {
+    if (response.status === 409 && conflictMessage) throw new AppError(conflictMessage, 409);
     // Keep database details and credentials out of browser responses and logs.
     console.error('Supabase request failed', response.status, path.split('?')[0]);
     throw new AppError('저장소 연결을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.', 503);
@@ -22,9 +24,9 @@ async function db(path, { method = 'GET', body, headers = {}, raw = false } = {}
   const value = await response.text();
   return value ? JSON.parse(value) : null;
 }
-async function rate(req, action, limit, seconds) {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
-  const key = createHash('sha256').update(`${config().secret}:${action}:${ip}`).digest('hex');
+async function rate(req, action, limit, seconds, identity) {
+  const actor = identity || String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+  const key = createHash('sha256').update(`${config().secret}:${action}:${actor}`).digest('hex');
   const allowed = await db('/rest/v1/rpc/tools_check_rate', { method: 'POST', body: { p_key: key, p_limit: limit, p_seconds: seconds } });
   if (!allowed) throw new AppError('요청이 너무 많아요. 잠시 후 다시 시도해 주세요.', 429);
 }
@@ -80,7 +82,7 @@ function kstDay(offset) {
 }
 function uuid(value, label) {
   const id = text(value, label, 36, true);
-  if (!/^[a-f0-9-]{36}$/.test(id)) throw new AppError(`${label}를 확인해 주세요.`);
+  if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id)) throw new AppError(`${label}를 확인해 주세요.`);
   return id;
 }
 function assertMutation(req) {
@@ -91,7 +93,7 @@ function assertMutation(req) {
   if (!String(req.headers['content-type'] || '').startsWith('application/json')) throw new AppError('요청 형식을 확인해 주세요.', 415);
 }
 function publicFields(row) {
-  const { contact_email, review_note, submitted_session, ...safe } = row;
+  const { contact_email, review_note, submitted_session, member_id, source, mcp_member_name, own_work_confirmed_at, ...safe } = row;
   return safe;
 }
 async function withImages(rows, admin = false) {
@@ -109,10 +111,21 @@ async function withImages(rows, admin = false) {
 async function verifyUploads(shots, actor, existing) {
   const previous = new Set((existing?.screenshots || []).map(s => s.path));
   await Promise.all(shots.map(async shot => {
-    if (actor.role === 'admin' && previous.has(shot.path)) return;
+    if (previous.has(shot.path)) return;
     const rows = await db(`/rest/v1/tools_uploads?path=eq.${encodeURIComponent(shot.path)}&session_id=eq.${actor.sid}&select=path&limit=1`);
     if (!rows.length) throw new AppError('스크린샷을 다시 업로드해 주세요.');
   }));
+}
+async function storeUpload(data, sid) {
+  const encoded = text(data, '이미지', 2800000, true);
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new AppError('이미지를 다시 선택해 주세요.');
+  const file = Buffer.from(encoded, 'base64');
+  if (file.length > 2 * 1024 * 1024 || file.length < 12) throw new AppError('이미지는 2MB 이하로 등록해 주세요.');
+  const type = imageType(file);
+  const path = `uploads/${sid}/${randomUUID()}.${type.ext}`;
+  await db(`/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', body: file, raw: true, headers: { 'Content-Type': type.mime, 'x-upsert': 'false' } });
+  await db('/rest/v1/tools_uploads', { method: 'POST', body: { path, session_id: sid } });
+  return path;
 }
 async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -173,6 +186,10 @@ async function handler(req, res) {
       return send({ apps: admin ? await withImages(rows, true) : rows });
     }
     const body = req.body || {};
+    if ((req.method === 'GET' && action === 'mcp-tokens') ||
+        (['POST', 'PATCH'].includes(req.method) && action === 'mcp-token')) {
+      return send(await manageToken(req, body, { db, rate, uuid }), req.method === 'POST' ? 201 : 200);
+    }
     if (req.method === 'GET' && action === 'upload-password') {
       await requireRole(req, true);
       const account = await adminAccount(req);
@@ -259,15 +276,7 @@ async function handler(req, res) {
     if (req.method === 'POST' && action === 'upload') {
       const actor = await requireRole(req, session(req)?.role === 'admin');
       await rate(req, 'upload', 36, 3600);
-      const data = text(body.data, '이미지', 2800000, true);
-      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw new AppError('이미지를 다시 선택해 주세요.');
-      const file = Buffer.from(data, 'base64');
-      if (file.length > 2 * 1024 * 1024 || file.length < 12) throw new AppError('이미지는 2MB 이하로 등록해 주세요.');
-      const type = imageType(file);
-      const path = `uploads/${actor.sid}/${randomUUID()}.${type.ext}`;
-      await db(`/storage/v1/object/${BUCKET}/${path}`, { method: 'POST', body: file, raw: true, headers: { 'Content-Type': type.mime, 'x-upsert': 'false' } });
-      await db('/rest/v1/tools_uploads', { method: 'POST', body: { path, session_id: actor.sid } });
-      return send({ path }, 201);
+      return send({ path: await storeUpload(body.data, actor.sid) }, 201);
     }
     if (req.method === 'POST' && action === 'submit') {
       const actor = await requireRole(req, session(req)?.role === 'admin');
@@ -286,7 +295,10 @@ async function handler(req, res) {
       if (!Number.isInteger(body.version) || body.version !== existing.version) throw new AppError('다른 창에서 수정된 요청이에요. 목록을 새로 불러와 주세요.', 409);
       const value = validateApp(body, { admin: true, sessionId: actor.sid, existing });
       await verifyUploads(value.screenshots, actor, existing);
-      const rows = await db(`/rest/v1/tools_apps?id=eq.${id}&version=eq.${body.version}`, { method: 'PATCH', body: value, headers: { Prefer: 'return=representation' } });
+      const rows = await db(`/rest/v1/tools_apps?id=eq.${id}&version=eq.${body.version}`, {
+        method: 'PATCH', body: value, headers: { Prefer: 'return=representation' },
+        conflictMessage: '이 회원이 같은 웹앱 주소로 이미 등록한 요청이 있어요.'
+      });
       if (!rows.length) throw new AppError('다른 창에서 수정된 요청이에요. 목록을 새로 불러와 주세요.', 409);
       return send({ app: (await withImages(rows, true))[0] });
     }
@@ -383,3 +395,4 @@ async function handler(req, res) {
   }
 }
 module.exports = handler;
+module.exports.internals = { db, rate, uuid, withImages, verifyUploads, storeUpload, isConfigured };

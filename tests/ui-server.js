@@ -3,7 +3,7 @@ const {randomUUID}=require('node:crypto');
 const {hashPassword}=require('../lib/tools-core');
 const credential=hashPassword('local-admin-test-only');
 const admin={id:1,username:'local-admin',salt:credential.salt,password_hash:credential.hash};
-const rows=[],uploads=[],devRequests=[],reviews=[],inquiries=[],useDaily=[];
+const rows=[],uploads=[],devRequests=[],reviews=[],inquiries=[],useDaily=[],tokens=[];
 // UI_FIXTURE_SEED=1 이면 예시 앱을 승인 상태로 넣어 둔다. 테스트 회원: member@local.test / local-member-test-only
 const fixtureMember={id:'00000000-0000-4000-8000-000000000001',email:'member@local.test',email_confirmed_at:'2026-11-04T00:00:00Z',app_metadata:{chamcoding_member:true,chamcoding_content_access:true},user_metadata:{display_name:'테스트 회원'}};
 if(process.env.UI_FIXTURE_SEED){
@@ -36,6 +36,21 @@ global.fetch=async(input,options={})=>{
     if(options.headers?.Authorization!=='Bearer fixture-member-token')return new Response('{}',{status:401,headers:{'content-type':'application/json'}});
     data=fixtureMember;
   }
+  else if(url.pathname===`/auth/v1/admin/users/${fixtureMember.id}`)data=fixtureMember;
+  else if(url.pathname==='/rest/v1/rpc/tools_issue_api_token'){
+    if(tokens.filter(token=>token.member_id===body.p_member_id&&!token.revoked_at).length>=3)data=null;
+    else {
+      const record={id:randomUUID(),name:body.p_name,prefix:body.p_prefix,created_at:new Date().toISOString(),last_used_at:null,revoked_at:null};
+      tokens.push({...record,token_hash:body.p_token_hash,member_id:body.p_member_id});
+      data=record;
+    }
+  }
+  else if(url.pathname==='/rest/v1/tools_api_tokens'){
+    const matches=(token,key)=>!url.searchParams.has(key)||token[key]===url.searchParams.get(key).slice(3);
+    const active=tokens.filter(token=>!token.revoked_at&&['id','member_id','token_hash'].every(key=>matches(token,key)));
+    if(options.method==='PATCH')active.forEach(token=>Object.assign(token,body));
+    data=active.map(token=>Object.fromEntries(url.searchParams.get('select').split(',').map(key=>[key,token[key]])));
+  }
   else if(url.pathname==='/rest/v1/tools_dev_requests'){
     if(options.method==='POST'){const row={...body,id:randomUUID(),status:'pending',admin_note:'',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};devRequests.unshift(row);data=[row];}
     else if(options.method==='PATCH'){const row=devRequests.find(r=>r.id===url.searchParams.get('id')?.slice(3));if(row)Object.assign(row,body,{updated_at:new Date().toISOString()});data=row?[row]:[];}
@@ -62,12 +77,14 @@ global.fetch=async(input,options={})=>{
   else if(url.pathname.startsWith('/storage/v1/object/'))data={Key:'fixture-image'};
   else if(url.pathname==='/rest/v1/tools_apps'){
     if(options.method==='POST'){
-      const row={...body,id:randomUUID(),created_at:new Date().toISOString(),updated_at:new Date().toISOString(),version:1,uses:0,is_example:false,review_note:''};rows.push(row);data=[row];
+      const duplicate=body.member_id&&rows.some(row=>row.member_id===body.member_id&&row.web_url===body.web_url);
+      if(duplicate&&url.searchParams.has('on_conflict'))data=[];
+      else {const row={...body,id:randomUUID(),created_at:new Date().toISOString(),updated_at:new Date().toISOString(),version:1,uses:0,is_example:false,review_note:''};rows.push(row);data=[row];}
     }else if(options.method==='PATCH'){
       const row=rows.find(r=>r.id===url.searchParams.get('id')?.slice(3)&&r.version===Number(url.searchParams.get('version')?.slice(3)));
       if(row){Object.assign(row,body,{version:row.version+1,updated_at:new Date().toISOString()});data=[row];}else data=[];
     }else{
-      data=rows.filter(row=>(!url.searchParams.has('id')||row.id===url.searchParams.get('id').slice(3))&&(!url.searchParams.has('status')||row.status===url.searchParams.get('status').slice(3))&&(!url.searchParams.has('is_example')||String(!!row.is_example)===url.searchParams.get('is_example').slice(3)));
+      data=rows.filter(row=>['id','status','member_id','web_url','source','is_example'].every(key=>!url.searchParams.has(key)||String(row[key])===url.searchParams.get(key).slice(3)));
       const select=url.searchParams.get('select');
       if(select&&select!=='*')data=data.map(row=>Object.fromEntries(select.split(',').map(k=>[k,row[k]])));
     }

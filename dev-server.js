@@ -4,9 +4,12 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const handler = require('./api/tools');
+const mcp = require('./api/mcp');
 const neutralThemeCss = require.resolve('@astryxdesign/theme-neutral/theme.css');
 http.createServer(async (req, res) => {
-  if (req.url.startsWith('/api/tools')) {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  const mcpRequest = pathname === '/mcp' || pathname === '/api/mcp';
+  if (pathname === '/api/tools' || mcpRequest) {
     let body = '', oversized = false;
     for await (const chunk of req) {
       body += chunk;
@@ -15,11 +18,12 @@ http.createServer(async (req, res) => {
     res.status = code => { res.statusCode = code; return res; };
     res.json = value => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(value)); };
     if (oversized) return res.status(413).json({error:'파일이 너무 커요.'});
+    if (mcpRequest) { req.body = body; return mcp(req, res); }
     try { req.body = body ? JSON.parse(body) : {}; } catch { return res.status(400).json({error:'잘못된 요청이에요.'}); }
     return handler(req, res);
   }
   const allowed = new Set(['/index.html','/tools.js','/tools.css','/chamcoding-ui.css','/recommend.js','/assets/astryx-neutral.css','/assets/chamssaem.png','/assets/share/chamcoding-og-v1.png','/favicon.ico','/assets/favicon.svg','/assets/favicon-32.png','/assets/favicon-192.png','/assets/apple-touch-icon.png']);
-  const file = new URL(req.url, 'http://localhost').pathname === '/' ? '/index.html' : new URL(req.url, 'http://localhost').pathname;
+  const file = pathname === '/' ? '/index.html' : pathname;
   if (!allowed.has(file)) { res.statusCode=404; return res.end('Not found'); }
   const extension = path.extname(file);
   res.setHeader('Content-Type', {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon'}[extension]);

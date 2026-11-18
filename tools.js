@@ -13,7 +13,7 @@
   const banner = document.createElement('p'); banner.className = 'sync-notice'; banner.hidden = true;
   document.querySelector('main.wrap').prepend(banner);
   const draftKey = 'chamcoding-upload-draft';
-  let lastFocus, viewRevision=0, sessionFlight=null, sessionCheckedAt=0, sessionEpoch=0;
+  let lastFocus, viewRevision=0, sessionFlight=null, sessionCheckedAt=0, sessionEpoch=0, memberNext;
   function invalidateSession(){sessionEpoch++;sessionCheckedAt=0;sessionFlight=null;}
 
   async function api(action, { method = 'GET', body } = {}) {
@@ -54,7 +54,7 @@
     if (!workspace.open) { lastFocus = document.activeElement; workspace.showModal(); }
     document.body.style.overflow = 'hidden';
     workspace.innerHTML = `<header class="workspace-head"><div><span class="eyebrow">참코딩 · 함께 만드는 수업 도구</span><h2 id="workspaceTitle">${esc(title)}</h2><p>${esc(subtitle)}</p></div><button type="button" class="close-workspace" aria-label="작업 창 닫기">✕</button></header>
-      ${state.role && !['login','member','setup','devreq','inquiry'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">일괄 업로드</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="inquiries" class="${active==='inquiries'?'active':''}">기타 문의</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
+      ${state.role && !['login','member','setup','devreq','inquiry','mcp'].includes(active) ? `<nav class="workspace-nav" aria-label="업로드 관리"><button type="button" data-view="upload" class="${active==='upload'?'active':''}">업로드 요청</button><button type="button" data-view="bulk" class="${active==='bulk'?'active':''}">일괄 업로드</button><button type="button" data-view="queue" class="${active==='queue'?'active':''}">${adminView?'요청 검토 · 앱 관리':'대기 목록'}</button>${adminView?`<button type="button" data-view="devqueue" class="${active==='devqueue'?'active':''}">앱 개발 요청</button><button type="button" data-view="inquiries" class="${active==='inquiries'?'active':''}">기타 문의</button><button type="button" data-view="settings" class="${active==='settings'?'active':''}">업로드 비밀번호</button>`:''}<span class="role-chip">${adminView?'관리자':'업로더'}</span><button type="button" class="logout">로그아웃</button></nav>`:''}
       <div class="workspace-content"><div id="workspaceBody"></div></div>`;
     return revision;
   }
@@ -63,7 +63,7 @@
     workspace.close(); document.body.style.overflow = ''; lastFocus?.focus();
   }
   workspace.addEventListener('cancel', e => { if (state.busy) e.preventDefault(); });
-  workspace.addEventListener('close', () => { viewRevision++; document.body.style.overflow = ''; state.shots.forEach(revokePreview); state.shots = []; state.bulk?.cards.forEach(c=>c.shots.forEach(revokePreview)); state.bulk = null; });
+  workspace.addEventListener('close', () => { if(workspace.open)return; viewRevision++; document.body.style.overflow = ''; workspace.querySelector('.mcp-setup')?.remove(); state.shots.forEach(revokePreview); state.shots = []; state.bulk?.cards.forEach(c=>c.shots.forEach(revokePreview)); state.bulk = null; });
   function errorIn(form, error) {
     const target = form.querySelector('.form-error');
     if (target) { target.textContent = error.message; target.hidden = false; target.scrollIntoView({block:'nearest'}); }
@@ -130,26 +130,159 @@
   }
   // 관리자 로그인은 회원 로그인 창(로그인 상태면 내 계정 창) 아래에서 들어간다
   const adminEntry='<div class="admin-entry"><span>참코딩 운영자이신가요?</span><button type="button" class="btn line" data-admin-login>관리자로 로그인</button></div>';
-  async function memberEntry(mode='login') {
+  async function memberEntry(mode='login', next=null) {
+    memberNext=next;
     const revision=loadingShell(mode==='signup'?'회원가입':'회원 로그인','member');
     try {await refreshSession();} catch(error){if(revision===viewRevision)errorIn($('#workspaceBody'),error);return;}
     if(revision!==viewRevision||!workspace.open)return;
     if(state.member){
+      if(next==='mcp')return mcpView();
       openShell('내 계정','참코딩 회원 정보와 콘텐츠 이용 권한을 확인해요.','member');
       $('#workspaceBody').innerHTML=`<div class="entry-form"><div class="entry-icon">👤</div><h3>${esc(state.member.name)}님</h3><p class="field-help">${esc(state.member.email)}</p><p class="membership-state">${state.member.contentAccess?'회원 전용 콘텐츠 이용 권한이 있어요.':'콘텐츠 이용 권한 확인이 필요해요.'}</p><p class="field-help">회원 전용 콘텐츠는 준비되는 대로 추가돼요.</p><button type="button" class="btn line" id="memberLogout">회원 로그아웃</button></div>${adminEntry}`;
       $('#memberLogout').onclick=async()=>{try{await api('member-logout',{method:'POST',body:{}});state.member=null;await refreshSession();closeWorkspace();toast('로그아웃했어요.');}catch(error){toast(error.message);}};
       return;
     }
     const signup=mode==='signup';
-    openShell(signup?'회원가입':'회원 로그인','참코딩 회원으로 로그인하고 회원 전용 콘텐츠를 이용하세요.','member');
+    openShell(signup?'회원가입':'회원 로그인',next==='mcp'?'이메일을 인증한 참코딩 회원으로 로그인해 주세요.':'참코딩 회원으로 로그인하고 회원 전용 콘텐츠를 이용하세요.','member');
     $('#workspaceBody').innerHTML=`<form id="memberForm" class="entry-form"><div class="tabs"><button type="button" data-member-mode="login" class="${!signup?'on':''}">로그인</button><button type="button" data-member-mode="signup" class="${signup?'on':''}">회원가입</button></div>${signup?field('이름','name','',{max:60}):''}${field('이메일','email','',{type:'email',max:254})}<label class="field"><span>비밀번호 *</span><input type="password" name="password" minlength="8" maxlength="256" autocomplete="${signup?'new-password':'current-password'}" required></label>${signup?'<label class="field"><span>비밀번호 확인 *</span><input type="password" name="confirm" minlength="8" maxlength="256" autocomplete="new-password" required></label><p class="field-help">가입 후 받은 인증 메일의 링크를 눌러 이메일을 확인해 주세요.</p>':''}<p class="form-error" role="alert" hidden></p><button type="submit" class="btn solid submit">${signup?'회원가입':'로그인'}</button></form>${signup?'':adminEntry}`;
     $('#memberForm').onsubmit=e=>{e.preventDefault();const form=e.target;withBusy(form,async()=>{
       const data=Object.fromEntries(new FormData(form));
       if(signup&&data.password!==data.confirm)throw new Error('비밀번호 확인이 일치하지 않아요.');
       const result=await api(signup?'member-signup':'member-login',{method:'POST',body:data});form.reset();
       if(signup&&result.needsConfirmation){$('#workspaceBody').innerHTML='<div class="success-state"><span>✉️</span><h3>이메일을 확인해 주세요</h3><p>인증 메일의 링크를 누른 뒤 다시 로그인해 주세요.</p><button class="btn solid" data-member-mode="login">로그인으로 이동</button></div>';}
-      else{await refreshSession();await memberEntry();}
+      else{await refreshSession();await memberEntry('login',next);}
     });};
+  }
+  const mcpUrl='https://www.chamssaem.kr/mcp';
+  const claudeCommand=token=>`claude mcp add --transport http --scope user chamcoding ${mcpUrl} --header "Authorization: Bearer ${token}"`;
+  const codexConfig=token=>`[mcp_servers.chamcoding]
+url = "${mcpUrl}"
+http_headers = { "Authorization" = "Bearer ${token}" }`;
+  const mcpPrompt=token=>`참코딩 MCP를 내 개인 에이전트에 연결해 줘.
+
+Claude Code를 쓰고 있으면 사용자 범위에 추가해 줘.
+${claudeCommand(token)}
+
+Codex를 쓰고 있으면 개인 ~/.codex/config.toml의 chamcoding 항목을 추가하거나 갱신해 줘.
+${codexConfig(token)}
+
+토큰은 내 개인 MCP 설정에만 저장해 줘. 답변, 프로젝트 파일, Git, 셸 기록에 남기지 마.
+새 세션이 필요하면 알려 주고, 연결 후 list_options를 호출해 등록 규칙을 확인해 줘.
+내가 앱 등록을 요청하면 공개 주소와 실제 화면을 확인하고 앱 소개를 작성해 줘. 스크린샷 파일에서 base64를 로컬로 읽어 upload_screenshot의 data_base64에 넣고, 이미지 원문은 채팅에 출력하지 마. 도구로 파일 내용을 직접 전달하기 어렵다면 로컬 스크립트에서 파일을 읽어 ${mcpUrl}에 JSON-RPC tools/call POST를 보내 줘. Authorization에는 개인 설정의 Bearer 토큰을 쓰고, 로그에는 남기지 마.
+register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을 보여 줘. 내가 직접 “네”라고 답하면 같은 정보와 confirmation_id, confirm_own_work: true로 접수해 줘.`;
+
+  async function mcpView() {
+    const title='AI 에이전트로 등록';
+    const revision=loadingShell(title,'mcp');
+    let tokens;
+    try {
+      await refreshSession();
+      if(revision!==viewRevision||!workspace.open)return;
+      if(!state.member)return memberEntry('login','mcp');
+      ({tokens}=await api('mcp-tokens'));
+    } catch(error) {
+      if(revision===viewRevision&&workspace.open) {
+        $('#workspaceBody').innerHTML=`<div class="error-state" role="alert">${esc(error.message)} <button type="button" data-view="mcp" class="btn line">다시 시도</button></div>`;
+      }
+      return;
+    }
+    if(revision!==viewRevision||!workspace.open)return;
+    openShell(title,'Claude Code나 Codex로 앱을 준비하고 관리자에게 검토를 요청해요.','mcp');
+    const root=$('#workspaceBody');
+    root.innerHTML=`<div class="mcp-setup">
+      <section class="mcp-card" aria-labelledby="mcpCreateTitle"><h3 id="mcpCreateTitle">1. 토큰 만들기</h3>
+        <form id="mcpCreate"><label class="field"><span>토큰 이름</span><input name="name" placeholder="예: 내 노트북 Codex" maxlength="60" required></label>
+        <button type="submit" class="btn solid">토큰 만들기</button><p class="form-error" role="alert" hidden></p></form>
+        <div class="mcp-issued" hidden><label class="field"><span>새 토큰</span><input id="mcpSecret" type="text" autocomplete="off" spellcheck="false" readonly></label>
+          <button type="button" class="btn line" data-mcp-copy="token">토큰 복사</button>
+          <p class="field-help">원문은 발급 직후 한 번만 보여요. 화면을 닫기 전에 복사해 주세요.</p></div>
+      </section>
+      <section class="mcp-card" aria-labelledby="mcpPromptTitle"><h3 id="mcpPromptTitle">2. 설정 프롬프트 복사</h3>
+        <p>프롬프트에는 토큰이 포함돼요. 본인의 에이전트에만 붙여 넣어 주세요.</p>
+        <button type="button" class="btn solid" data-mcp-copy="prompt" disabled>설정 프롬프트 복사</button>
+      </section>
+      <section class="mcp-card" aria-labelledby="mcpUseTitle"><h3 id="mcpUseTitle">3. 에이전트에 붙여 넣기</h3>
+        <p>연결한 뒤 “이 앱 참코딩에 등록해 줘”라고 요청하세요. 등록 내용을 확인하고 “네”라고 답하면 관리자 검토 대기열에 들어가요.</p>
+        <details><summary>직접 연결하기</summary>
+          <div class="tabs mcp-clients" role="group" aria-label="연결할 AI 선택">
+            <button type="button" data-mcp-client="claude" aria-pressed="true" class="on">Claude Code</button>
+            <button type="button" data-mcp-client="codex" aria-pressed="false">Codex</button>
+            <button type="button" data-mcp-client="app" aria-pressed="false">Claude 앱</button>
+          </div>
+          <p class="mcp-client-help"></p>
+          <pre><code id="mcpCommand"></code></pre>
+          <button type="button" class="btn line" data-mcp-copy="command">연결 설정 복사</button>
+        </details>
+      </section>
+      <section class="mcp-card" aria-labelledby="mcpTokensTitle"><h3 id="mcpTokensTitle">내 토큰</h3>
+        <p class="field-help">토큰은 최대 3개까지 사용할 수 있어요. 폐기하면 연결이 해제돼요.</p>
+        <ul id="mcpTokens"></ul>
+      </section>
+      <p class="mcp-feedback" role="status"></p>
+    </div>`;
+    const form=root.querySelector('#mcpCreate');
+    const secret=root.querySelector('#mcpSecret');
+    const feedback=root.querySelector('.mcp-feedback');
+    let issuedId;
+    const renderTokens=()=>{
+      root.querySelector('#mcpTokens').innerHTML=tokens.length?tokens.map(token=>
+        `<li><div><strong>${esc(token.name)}</strong> <code>${esc(token.prefix)}…</code><p class="field-help">발급 ${date(token.created_at)} · 마지막 사용 ${token.last_used_at?date(token.last_used_at):'없음'}</p></div><button type="button" class="btn line" data-mcp-revoke="${esc(token.id)}" aria-label="${esc(token.name)} 토큰 폐기">폐기</button></li>`
+      ).join(''):'<li>사용 중인 토큰이 없어요.</li>';
+    };
+    const setClient=client=>{
+      root.querySelectorAll('[data-mcp-client]').forEach(button=>{
+        const active=button.dataset.mcpClient===client;
+        button.classList.toggle('on',active);button.setAttribute('aria-pressed',String(active));
+      });
+      const placeholder='<발급받은 토큰>';
+      const clients={
+        claude:['터미널에서 명령을 실행하고 Claude Code 세션을 다시 여세요.',claudeCommand(placeholder)],
+        codex:['개인 ~/.codex/config.toml에 추가하고 Codex 세션을 다시 여세요.',codexConfig(placeholder)],
+        app:['Claude의 설정 → 커넥터 → 사용자 지정 커넥터에서 URL을 추가하면 공개 앱을 찾아볼 수 있어요.',mcpUrl]
+      };
+      root.querySelector('.mcp-client-help').textContent=clients[client][0];
+      root.querySelector('#mcpCommand').textContent=clients[client][1];
+    };
+    renderTokens();setClient('claude');
+    form.onsubmit=event=>{
+      event.preventDefault();
+      form.querySelector('.form-error').hidden=true;
+      withBusy(form,async()=>{
+        const {token,record}=await api('mcp-token',{method:'POST',body:Object.fromEntries(new FormData(form))});
+        issuedId=record.id;secret.value=token;tokens.unshift(record);
+        root.querySelector('.mcp-issued').hidden=false;
+        root.querySelector('[data-mcp-copy="prompt"]').disabled=false;
+        form.reset();renderTokens();
+        feedback.textContent='토큰을 만들었어요.';
+      });
+    };
+    root.querySelector('.mcp-setup').addEventListener('click',async event=>{
+      const button=event.target.closest('button');
+      if(!button||state.busy)return;
+      if(button.dataset.mcpClient)return setClient(button.dataset.mcpClient);
+      const id=button.dataset.mcpRevoke;
+      if(id){
+        if(!window.confirm('이 토큰을 폐기할까요?'))return;
+        state.busy=true;button.disabled=true;
+        try {
+          await api('mcp-token',{method:'PATCH',body:{id}});
+          tokens=tokens.filter(token=>token.id!==id);
+          if(issuedId===id){
+            secret.value='';root.querySelector('.mcp-issued').hidden=true;
+            root.querySelector('[data-mcp-copy="prompt"]').disabled=true;
+          }
+          renderTokens();feedback.textContent='토큰을 폐기했어요.';
+        } catch(error) {feedback.textContent=error.message;}
+        finally {state.busy=false;button.disabled=false;}
+        return;
+      }
+      const copy=button.dataset.mcpCopy;
+      if(copy){
+        const value=copy==='command'?root.querySelector('#mcpCommand').textContent:copy==='prompt'?mcpPrompt(secret.value):secret.value;
+        try{await navigator.clipboard.writeText(value);feedback.textContent='복사했어요.';toast('복사했어요.');}
+        catch{feedback.textContent='클립보드에 복사하지 못했어요. 브라우저 권한을 확인해 주세요.';toast(feedback.textContent);}
+      }
+    });
   }
   async function passwordSettings() {
     if(state.role!=='admin'||state.area!=='admin')return;
@@ -289,13 +422,14 @@ ${promptRules()}
 - 내가 직접 확인하거나 고쳐야 할 칸(추정한 학년, 제작자 이름 등)
 
 ${promptChat('일괄 업로드 내용.md')}`;
-  const promptBox = ({id,title,steps,prompt,folder}) => `<section class="ai-prep" aria-labelledby="${id}Title"><div class="ai-prep-head"><b id="${id}Title">${title}</b></div>
+  const promptBox = ({id,title,steps,prompt,folder,extraAction=''}) => `<section class="ai-prep" aria-labelledby="${id}Title"><div class="ai-prep-head"><b id="${id}Title">${title}</b></div>
       <ol class="ai-prep-steps">${steps}<li><b>Claude Code, Codex, ChatGPT Work(에이전트)</b>처럼 컴퓨터·브라우저를 다룰 수 있는 AI에 붙여 넣으면, 바탕화면 <b>'${folder}'</b> 폴더에 스크린샷과 정리된 내용이 만들어져요.</li></ol>
       <p class="ai-prep-note">일반 AI 채팅(ChatGPT·Claude·Gemini 채팅창)은 바탕화면에 폴더를 만들 수 없어요. 대신 <b>채팅 안에서 캡처본과 정리된 내용을 파일로 보내 주니</b>, 채팅에서 바로 저장해 쓰세요. 채팅에서 사이트를 열지 못하면 <b>Claude Code나 ChatGPT Work</b>를 쓰거나 스크린샷을 직접 찍어 주세요.</p>
       <textarea id="${id}" class="ai-prep-prompt" rows="8" readonly aria-label="${esc(title)} 프롬프트">${esc(prompt)}</textarea>
-      <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt="${id}">프롬프트 복사</button><span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
+      <div class="ai-prep-actions"><button type="button" class="btn solid" data-copy-prompt="${id}">프롬프트 복사</button>${extraAction}<span class="ai-prep-copied" role="status" aria-live="polite"></span></div></section>`;
   const prepBox = () => promptBox({id:'aiPrepPrompt',title:'🤖 내 AI에게 업로드 준비 맡기기',folder:'참코딩 업로드 준비',prompt:prepPrompt(),
-    steps:'<li><b>프롬프트 복사</b>를 누르고, 프롬프트의 <b>웹앱 주소:</b> 뒤에 내 앱 주소를 넣어 주세요.</li>'})
+    steps:'<li><b>프롬프트 복사</b>를 누르고, 프롬프트의 <b>웹앱 주소:</b> 뒤에 내 앱 주소를 넣어 주세요.</li>',
+    extraAction:'<button type="button" class="btn line" data-view="mcp">에이전트로 바로 등록하기</button>'})
     + '<div class="bulk-hint"><span>웹앱을 여러 개 올리나요?</span><button type="button" class="btn line" data-view="bulk">일괄 업로드로 이동</button></div>';
   const bulkPromptBox = () => promptBox({id:'bulkPrepPrompt',title:'🤖 내 AI에게 일괄 업로드 준비 맡기기',folder:'참코딩 업로드 준비/일괄 업로드',prompt:bulkPrompt(),
     steps:'<li><b>프롬프트 복사</b>를 누르고, <b>내 웹앱 주소 목록</b>에 올릴 앱 주소를 한 줄에 하나씩 넣어 주세요(최대 '+BULK_MAX_CARDS+'개).</li><li>AI가 만든 \'일괄 업로드 내용.md\'의 앱 순서대로 아래에서 <b>웹앱 카드 추가</b>를 눌러 카드를 만들고 칸마다 붙여 넣어 주세요.</li>'});
@@ -439,7 +573,7 @@ ${promptChat('일괄 업로드 내용.md')}`;
     const value = row ? {...row,cat:row.category,notes:row.notes.join('\n')} : loadDraft();
     state.shots = (row?.screenshots || []).map(s=>({...s,key:crypto.randomUUID()}));
     openShell(row?'요청 검토 · 내용 수정':'웹앱 업로드 요청',row?'내용을 확인하고 상태를 선택해 저장해 주세요.':'만든 웹앱을 소개해 주세요. 승인 후 참코딩에 함께 올라가요.','upload');
-    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?'':prepBox()}
+    $('#workspaceBody').innerHTML = `<form id="appForm" class="app-form">${row?.source==='mcp'?`<p class="mcp-review"><b>MCP · ${esc(row.mcp_member_name||'회원')}</b>${row.own_work_confirmed_at?` · 본인 제작 확인 ${esc(new Date(row.own_work_confirmed_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}`:''}</p>`:row?'':prepBox()}
       <div class="form-intro"><span>01</span><div><h3>기본 정보</h3><p>예시 앱의 카드와 상세 화면에 표시될 내용이에요.</p></div></div>
       <div class="form-grid">${field('앱 이름','name',value.name,{max:60,placeholder:'예: 우리 반 모둠 뽑기'})}${field('제작자 이름','author_name',value.author_name,{max:60,placeholder:'이름 또는 연구회 이름'})}</div>
       ${field('웹앱 주소','web_url',value.web_url,{required:!row?.is_example,type:'url',max:2000,placeholder:'https://my-app.vercel.app',help:'승인 후 ‘열기’ 버튼에 연결돼요. 공개된 https 주소를 입력해 주세요.'})}
@@ -554,7 +688,7 @@ ${promptChat('일괄 업로드 내용.md')}`;
   function renderQueue() {
     const admin=state.role==='admin' && state.area==='admin', rows=state.queue.filter(r=>state.filter==='all'||r.status===state.filter);
     $('#workspaceBody').innerHTML=`<div class="queue-heading"><div class="status-filters" aria-label="상태별 요청 목록">${[['pending','승인 대기'],['changes_requested','수정 요청'],['approved','승인 완료'],['rejected','반려'],...(admin?[['archived','공개 중지']]:[]),['all','전체']].map(([key,label])=>`<button type="button" data-filter="${key}" aria-pressed="${state.filter===key}" class="${state.filter===key?'selected':''}">${label} <b>${state.queue.filter(r=>key==='all'||r.status===key).length}</b></button>`).join('')}</div><button type="button" data-view="queue" class="btn line">새로고침</button></div>
-      <div class="queue-list">${rows.length?rows.map(r=>`<article class="request-row"><div class="request-main"><span class="status-badge status-${r.status}">${labels[r.status]}</span>${r.is_example?'<span class="example-label">예시 앱</span>':''}<h3>${esc(r.name)}</h3><p>${esc(r.category)} · ${esc(r.grade)} · ${date(r.created_at)}</p>${r.review_note?`<p class="review-note"><b>검토 메모</b> ${esc(r.review_note)}</p>`:''}</div>${admin?`<button type="button" class="btn solid" data-review="${r.id}">검토 · 수정</button>`:`<span class="request-number">#${r.id.slice(0,8).toUpperCase()}</span>`}</article>`).join(''):`<div class="empty-state"><span>📭</span><h3>${state.filter==='pending'?'승인 대기 중인 요청이 없어요':'이 상태의 요청이 없어요'}</h3><p>새 요청을 보내면 이곳에서 확인할 수 있어요.</p><button type="button" data-view="upload" class="btn line">업로드 요청하기</button></div>`}</div>`;
+      <div class="queue-list">${rows.length?rows.map(r=>`<article class="request-row"><div class="request-main"><span class="status-badge status-${r.status}">${labels[r.status]}</span>${r.is_example?'<span class="example-label">예시 앱</span>':''}${admin&&r.source==='mcp'?`<span class="mcp-badge">MCP · ${esc(r.mcp_member_name||'회원')}</span>`:''}<h3>${esc(r.name)}</h3><p>${esc(r.category)} · ${esc(r.grade)} · ${date(r.created_at)}</p>${r.review_note?`<p class="review-note"><b>검토 메모</b> ${esc(r.review_note)}</p>`:''}</div>${admin?`<button type="button" class="btn solid" data-review="${r.id}">검토 · 수정</button>`:`<span class="request-number">#${r.id.slice(0,8).toUpperCase()}</span>`}</article>`).join(''):`<div class="empty-state"><span>📭</span><h3>${state.filter==='pending'?'승인 대기 중인 요청이 없어요':'이 상태의 요청이 없어요'}</h3><p>새 요청을 보내면 이곳에서 확인할 수 있어요.</p><button type="button" data-view="upload" class="btn line">업로드 요청하기</button></div>`}</div>`;
   }
   function preview() {
     const form=$('#appForm'), data=values(form);
@@ -726,11 +860,12 @@ ${promptChat('일괄 업로드 내용.md')}`;
     if(button.matches('.logout')){
       try{await api('logout',{method:'POST',body:{}});state.role=null;closeWorkspace();syncChrome();toast('로그아웃했어요.');}catch(error){toast(error.message);}return;
     }
-    if(button.dataset.memberMode){await memberEntry(button.dataset.memberMode);return;}
+    if(button.dataset.memberMode){await memberEntry(button.dataset.memberMode,memberNext);return;}
     if(button.hasAttribute('data-admin-login')){await enter('admin');return;}
     if(button.dataset.devSave){await saveDevRequest(button);return;}
     if(button.dataset.inquirySave){await saveInquiry(button);return;}
     if(button.dataset.view){
+      if(button.dataset.view==='mcp')return mcpView();
       if(button.dataset.view==='settings')await passwordSettings();else if(button.dataset.view==='devqueue')await devQueueView();else if(button.dataset.view==='inquiries')await inquiryQueueView();else if(button.dataset.view==='inquiry')inquiryForm();else if(button.dataset.view==='devreq')devRequestForm();else if(button.dataset.view==='upload')uploadForm();else if(button.dataset.view==='bulk')bulkView();else await queueView();return;
     }
     if(button.dataset.copyPrompt)return copyPrepPrompt(button);
@@ -744,6 +879,7 @@ ${promptChat('일괄 업로드 내용.md')}`;
     if(button.dataset.shotMove){const index=state.shots.findIndex(s=>s.key===button.dataset.shotMove),target=index+Number(button.dataset.direction);if(target>=0&&target<state.shots.length){[state.shots[index],state.shots[target]]=[state.shots[target],state.shots[index]];renderShotEditor();}}
   });
   $('#uploadButton').onclick=()=>enter('upload');$('#memberButton').onclick=()=>memberEntry();$('#adminMenuButton').onclick=()=>enter('admin');$('#devRequestButton').onclick=()=>devRequestForm();$('#inquiryButton').onclick=()=>inquiryForm();
+  $('#mcpButton').onclick=()=>mcpView();
   const authHash=new URLSearchParams(location.hash.slice(1));
   if(authHash.has('access_token')||authHash.has('error'))history.replaceState(null,'',location.pathname+location.search);
   if(new URLSearchParams(location.search).has('email-confirmed'))memberEntry();

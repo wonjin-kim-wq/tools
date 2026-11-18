@@ -7,6 +7,9 @@
   "regions": [
     "icn1"
   ],
+  "rewrites": [
+    { "source": "/mcp", "destination": "/api/mcp" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
