@@ -144,6 +144,16 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .mcp-token-entry { display: grid; justify-items: start; gap: .625rem; width: 100%; }
 .mcp-token-entry .field { width: 100%; margin: 0; }
 #mcpControls .btn { min-height: 2.75rem; height: auto; padding-block: .6rem; }
+#mcpControls .btn.mcp-copy-locked {
+  background: var(--chip);
+  border: 1px solid var(--line2);
+  color: var(--sub);
+}
+.mcp-token-record { margin-block-start: 1rem; }
+.mcp-token-record h3 { margin: 0; }
+.mcp-token-record h3 span { color: var(--sub); font-size: .8125rem; }
+#mcpTokens { width: 100%; }
+.mcp-record-status:empty { display: none; }
 .mcp-card .mcp-capacity { margin-block-start: .5rem; font-size: .8125rem; }
 .mcp-feedback:not(:empty), .mcp-example-status:not(:empty), .mcp-manual-status:not(:empty) { color: var(--brand-ink); font-size: .8125rem; }
 .mcp-feedback:empty, .mcp-example-status:empty, .mcp-manual-status:empty { display: none; }

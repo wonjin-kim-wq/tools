@@ -274,7 +274,7 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
           <section class="mcp-card mcp-connect" aria-labelledby="mcpConnectTitle">
             <p class="mcp-kicker">처음 한 번만</p>
             <h4 id="mcpConnectTitle">새 에이전트 연결하기</h4>
-            <p>계정당 토큰 하나를 사용해요. 발급한 토큰 값을 아래 입력칸에 붙여 넣고 연결 설정을 복사하세요.</p>
+            <p>토큰을 발급한 뒤 설정 프롬프트를 복사해 Claude Code나 Codex에 붙여 넣으세요.</p>
             <section id="mcpControls" aria-label="연결 준비"><p role="status">로그인 상태를 확인하고 있어요…</p></section>
             <p class="mcp-feedback" id="mcpFeedback" role="status"></p>
             <label class="field mcp-fallback" hidden><span>설정 프롬프트 직접 복사</span><textarea readonly rows="4" autocomplete="off" spellcheck="false"></textarea></label>
@@ -299,9 +299,6 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
               <p class="mcp-manual-status" role="status"></p>
             </section>
           </details>
-          <details id="mcpTokenList" class="mcp-details" hidden><summary>연결 토큰 관리 <span id="mcpTokenCount"></span></summary>
-            <section class="mcp-details-body" aria-label="내 연결 토큰"><p class="field-help">같은 토큰을 여러 에이전트에서 쓸 수 있어요. 토큰을 폐기하면 그 토큰으로 연결한 모든 에이전트에서 등록할 수 없어요.</p><ul id="mcpTokens"></ul></section>
-          </details>
         </section>
       </section>
       <section id="request-panel-prompt" role="tabpanel" aria-labelledby="request-tab-prompt" tabindex="0" hidden>
@@ -312,6 +309,17 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         <section id="directControls" aria-label="업로드 양식"><p class="loading-state" role="status">로그인 상태를 확인하고 있어요…</p></section>
       </section>
       <footer class="request-footer" id="requestFooter"></footer>
+      <section id="mcpTokenList" class="mcp-card mcp-token-record" aria-labelledby="mcpRecordTitle" hidden>
+        <h3 id="mcpRecordTitle" tabindex="-1">MCP 연결 기록 <span id="mcpTokenCount"></span></h3>
+        <div class="mcp-example"><code>${mcpUrl}</code><button type="button" class="btn line" data-mcp-copy="url">${requestIcon('copy')} 주소 복사</button></div>
+        <ul id="mcpTokens"></ul>
+        <section id="mcpIssued" class="mcp-token-entry" aria-label="발급된 토큰 원문" hidden>
+          <label class="field"><span>발급된 토큰</span><input type="text" id="mcpIssuedToken" readonly autocomplete="off" spellcheck="false"></label>
+          <button type="button" class="btn line" data-mcp-copy="token">${requestIcon('copy')} 토큰 복사</button>
+          <p class="field-help">토큰 전체 값은 발급한 창에서만 확인할 수 있어요.</p>
+        </section>
+        <p class="mcp-record-status" role="status"></p>
+      </section>
     </section>`;
     workspace.scrollTop=0;
     selectRequestTab(initial);
@@ -340,20 +348,33 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
     }
   }
   function bindMcpSetup(root) {
-    const controls=root.querySelector('#mcpControls'), list=root.querySelector('#mcpTokenList');
+    const dialogContent=root.closest('.upload-requests');
+    const controls=root.querySelector('#mcpControls'), list=dialogContent.querySelector('#mcpTokenList');
+    const issuedToken=list.querySelector('#mcpIssuedToken'), recordStatus=list.querySelector('.mcp-record-status');
     const feedback=root.querySelector('.mcp-feedback'), manualStatus=root.querySelector('.mcp-manual-status');
     const fallback=root.querySelector('.mcp-fallback'), fallbackText=fallback.querySelector('textarea');
-    let tokens=[], issued, issueButton, promptButton, tokenInput, issuedToken;
+    let tokens=[], issued, issueButton, promptButton, tokenInput;
     const clearFallback=()=>{fallback.hidden=true;fallbackText.value='';};
+    const setupToken=()=>issued?.token||tokenInput.value.trim();
+    const validSetupToken=token=>/^chm_live_[A-Za-z0-9_-]{43}$/.test(token);
+    const updatePromptState=()=>{
+      const ready=tokens.length>0&&validSetupToken(setupToken());
+      promptButton.classList.toggle('solid',ready);
+      promptButton.classList.toggle('line',!ready);
+      promptButton.classList.toggle('mcp-copy-locked',!ready);
+      promptButton.setAttribute('aria-disabled',String(!ready));
+    };
     const renderTokens=()=>{
-      root.querySelector('#mcpTokenCount').textContent=`${tokens.length}개`;
-      root.querySelector('#mcpTokens').innerHTML=tokens.length?tokens.map(token=>
+      list.querySelector('#mcpTokenCount').textContent=`${tokens.length}개`;
+      list.querySelector('#mcpTokens').innerHTML=tokens.length?tokens.map(token=>
         `<li><div><strong>${esc(token.name)}</strong> <code>${esc(token.prefix)}…</code><p class="field-help">발급 ${date(token.created_at)} · 마지막 사용 ${token.last_used_at?date(token.last_used_at):'없음'}</p></div><button type="button" class="btn line" data-mcp-revoke="${esc(token.id)}" aria-label="${esc(token.name)} 토큰 폐기">폐기</button></li>`
       ).join(''):'<li>사용 중인 토큰이 없어요.</li>';
       issueButton.hidden=tokens.length>0;
       issueButton.disabled=tokens.length>0;
       issuedToken.value=issued?.token||'';
-      root.querySelector('#mcpIssued').hidden=!issued;
+      list.querySelector('#mcpIssued').hidden=!issued;
+      tokenInput.closest('label').hidden=Boolean(issued)||tokens.length===0;
+      updatePromptState();
       const capacity=root.querySelector('#mcpCapacity');
       capacity.hidden=Boolean(issued)||tokens.length===0;
       capacity.textContent=tokens.length>1
@@ -384,22 +405,18 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         return;
       }
       if(!controls.isConnected)return;
-      controls.innerHTML=`<section class="mcp-token-entry" aria-label="토큰 준비">
-        <button type="button" class="btn line" data-mcp-issue>토큰 만들기</button>
+      controls.innerHTML=`<section class="mcp-token-entry" aria-label="연결 단계">
+        <button type="button" class="btn solid" data-mcp-issue>토큰 발급</button>
         <p class="mcp-capacity" id="mcpCapacity" hidden></p>
-        <section id="mcpIssued" class="mcp-token-entry" aria-label="발급된 토큰" hidden>
-          <label class="field"><span>발급된 토큰</span><input type="text" id="mcpIssuedToken" readonly autocomplete="off" spellcheck="false"></label>
-          <button type="button" class="btn line" data-mcp-copy="token">${requestIcon('copy')} 토큰 복사</button>
-        </section>
         <label class="field"><span>토큰 붙여 넣기</span><input type="password" id="mcpTokenInput" placeholder="chm_live_…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="mcpFeedback"></label>
-        <button type="button" class="btn solid" data-mcp-copy="prompt">${requestIcon('copy')} 설정 프롬프트 복사</button>
+        <button type="button" class="btn line mcp-copy-locked" data-mcp-copy="prompt" aria-disabled="true" aria-describedby="mcpFeedback">${requestIcon('copy')} 설정 프롬프트 복사</button>
       </section>`;
       issueButton=controls.querySelector('[data-mcp-issue]');
       promptButton=controls.querySelector('[data-mcp-copy="prompt"]');
       tokenInput=controls.querySelector('#mcpTokenInput');
-      issuedToken=controls.querySelector('#mcpIssuedToken');
       tokenInput.addEventListener('input',()=>{
         tokenInput.removeAttribute('aria-invalid');
+        updatePromptState();
         clearFallback();
         feedback.textContent='';
       });
@@ -414,20 +431,24 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
       try {
         issued=await api('mcp-token',{method:'POST',body:{name:'참코딩 MCP'}});
         tokens.unshift(issued.record);
-        feedback.textContent='이 창을 닫으면 토큰 값을 다시 볼 수 없어요. 토큰을 복사해 저장한 뒤 입력칸에 붙여 넣으세요.';
+        feedback.textContent='토큰을 발급했어요. 설정 프롬프트를 복사해 에이전트에 붙여 넣으세요.';
       } catch(error) {
         feedback.textContent=error.message;
       } finally {
         state.busy=false;
-        issueButton.textContent='토큰 만들기';
+        issueButton.textContent='토큰 발급';
         renderTokens();
-        const next=issued?controls.querySelector('[data-mcp-copy="token"]'):issueButton;
-        if(!next.disabled)next.focus({preventScroll:true});
+        const next=issued?promptButton:issueButton;
+        if(!next.disabled)next.focus();
       }
     }
     async function copySetup(){
-      const token=tokenInput.value.trim();
-      if(!/^chm_live_[A-Za-z0-9_-]{43}$/.test(token)){
+      if(!tokens.length){
+        feedback.textContent='토큰을 먼저 발급해 주세요.';
+        return;
+      }
+      const token=setupToken();
+      if(!validSetupToken(token)){
         tokenInput.setAttribute('aria-invalid','true');
         feedback.textContent='chm_live_로 시작하는 토큰 값 전체를 붙여 넣으세요.';
         tokenInput.focus();
@@ -453,7 +474,7 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         if(fallback.hidden&&document.activeElement===document.body)promptButton.focus({preventScroll:true});
       }
     }
-    root.querySelector('.mcp-setup').addEventListener('click',async event=>{
+    dialogContent.addEventListener('click',async event=>{
       const button=event.target.closest('button');
       if(!button||state.busy)return;
       if(button.hasAttribute('data-mcp-retry'))return loadTokens();
@@ -472,7 +493,8 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
           clearFallback();
           feedback.textContent='';
           renderTokens();
-          list.querySelector('summary').focus({preventScroll:true});
+          recordStatus.textContent='연결 토큰을 폐기했어요.';
+          list.querySelector('#mcpRecordTitle').focus({preventScroll:true});
           toast('연결 토큰을 폐기했어요.');
         } catch(error) {toast(error.message);}
         finally {state.busy=false;button.disabled=false;}
@@ -486,13 +508,15 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
       }
       if(copy==='token'&&issued){
         if(await copyRequestText(issued.token)){
-          feedback.textContent='복사했어요. 토큰 입력칸에 붙여 넣으세요.';
-          tokenInput.focus();
+          recordStatus.textContent='토큰을 복사했어요.';
         }else{
-          feedback.textContent='선택된 토큰 값을 직접 복사해 주세요.';
+          recordStatus.textContent='선택된 토큰 값을 직접 복사해 주세요.';
           issuedToken.focus();
           issuedToken.select();
         }
+      }
+      if(copy==='url'){
+        recordStatus.textContent=await copyRequestText(mcpUrl)?'연결 주소를 복사했어요.':'연결 주소를 선택해 복사해 주세요.';
       }
       if(copy==='command'){
         const value=root.querySelector('#mcpCommand').textContent;
