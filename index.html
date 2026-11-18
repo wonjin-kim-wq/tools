@@ -54,9 +54,10 @@ body{padding-left:var(--side)}
 .side .logo{padding:0 6px}
 .menu-toggle{display:none}
 .side-panel{display:flex;flex-direction:column;flex:1;gap:14px}
-.side-nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.side-nav,.side-section{display:flex;flex-direction:column;gap:2px}
+.side-nav{flex:1}
 .side-label{font-size:11.5px;font-weight:700;color:var(--mute);padding:10px 10px 6px}
-.side-label:first-child{padding-top:0}
+.side-section:first-child .side-label{padding-top:0}
 .side-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;text-align:left;padding:7px 10px;border-radius:10px;font-size:14px;font-weight:600;color:#333d4b;transition:background .15s,color .15s}
 .side-item .ic{width:28px;height:28px;flex:none;border-radius:8px;display:grid;place-items:center;font-size:15px;background:var(--chip)}
 .side-item small{margin-left:auto;font-size:12px;color:var(--mute);font-weight:500}
@@ -263,10 +264,7 @@ body{padding-left:var(--side)}
   body{padding-left:0}
   .side{position:sticky;top:0;bottom:auto;width:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 20px;border-right:0;border-bottom:1px solid var(--line);overflow:visible}
   .side .logo{padding:0}
-  .menu-toggle{display:inline-flex;align-items:center;margin-left:auto;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--chip);font-size:13.5px;font-weight:700}
   .side .search{order:3;flex-basis:100%}
-  .side-panel{display:none;position:absolute;left:0;right:0;top:100%;padding:8px 16px 16px;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 18px 30px rgba(16,24,40,.12);max-height:calc(100dvh - 120px);overflow:auto}
-  .side.open .side-panel{display:flex}
   .hero{height:260px;margin-top:20px}
   .hero-copy{padding:24px}
   .hero-copy h2{font-size:26px}
@@ -518,20 +516,30 @@ body{padding-left:var(--side)}
 <body>
 <aside class="side" id="side" aria-label="참코딩 메뉴">
   <div class="logo" id="logo"><div><b>참코딩</b><small>참쌤스쿨이 만든 코딩 수업 도구</small></div></div>
-  <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="sidePanel">메뉴</button>
   <label class="search" role="search">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     <input id="q" type="search" placeholder="어떤 도구를 찾으세요?" aria-label="도구 검색" autocomplete="off">
   </label>
+  <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="sidePanel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path class="menu-bars" d="M4 6h16M4 12h16M4 18h16"/>
+      <path class="menu-cross" d="m6 6 12 12M18 6 6 18"/>
+    </svg>
+    <span>메뉴</span>
+  </button>
   <div class="side-panel" id="sidePanel">
     <nav class="side-nav" aria-label="카테고리와 요청">
-      <p class="side-label">카테고리</p>
-      <div id="sideCats" role="tablist" aria-label="카테고리"></div>
-      <p class="side-label">함께 만들기</p>
-      <button class="side-item" id="uploadButton" type="button"><span class="ic">📤</span>업로드 요청</button>
-      <button class="side-item" id="devRequestButton" type="button"><span class="ic">🛠️</span>앱 개발 요청</button>
-      <button class="side-item" id="inquiryButton" type="button"><span class="ic">💬</span>기타 문의</button>
-      <button class="side-item" id="adminMenuButton" type="button" hidden><span class="ic">🔑</span>관리자 메뉴</button>
+      <div class="side-section">
+        <p class="side-label">카테고리</p>
+        <div id="sideCats" role="tablist" aria-label="카테고리"></div>
+      </div>
+      <div class="side-section" id="sideActions">
+        <p class="side-label">함께 만들기</p>
+        <button class="side-item" id="uploadButton" type="button"><span class="ic">📤</span>업로드 요청</button>
+        <button class="side-item" id="devRequestButton" type="button"><span class="ic">🛠️</span>앱 개발 요청</button>
+        <button class="side-item" id="inquiryButton" type="button"><span class="ic">💬</span>기타 문의</button>
+        <button class="side-item" id="adminMenuButton" type="button" hidden><span class="ic">🔑</span>관리자 메뉴</button>
+      </div>
     </nav>
     <div class="side-foot">
       <button class="btn ghost buddy-toggle" id="buddyToggle" aria-pressed="true" title="커서를 따라다니는 캐릭터 켜기/끄기">캐릭터 <span class="sw"></span></button>
@@ -623,7 +631,7 @@ const CATS = [
   {k:'기타', name:'기타', icon:'🗂️'},
 ];
 $('#total').textContent = apps.length;   // 업로드된 웹앱 전체 개수
-const catsEl = $('#cats'), sideCats = $('#sideCats'), side = $('#side'), menuToggle = $('#menuToggle');
+const catsEl = $('#cats'), sideCats = $('#sideCats'), sidePanel = $('#sidePanel'), menuToggle = $('#menuToggle');
 // 사이드바 목록과 모바일 칩은 같은 카테고리 상태를 함께 보여준다
 // 분류를 고르면 사이드바에서 그 분류 아래로 학교급(초·중·고)이 펼쳐진다
 function setCat(next){
@@ -642,12 +650,44 @@ function setLevel(next){
 catsEl.addEventListener('click', e=>{ const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat); });
 sideCats.addEventListener('click', e=>{
   const lv = e.target.closest('[data-level]'); if (lv) return setLevel(lv.dataset.level);
-  const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat);
+  const b = e.target.closest('[data-cat]');
+  if (!b) return;
+  const hadFocus = document.activeElement === b;
+  setCat(b.dataset.cat);
+  if (hadFocus && !b.isConnected) sideCats.querySelector('.on')?.focus({preventScroll:true});
 });
-// 좁은 화면에서는 사이드바 메뉴를 펼침 메뉴로 보여준다
-function setMenu(open){ side.classList.toggle('open', open); menuToggle.setAttribute('aria-expanded', open); menuToggle.textContent = open ? '닫기' : '메뉴'; }
-menuToggle.addEventListener('click', ()=>setMenu(!side.classList.contains('open')));
-$('#sidePanel').addEventListener('click', e=>{ if (e.target.closest('#uploadButton,#devRequestButton,#inquiryButton,#adminMenuButton,#memberButton')) setMenu(false); });
+// 모바일 하단 메뉴는 본문과 별도로 열리고, 바깥을 눌러도 본문 동작을 막지 않는다.
+const isMenuOpen = () => menuToggle.getAttribute('aria-expanded') === 'true';
+function setMenu(open, returnFocus = false){
+  if (isMenuOpen() === open) return;
+  if (!open && (returnFocus || sidePanel.contains(document.activeElement))) menuToggle.focus({preventScroll:true});
+  menuToggle.setAttribute('aria-expanded', String(open));
+  menuToggle.querySelector('span').textContent = open ? '닫기' : '메뉴';
+}
+menuToggle.addEventListener('click', ()=>setMenu(!isMenuOpen()));
+sidePanel.addEventListener('click', e=>{
+  if (e.target.closest('#uploadButton,#devRequestButton,#inquiryButton,#adminMenuButton')) setMenu(false, true);
+}, {capture:true});
+function dismissMenuOutside(e){
+  if (isMenuOpen() && !menuToggle.contains(e.target) && !sidePanel.contains(e.target)) setMenu(false);
+}
+document.addEventListener('click', dismissMenuOutside, {capture:true});
+document.addEventListener('focusin', dismissMenuOutside);
+document.addEventListener('keydown', e=>{
+  if (e.key === 'Escape' && isMenuOpen()){
+    e.preventDefault();
+    setMenu(false, true);
+  }
+});
+const compactNav = matchMedia('(max-width: 900px)');
+const sideActions = $('#sideActions'), sideNav = sideActions.parentElement;
+function syncMenuLayout(){
+  setMenu(false);
+  if (compactNav.matches) sideNav.prepend(sideActions);
+  else sideNav.append(sideActions);
+}
+compactNav.addEventListener('change', syncMenuLayout);
+syncMenuLayout();
 const readQuery = () => { query = $('#q').value.trim().toLowerCase(); };
 readQuery();   // 뒤로가기 등으로 브라우저가 입력값을 복원한 경우에도 맞춰 둔다
 $('#q').addEventListener('input', ()=>{ readQuery(); layout(); });

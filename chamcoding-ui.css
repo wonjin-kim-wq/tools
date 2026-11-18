@@ -348,9 +348,57 @@ a.btn.solid,
 .cap-bot:focus-visible { outline-color: var(--focus-ring); }
 
 @media (max-width: 900px) {
-  .menu-toggle,
+  .side {
+    --menu-edge: max(1rem, env(safe-area-inset-left));
+    --menu-bottom: max(1rem, env(safe-area-inset-bottom));
+    --menu-button-height: 2.75rem;
+    --menu-panel-bottom: calc(var(--menu-bottom) + var(--menu-button-height) + .5rem);
+    /* Keep the fixed controls anchored to the viewport, not the sticky header. */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
   .side .search { min-height: 44px; }
-  .side-panel { background: var(--card); }
+  .wrap { padding-bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 4rem); }
+  .menu-toggle {
+    position: fixed;
+    left: var(--menu-edge);
+    bottom: var(--menu-bottom);
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    height: var(--menu-button-height);
+    padding-inline: .875rem 1rem;
+    border: 1px solid var(--brand-border);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--brand-ink);
+    box-shadow: var(--shadow-h);
+    font-size: .875rem;
+    font-weight: 700;
+  }
+  .menu-toggle:hover { background: var(--brand-soft); }
+  .menu-toggle[aria-expanded="true"] { background: var(--brand); color: var(--brand-on); }
+  .menu-toggle svg { inline-size: 1.125rem; block-size: 1.125rem; }
+  .menu-cross, .menu-toggle[aria-expanded="true"] .menu-bars { display: none; }
+  .menu-toggle[aria-expanded="true"] .menu-cross { display: initial; }
+  .side-panel {
+    display: none;
+    position: fixed;
+    left: var(--menu-edge);
+    bottom: var(--menu-panel-bottom);
+    width: min(18rem, calc(100% - var(--menu-edge) - max(1rem, env(safe-area-inset-right))));
+    max-height: min(24rem, 54dvh, calc(100dvh - var(--menu-panel-bottom) - max(1rem, env(safe-area-inset-top))));
+    padding: .75rem;
+    border: 1px solid var(--brand-border);
+    border-radius: var(--panel-radius);
+    background: var(--card);
+    box-shadow: var(--shadow-medium, var(--shadow-h));
+    overflow: auto;
+    overscroll-behavior: contain;
+    scroll-padding-block: .75rem;
+  }
+  .menu-toggle[aria-expanded="true"] + .side-panel { display: flex; }
+  .side-panel :is(.side-item, .side-sub button) { min-height: 2.75rem; }
   .subj {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -360,7 +408,14 @@ a.btn.solid,
   .subj button { height: 34px; }
 }
 
+@media (max-width: 900px) and (hover: none) {
+  .side-panel .side-foot { display: none; }
+}
+
 @media (max-width: 640px) {
+  body:has(.menu-toggle[aria-expanded="true"]) .cap-bot .say { visibility: hidden; }
+  .side-panel .side-foot { display: none; }
+  .cap-bot { bottom: max(.875rem, env(safe-area-inset-bottom)); }
   .topbar { gap: 10px; }
   .topbar .visit-stats { gap: 4px 10px; }
   .topbar .btn { min-height: 40px; padding-inline: 14px; }
