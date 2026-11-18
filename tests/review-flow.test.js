@@ -5,10 +5,10 @@ const {hashPassword,signSession}=require('../lib/tools-core');
 const handler=require('../api/tools');
 
 // Test the real API handler against a Supabase transport stub. No production administrator is created.
-test('review flow: pending is private, uploader cannot approve, admin publishes edits, stale edits fail', async()=>{
+test('review flow: pending is private, non-admin cannot approve, admin publishes edits, stale edits fail', async()=>{
   const originalFetch=global.fetch;
   const secret='review-flow-test-secret';
-  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret,UPLOAD_PASSWORD:'test-upload'});
+  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret});
   const credential=hashPassword('local-test-only-password');
   const admin={id:1,username:'local-test-admin',salt:credential.salt,password_hash:credential.hash};
   const id=randomUUID(),sid=randomUUID(),path=`uploads/${sid}/${randomUUID()}.jpg`;
@@ -36,7 +36,7 @@ test('review flow: pending is private, uploader cannot approve, admin publishes 
   try{
     assert.deepEqual((await invoke('apps')).data.apps,[]);
     const edit={...stored,cat:stored.category,description:'관리자가 수정한 설명',screenshots:[{path,caption:'관리자가 수정한 화면 설명'}],status:'approved'};
-    assert.equal((await invoke('review',{method:'PATCH',role:'uploader',body:edit})).statusCode,403);
+    assert.equal((await invoke('review',{method:'PATCH',role:'uploader',body:edit})).statusCode,401);
     const saved=await invoke('review',{method:'PATCH',role:'admin',body:edit});
     assert.equal(saved.statusCode,200);assert.equal(saved.data.app.status,'approved');assert.equal(saved.data.app.version,2);
     const published=(await invoke('apps')).data.apps[0];

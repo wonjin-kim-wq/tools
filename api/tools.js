@@ -1,4 +1,4 @@
-const { randomUUID, createHash } = require('node:crypto');
+const { randomUUID, createHash, createHmac } = require('node:crypto');
 const { AppError, DEV_STATUSES, INQUIRY_STATUSES, equal, text, validateApp, validateDevRequest, validateInquiry, signSession, readSession, hashPassword, verifyPassword, imageType } = require('../lib/tools-core');
 
 const BUCKET = 'chamcoding-screenshots';
@@ -35,46 +35,32 @@ function session(req) {
   const token = cookies.find(v => v.startsWith(`${COOKIE}=`))?.slice(COOKIE.length + 1);
   return readSession(token, config().secret);
 }
-function setSession(res, role, version) {
-  const lifetime = role === 'admin' ? 2 * 60 * 60 : 8 * 60 * 60;
-  const data = { role, sid: randomUUID(), exp: Date.now() + lifetime * 1000, ...(version ? (role === 'uploader' ? { uv: version } : { av: version }) : {}) };
+function setAdminSession(res, version) {
+  const lifetime = 2 * 60 * 60;
+  const data = { role: 'admin', sid: randomUUID(), exp: Date.now() + lifetime * 1000, av: version };
   const secure = process.env.NODE_ENV !== 'development' ? '; Secure' : '';
   res.setHeader('Set-Cookie', `${COOKIE}=${signSession(data, config().secret)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${lifetime}${secure}`);
-  return data;
 }
 function adminAccount(req) {
   // Reuse only within this HTTP request; never cache authorization across users.
   return req.toolsAccountPromise ||= db('/rest/v1/tools_admins?id=eq.1&select=*&limit=1').then(rows=>rows[0]);
 }
-function uploaderVersion(account) {
-  return account?.upload_password_salt || 'environment-v1';
-}
-function validUploaderSession(actor, account) {
-  return actor?.role === 'uploader' && (actor.uv || 'environment-v1') === uploaderVersion(account);
-}
-function uploaderPasswordMatches(password, account) {
-  if (account?.upload_password_hash || account?.upload_password_salt) {
-    return verifyPassword(password, {salt: account.upload_password_salt, password_hash: account.upload_password_hash});
-  }
-  return equal(password, process.env.UPLOAD_PASSWORD);
-}
-async function requireRole(req, adminOnly = false) {
+async function requireAdmin(req) {
   const actor = session(req);
-  if (!actor) throw new AppError('다시 로그인해 주세요.', 401);
-  if (adminOnly && actor.role !== 'admin') throw new AppError('관리자만 사용할 수 있어요.', 403);
-  if (actor.role === 'uploader' && !validUploaderSession(actor, await adminAccount(req))) {
-    throw new AppError('업로드 비밀번호가 변경됐어요. 새 비밀번호로 다시 입장해 주세요.', 401);
-  }
-  if (adminOnly) {
-    if (actor.role !== 'admin') throw new AppError('관리자만 사용할 수 있어요.', 403);
-    const account = await adminAccount(req);
-    if (!account || actor.av !== account.salt) throw new AppError('관리자 로그인이 만료됐어요.', 401);
-  }
+  if (!actor) throw new AppError('관리자로 다시 로그인해 주세요.', 401);
+  const account = await adminAccount(req);
+  if (!account || actor.av !== account.salt) throw new AppError('관리자 로그인이 만료됐어요.', 401);
   return actor;
 }
 async function isAdmin(req) {
   const actor = session(req);
-  return actor?.role === 'admin' && (await adminAccount(req))?.salt === actor.av;
+  return Boolean(actor && (await adminAccount(req))?.salt === actor.av);
+}
+const uploadMember = (req, res) => members.member(req, true, { requireContentAccess: false, res });
+function memberUploadOwner(member) {
+  // Stable across login refreshes; public image URLs do not expose the member's Auth ID.
+  const id = createHmac('sha256', config().secret).update(`web-upload:${member.id}`).digest('hex');
+  return { sid: `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20, 32)}` };
 }
 // 한국 날짜(YYYY-MM-DD), offset일 전후
 function kstDay(offset) {
@@ -146,7 +132,7 @@ async function handler(req, res) {
     if (req.method === 'GET' && action === 'session') {
       const actor = session(req);
       const [account, member] = await Promise.all([adminAccount(req), members.member(req, false, { res })]);
-      const role = actor?.role === 'admin' ? account?.salt === actor.av ? 'admin' : null : validUploaderSession(actor, account) ? 'uploader' : null;
+      const role = actor && account?.salt === actor.av ? 'admin' : null;
       return send({ role, configured: true, adminReady: !!account, member });
     }
     if (req.method === 'GET' && action === 'apps') {
@@ -179,46 +165,21 @@ async function handler(req, res) {
       return send({ apps });
     }
     if (req.method === 'GET' && action === 'queue') {
-      const actor = await requireRole(req, session(req)?.role === 'admin');
-      const admin = actor.role === 'admin';
-      const fields = admin ? '*' : 'id,name,category,grade,status,created_at,updated_at,review_note';
-      const rows = await db(`/rest/v1/tools_apps?${admin ? '' : 'is_example=eq.false&'}select=${fields}&order=created_at.desc&limit=500`);
-      return send({ apps: admin ? await withImages(rows, true) : rows });
+      const admin = url.searchParams.get('scope') === 'admin';
+      if (admin) {
+        await requireAdmin(req);
+        const rows = await db('/rest/v1/tools_apps?select=*&order=created_at.desc&limit=500');
+        return send({ apps: await withImages(rows, true) });
+      }
+      const member = await uploadMember(req, res);
+      const fields = 'id,name,category,grade,status,created_at,updated_at,review_note';
+      const rows = await db(`/rest/v1/tools_apps?member_id=eq.${encodeURIComponent(member.id)}&is_example=eq.false&select=${fields}&order=created_at.desc&limit=500`);
+      return send({ apps: rows });
     }
     const body = req.body || {};
     if ((req.method === 'GET' && action === 'mcp-tokens') ||
         (['POST', 'PATCH'].includes(req.method) && action === 'mcp-token')) {
       return send(await manageToken(req, body, { db, rate, uuid, res }), req.method === 'POST' ? 201 : 200);
-    }
-    if (req.method === 'GET' && action === 'upload-password') {
-      await requireRole(req, true);
-      const account = await adminAccount(req);
-      return send({ updatedAt: account.upload_password_changed_at || null, customPassword: !!account.upload_password_hash });
-    }
-    if (req.method === 'POST' && action === 'upload-password') {
-      await requireRole(req, true);
-      await rate(req, 'upload-password', 5, 900);
-      const account = await adminAccount(req);
-      if (!verifyPassword(text(body.adminPassword, '현재 관리자 비밀번호', 256, true), account)) {
-        throw new AppError('현재 관리자 비밀번호가 맞지 않아요.', 403);
-      }
-      const password = body.newPassword;
-      if (typeof password !== 'string' || password.length < 8 || password.length > 256 || password !== password.trim()) {
-        throw new AppError('새 비밀번호는 앞뒤 공백 없이 8~256자로 입력해 주세요.');
-      }
-      if (password !== body.confirmPassword) throw new AppError('새 비밀번호 확인이 일치하지 않아요.');
-      if (uploaderPasswordMatches(password, account)) throw new AppError('현재 업로드 비밀번호와 다른 비밀번호를 입력해 주세요.');
-      if ((body.expectedUpdatedAt || null) !== (account.upload_password_changed_at || null)) {
-        throw new AppError('다른 창에서 비밀번호가 변경됐어요. 설정을 다시 열어 주세요.', 409);
-      }
-      const {salt, hash} = hashPassword(password);
-      const filter = account.upload_password_changed_at ? `eq.${encodeURIComponent(account.upload_password_changed_at)}` : 'is.null';
-      const rows = await db(`/rest/v1/tools_admins?id=eq.1&upload_password_changed_at=${filter}`, {
-        method: 'PATCH', headers: {Prefer: 'return=representation'},
-        body: {upload_password_hash: hash, upload_password_salt: salt, upload_password_changed_at: new Date().toISOString()}
-      });
-      if (!rows.length) throw new AppError('다른 창에서 비밀번호가 변경됐어요. 설정을 다시 열어 주세요.', 409);
-      return send({ ok: true, updatedAt: rows[0].upload_password_changed_at });
     }
     // 회원 인증: 학교처럼 여러 사람이 같은 공인 IP를 쓰므로 IP 제한은 넉넉히, 이메일별 제한은 촘촘히 둔다.
     if (req.method === 'POST' && action.startsWith('member-')) {
@@ -241,20 +202,14 @@ async function handler(req, res) {
       return send({member:account,items:[]});
     }
     if (req.method === 'POST' && action === 'login') {
+      if (body.kind !== 'admin') throw new AppError('업로드 요청은 참코딩 회원으로 로그인해 주세요.');
       await rate(req, 'login', 10, 900);
       const password = text(body.password, '비밀번호', 256, true);
-      if (body.kind === 'uploader') {
-        const account = await adminAccount(req);
-        if (!uploaderPasswordMatches(password, account)) throw new AppError('공통 비밀번호가 맞지 않아요.', 401);
-        setSession(res, 'uploader', uploaderVersion(account));
-        return send({ role: 'uploader' });
-      }
-      if (body.kind !== 'admin') throw new AppError('로그인 종류를 확인해 주세요.');
       const account = await adminAccount(req);
       const username = text(body.username, '아이디', 80, true);
       const correct = verifyPassword(password, account);
       if (!account || !equal(username, account.username) || !correct) throw new AppError('관리자 아이디 또는 비밀번호가 맞지 않아요.', 401);
-      setSession(res, 'admin', account.salt);
+      setAdminSession(res, account.salt);
       return send({ role: 'admin' });
     }
     if (req.method === 'POST' && action === 'logout') {
@@ -277,24 +232,32 @@ async function handler(req, res) {
       });
       if (response.status === 409) throw new AppError('관리자 계정이 이미 등록되어 있어요.', 409);
       if (!response.ok) throw new AppError('관리자 계정을 저장하지 못했어요. 다시 시도해 주세요.', 503);
-      setSession(res, 'admin', salt);
+      setAdminSession(res, salt);
       return send({ role: 'admin' }, 201);
     }
     if (req.method === 'POST' && action === 'upload') {
-      const actor = await requireRole(req, session(req)?.role === 'admin');
-      await rate(req, 'upload', 36, 3600);
+      const admin = url.searchParams.get('scope') === 'admin';
+      const member = admin ? null : await uploadMember(req, res);
+      const actor = admin ? await requireAdmin(req) : memberUploadOwner(member);
+      await rate(req, 'upload', 36, 3600, member?.id);
       return send({ path: await storeUpload(body.data, actor.sid) }, 201);
     }
     if (req.method === 'POST' && action === 'submit') {
-      const actor = await requireRole(req, session(req)?.role === 'admin');
-      await rate(req, 'submit', 12, 3600);
+      const member = await uploadMember(req, res);
+      const actor = memberUploadOwner(member);
+      await rate(req, 'submit', 12, 3600, member.id);
+      if (body.consent !== true) throw new AppError('공개 권한과 학생 개인정보 여부를 확인해 주세요.');
       const value = validateApp(body, { sessionId: actor.sid });
       await verifyUploads(value.screenshots, actor);
-      const rows = await db('/rest/v1/tools_apps', { method: 'POST', body: { ...value, status: 'pending', submitted_session: actor.sid }, headers: { Prefer: 'return=representation' } });
+      const rows = await db('/rest/v1/tools_apps', {
+        method: 'POST', headers: { Prefer: 'return=representation' },
+        body: { ...value, status: 'pending', source: 'web', member_id: member.id, submitted_session: actor.sid },
+        conflictMessage: '이 웹앱 주소로 이미 보낸 요청이 있어요. 내 요청에서 처리 상태를 확인해 주세요.'
+      });
       return send({ id: rows[0].id, status: 'pending' }, 201);
     }
     if (req.method === 'PATCH' && action === 'review') {
-      const actor = await requireRole(req, true);
+      const actor = await requireAdmin(req);
       const id = text(body.id, '요청 번호', 36, true);
       if (!/^[a-f0-9-]{36}$/.test(id)) throw new AppError('요청 번호를 확인해 주세요.');
       const existing = (await db(`/rest/v1/tools_apps?id=eq.${id}&select=*&limit=1`))[0];
@@ -352,7 +315,7 @@ async function handler(req, res) {
       return send({ ok: true, counted: true });
     }
     if (req.method === 'PATCH' && action === 'app-review') {
-      await requireRole(req, true);
+      await requireAdmin(req);
       const id = uuid(body.id, '리뷰 번호');
       const rows = await db(`/rest/v1/tools_reviews?id=eq.${id}`, { method: 'PATCH', body: { hidden: body.hidden === true }, headers: { Prefer: 'return=representation' } });
       if (!rows.length) throw new AppError('리뷰를 찾을 수 없어요.', 404);
@@ -365,11 +328,11 @@ async function handler(req, res) {
       return send({ id: rows[0].id, status: 'pending' }, 201);
     }
     if (req.method === 'GET' && action === 'dev-requests') {
-      await requireRole(req, true);
+      await requireAdmin(req);
       return send({ requests: await db('/rest/v1/tools_dev_requests?select=*&order=created_at.desc&limit=500') });
     }
     if (req.method === 'PATCH' && action === 'dev-request') {
-      await requireRole(req, true);
+      await requireAdmin(req);
       const id = uuid(body.id, '요청 번호');
       if (!DEV_STATUSES.includes(body.status)) throw new AppError('처리 상태를 선택해 주세요.');
       const rows = await db(`/rest/v1/tools_dev_requests?id=eq.${id}`, { method: 'PATCH', body: { status: body.status, admin_note: text(body.admin_note, '관리자 메모', 2000) }, headers: { Prefer: 'return=representation' } });
@@ -383,11 +346,11 @@ async function handler(req, res) {
       return send({ id: rows[0].id, status: 'pending' }, 201);
     }
     if (req.method === 'GET' && action === 'inquiries') {
-      await requireRole(req, true);
+      await requireAdmin(req);
       return send({ inquiries: await db('/rest/v1/tools_inquiries?select=*&order=created_at.desc&limit=500') });
     }
     if (req.method === 'PATCH' && action === 'inquiry') {
-      await requireRole(req, true);
+      await requireAdmin(req);
       const id = uuid(body.id, '문의 번호');
       if (!INQUIRY_STATUSES.includes(body.status)) throw new AppError('처리 상태를 선택해 주세요.');
       const rows = await db(`/rest/v1/tools_inquiries?id=eq.${id}`, { method: 'PATCH', body: { status: body.status, admin_note: text(body.admin_note, '관리자 메모', 2000) }, headers: { Prefer: 'return=representation' } });

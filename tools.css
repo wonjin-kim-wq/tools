@@ -55,7 +55,6 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .ai-prep-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}.ai-prep-copied{font-size:12.5px;color:#247849;font-weight:600}
 @media(max-width:480px){.ai-prep{padding:16px}.ai-prep-actions .btn{width:100%}}
 /* 일괄 업로드 */
-.bulk-hint{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 28px;padding:12px 16px;border:1px dashed #c8cdd4;border-radius:14px;font-size:13.5px;color:var(--sub)}.bulk-hint .btn{height:36px}
 .bulk-form .ai-prep{margin-bottom:28px}
 .bulk-cards{display:flex;flex-direction:column;gap:18px}
 .bulk-card{border:1px solid var(--line);border-radius:18px;padding:18px 20px 20px;background:#fff;box-shadow:0 1px 3px #10182808}
@@ -69,9 +68,78 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .bulk-shots{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}.bulk-shots:empty{display:none}
 .bulk-add-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 8px}.bulk-add{height:46px;padding:0 20px;font-weight:700;border-style:dashed}
 @media(max-width:480px){.bulk-card{padding:14px}.bulk-add{width:100%}}
+.workspace:has(.upload-requests) .workspace-content { padding-block-start: 0; }
+.upload-requests { max-width: 47.5rem; margin-inline: auto; }
+.request-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-block-end: 1.5rem;
+  border-bottom: 1px solid var(--line2);
+}
+.request-tabs button {
+  min-height: 2.75rem;
+  padding: .75rem .25rem;
+  border: 0;
+  border-bottom: .1875rem solid transparent;
+  background: var(--card);
+  color: var(--sub);
+  font: inherit;
+  font-size: .875rem;
+  font-weight: 700;
+}
+.request-tabs button:hover { background: var(--brand-surface); }
+.request-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--brand);
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+}
+.request-tabs button:focus-visible, .upload-requests [role="tabpanel"]:focus-visible {
+  outline: .125rem solid var(--brand);
+  outline-offset: -.125rem;
+}
+.request-intro { margin-block-end: 1rem; }
+.mcp-setup .request-intro, .mcp-setup .request-intro p { margin-block-end: 0; }
+.request-intro .eyebrow { color: var(--brand-ink); }
+.request-intro h3 { margin-block: .25rem .375rem; }
+.request-intro p { color: var(--sub); line-height: 1.6; margin-block-end: .75rem; }
+.direct-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 0 1.5rem; }
+.direct-modes button[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand-ink); border-color: var(--brand); }
+.request-footer { display: flex; justify-content: flex-end; margin-block-start: 1.5rem; }
+.request-footer:empty { display: none; }
+.mcp-steps {
+  counter-reset: mcp-step;
+  display: grid;
+  gap: .75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mcp-steps .mcp-card { counter-increment: mcp-step; }
+.mcp-steps h4 {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+}
+.mcp-steps h4::before {
+  content: counter(mcp-step);
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-size: .875rem;
+  font-weight: 800;
+}
+#mcpControls { width: 100%; min-width: 0; }
 .mcp-setup {
   display: grid;
-  width: min(100%, 44rem);
+  width: 100%;
   gap: 1rem;
   margin-inline: auto;
 }
@@ -86,6 +154,7 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   background: var(--brand-surface);
 }
 .mcp-card h3, .mcp-card p { margin: 0; }
+.mcp-card p.form-error { color: var(--danger, var(--ink)); margin-block: .5rem; }
 .mcp-card p { color: var(--sub); overflow-wrap: anywhere; }
 .mcp-card form, .mcp-card details, .mcp-issued, #mcpTokens { width: 100%; min-width: 0; }
 .mcp-card form .field, .mcp-issued .field { margin-bottom: .75rem; }
@@ -101,6 +170,7 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
   padding: .75rem;
   margin-block: .75rem;
 }
+.mcp-issued { margin-block-start: .75rem; }
 .mcp-issued p { margin-top: .5rem; }
 #mcpTokens { list-style: none; margin: 0; padding: 0; }
 #mcpTokens li { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding-block: .75rem; border-top: 1px solid var(--line2); }

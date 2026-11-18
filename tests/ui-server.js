@@ -12,7 +12,7 @@ if(process.env.UI_FIXTURE_SEED){
   require('../lib/examples.json').forEach((e,i)=>rows.push({id:randomUUID(),name:e.name,web_url:'https://example.com/',demo_url:'',video_url:i===0?'https://www.youtube.com/watch?v=dQw4w9WgXcQ':'',short:e.short,description:e.desc,category:e.cat,grade:i===3?'중학교 1-3학년':i===6?'고등학교 2-3학년':e.grade,icon:e.icon,color:e.color,notes:e.notes,screenshots:[],author_name:i%3===0?'참쌤스쿨':'코딩 연구회',contact_email:'',status:'approved',review_note:'',subjects:[['수학'],['실과(정보)','수학'],['교과 무관'],['국어','실과(정보)'],['미술','실과(정보)','수학'],['실과(정보)'],['과학','실과(정보)'],['교과 무관'],['실과(정보)','사회'],['창의적 체험활동']][i]||[],uses:e.uses,is_example:!!process.env.UI_FIXTURE_EXAMPLES,featured:i<2,version:1,created_at:new Date(e.created).toISOString(),updated_at:new Date(e.updated).toISOString()}));
 }
 let visits=0;
-Object.assign(process.env,{SUPABASE_URL:'https://ui-fixture.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture-key',SESSION_SECRET:'fixture-session-secret-only',UPLOAD_PASSWORD:'local-upload-test-only',PORT:'8742'});
+Object.assign(process.env,{SUPABASE_URL:'https://ui-fixture.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture-key',SESSION_SECRET:'fixture-session-secret-only',PORT:'8742'});
 global.fetch=async(input,options={})=>{
   const url=new URL(input),body=options.body&&!Buffer.isBuffer(options.body)?JSON.parse(options.body):{};
   let data;
@@ -88,6 +88,7 @@ global.fetch=async(input,options={})=>{
     if(options.method==='POST'){
       const duplicate=body.member_id&&rows.some(row=>row.member_id===body.member_id&&row.web_url===body.web_url);
       if(duplicate&&url.searchParams.has('on_conflict'))data=[];
+      else if(duplicate)return new Response('{}',{status:409});
       else {const row={...body,id:randomUUID(),created_at:new Date().toISOString(),updated_at:new Date().toISOString(),version:1,uses:0,is_example:false,review_note:''};rows.push(row);data=[row];}
     }else if(options.method==='PATCH'){
       const row=rows.find(r=>r.id===url.searchParams.get('id')?.slice(3)&&r.version===Number(url.searchParams.get('version')?.slice(3)));

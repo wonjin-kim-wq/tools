@@ -64,7 +64,7 @@ function response() { return {headers:{},statusCode:200,setHeader(k,v){this.head
 
 test('development requests: anyone can send, only admins can read and update', async () => {
   const originalFetch = global.fetch, secret = 'store-test-secret';
-  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret,UPLOAD_PASSWORD:'test-upload'});
+  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret});
   const credential = hashPassword('local-test-only-password');
   const store = {admin:{id:1,username:'local-test-admin',salt:credential.salt,password_hash:credential.hash},devRequests:[],reviews:[]};
   global.fetch = stub(store);
@@ -75,10 +75,10 @@ test('development requests: anyone can send, only admins can read and update', a
     const sent = await call({method:'POST',action:'dev-request',body:devRequest()});
     assert.equal(sent.statusCode,201); assert.equal(store.devRequests[0].status,'pending');
     assert.equal((await call({action:'dev-requests'})).statusCode,401);
-    assert.equal((await call({action:'dev-requests',cookie:uploader})).statusCode,403);
+    assert.equal((await call({action:'dev-requests',cookie:uploader})).statusCode,401);
     const list = await call({action:'dev-requests',cookie:admin});
     assert.equal(list.statusCode,200); assert.equal(list.data.requests[0].contact_email,'teacher@example.com');
-    assert.equal((await call({method:'PATCH',action:'dev-request',cookie:uploader,body:{id:sent.data.id,status:'done'}})).statusCode,403);
+    assert.equal((await call({method:'PATCH',action:'dev-request',cookie:uploader,body:{id:sent.data.id,status:'done'}})).statusCode,401);
     const updated = await call({method:'PATCH',action:'dev-request',cookie:admin,body:{id:sent.data.id,status:'in_progress',admin_note:'개발 시작'}});
     assert.equal(updated.statusCode,200); assert.equal(store.devRequests[0].status,'in_progress');
     assert.equal((await call({method:'PATCH',action:'dev-request',cookie:admin,body:{id:sent.data.id,status:'approved'}})).statusCode,400);
@@ -87,7 +87,7 @@ test('development requests: anyone can send, only admins can read and update', a
 
 test('reviews: anyone can post an anonymous star review, ids stay private, hiding needs an admin', async () => {
   const originalFetch = global.fetch, secret = 'store-test-secret';
-  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret,UPLOAD_PASSWORD:'test-upload'});
+  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret});
   const credential = hashPassword('local-test-only-password');
   const appId = randomUUID(), reviewId = randomUUID();
   const store = {admin:{id:1,username:'local-test-admin',salt:credential.salt,password_hash:credential.hash},devRequests:[],
@@ -122,7 +122,7 @@ test('inquiries: anyone can send with consent and email, only admins can read an
   }
   assert.equal(validateInquiry({contact_email:'a@b.kr',subject:'제목',body:'내용',consent:true,status:'closed'}).status, undefined);
   const originalFetch = global.fetch, secret = 'store-test-secret';
-  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret,UPLOAD_PASSWORD:'test-upload'});
+  Object.assign(process.env,{SUPABASE_URL:'https://database.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-key',SESSION_SECRET:secret});
   const credential = hashPassword('local-test-only-password');
   const store = {admin:{id:1,username:'local-test-admin',salt:credential.salt,password_hash:credential.hash},devRequests:[],reviews:[],inquiries:[]};
   global.fetch = stub(store);

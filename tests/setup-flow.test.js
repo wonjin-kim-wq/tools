@@ -2,7 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const handler=require('../api/tools');
 test('owner setup requires one-time token, stores a hash, and refuses a second administrator',async()=>{
-  Object.assign(process.env,{SUPABASE_URL:'https://setup.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture-key',SESSION_SECRET:'fixture-session-key',UPLOAD_PASSWORD:'fixture-upload',ADMIN_SETUP_TOKEN:'fixture-setup-token'});
+  Object.assign(process.env,{SUPABASE_URL:'https://setup.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture-key',SESSION_SECRET:'fixture-session-key',ADMIN_SETUP_TOKEN:'fixture-setup-token'});
   let account=null;
   const originalFetch=global.fetch;
   global.fetch=async(input,options={})=>{
