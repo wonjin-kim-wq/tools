@@ -157,23 +157,37 @@ body{padding-left:var(--side)}
 .hero-dots button{width:7px;height:7px;border:0;border-radius:50%;padding:0;background:rgba(255,255,255,.5)}
 .hero-dots button.on{background:#fff;width:18px;border-radius:4px}
 
-/* 후기: 가로로 천천히 흘러가며 순환하고, 마우스를 올리면 멈춘다 */
-.voices{margin-top:22px}
-.voices-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.voices-head h2{font-size:18px;font-weight:700;letter-spacing:-.02em}
-.voices-note{font-size:11px;font-weight:700;color:var(--sub);background:var(--chip);border-radius:6px;padding:2px 7px}
-.voices-track{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
-.voices-row{display:flex;gap:14px;width:max-content;animation:voices 42s linear infinite}
-.voices-track:hover .voices-row,.voices-track:focus-within .voices-row{animation-play-state:paused}
-@keyframes voices{to{transform:translateX(calc(-50% - 7px))}}
-.voice{flex:none;width:300px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)}
-.voice p{font-size:14px;line-height:1.65;color:#333d4b}
-.voice p::before{content:"“";display:block;font-size:28px;line-height:.8;color:#d1d6db;font-weight:800}
-.voice footer{display:flex;align-items:center;gap:10px;margin-top:14px}
-.voice .who{width:32px;height:32px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:var(--c)}
-.voice b{display:block;font-size:13px}
+/* 배너 + 후기 한 줄: 배너 높이는 그대로 두고 너비를 줄여 오른쪽에 후기를 한 장씩 돌린다 */
+.top-row{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-top:14px}
+.top-row .hero{margin-top:0}
+@media (min-width:1200px){.top-row{grid-template-columns:minmax(0,1fr) 340px}}
+/* 후기: 한 장씩 5초마다 넘어가고, 마우스를 올리거나 초점이 있으면 멈춘다 */
+/* 배너와 같은 남색 계열이되, 배너보다 한 톤 깊은 단색 판으로 블록을 구분한다 */
+.voices{display:flex;flex-direction:column;min-width:0;color:#fff;border-radius:var(--panel-radius,24px);padding:24px 26px 18px;box-shadow:var(--shadow-h);
+  background:radial-gradient(120% 80% at 100% 0%,#1d3a68 0%,transparent 60%),#0d1c37;border:1px solid #ffffff14}
+.voices-head{display:flex;align-items:center;gap:8px}
+.voices-head h2{font-size:16px;font-weight:700;letter-spacing:-.02em;color:#fff}
+.voices-note{font-size:11px;font-weight:700;color:var(--brand-ink,#003978);background:var(--brand-highlight,#b9d7ff);border-radius:999px;padding:3px 8px}
+.voices-stage{flex:1;display:grid;align-content:center;margin:14px 0 10px}
+.voices .voice{grid-area:1/1;width:auto;padding:0;background:none;border:0;border-radius:0;box-shadow:none;
+  opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .45s,transform .45s,visibility .45s}
+.voices .voice.on{opacity:1;visibility:visible;transform:none}
+.voice p{font-size:15.5px;line-height:1.7;color:#333d4b;word-break:keep-all}
+.voice p::before{content:"“";display:block;font-size:32px;line-height:.8;color:#d1d6db;font-weight:800}
+.voices .voice p{color:#ffffffeb}
+.voices .voice p::before{color:var(--brand-highlight,#b9d7ff)}
+.voices .voice small{color:#ffffffa6}
+.voices .voice .who{box-shadow:0 0 0 2px #0d1c37,0 0 0 3px #ffffff33}
+.voice footer{display:flex;align-items:center;gap:10px;margin-top:16px}
+.voice .who{width:34px;height:34px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;background:var(--c)}
+.voice b{display:block;font-size:13.5px}
 .voice small{display:block;font-size:12px;color:var(--mute);margin-top:1px}
-@media (prefers-reduced-motion:reduce){.voices-row{animation:none!important}.voices-track{overflow-x:auto;-webkit-mask-image:none;mask-image:none}}
+.voices-dots{display:flex;gap:2px;margin-left:-6px}
+.voices-dots button{display:grid;place-items:center;width:22px;height:24px;border:0;padding:0;background:none}
+.voices-dots button::before{content:"";width:7px;height:7px;border-radius:999px;background:#ffffff59;transition:width .3s,background .3s}
+.voices-dots button.on::before{width:15px;background:var(--brand-highlight,#b9d7ff)}
+.voices-dots button:focus-visible{outline:2px solid var(--brand-highlight,#b9d7ff);outline-offset:-2px;border-radius:999px}
+@media (prefers-reduced-motion:reduce){.voices .voice{transition:none;transform:none}}
 
 /* 목록을 불러오는 동안 보이는 자리 표시 카드 */
 .grid-loading{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:56px}
@@ -557,11 +571,14 @@ body{padding-left:var(--side)}
       </svg>
     </button>
   </div>
+  <div class="top-row">
   <section class="hero" id="hero" aria-label="추천 웹앱" hidden></section>
-  <section class="voices" aria-labelledby="voicesTitle">
+  <section class="voices" id="voices" aria-labelledby="voicesTitle" aria-roledescription="회전 후기">
     <div class="voices-head"><h2 id="voicesTitle">선생님들의 후기</h2><span class="voices-note">예시 후기</span></div>
-    <div class="voices-track"><div class="voices-row" id="voicesRow"></div></div>
+    <div class="voices-stage" id="voicesStage"></div>
+    <div class="voices-dots" id="voicesDots" role="group" aria-label="후기 고르기"></div>
   </section>
+  </div>
   <div class="head">
     <div class="head-main"><h1>웹앱 <span class="total" id="total"></span></h1>
     <div class="subj" id="subj" role="group" aria-label="교과별 보기"></div></div>
@@ -755,8 +772,21 @@ const VOICES = [
   {text:'코딩을 처음 접하는 학생도 화면만 보고 따라 해요. 설명이 거의 필요 없어요.', name:'최○○ 선생님', role:'4학년 담임', color:'#e86f9c'},
   {text:'필요한 앱을 직접 요청할 수 있어서 든든해요. 동료 선생님들께도 추천했어요.', name:'정○○ 선생님', role:'연구부장', color:'#8f7cf0'},
 ];
-const voiceCard = (v, copy) => `<article class="voice"${copy?' aria-hidden="true"':''}><p>${escapeHtml(v.text)}</p><footer><span class="who" style="--c:${v.color}">${escapeHtml(v.name[0])}</span><span><b>${escapeHtml(v.name)}</b><small>${escapeHtml(v.role)}</small></span></footer></article>`;
-$('#voicesRow').innerHTML = VOICES.map(v=>voiceCard(v,false)).join('') + VOICES.map(v=>voiceCard(v,true)).join('');
+const voicesEl = $('#voices'), voicesDots = $('#voicesDots');
+const voiceCard = v => `<article class="voice"><p>${escapeHtml(v.text)}</p><footer><span class="who" style="--c:${v.color}">${escapeHtml(v.name[0])}</span><span><b>${escapeHtml(v.name)}</b><small>${escapeHtml(v.role)}</small></span></footer></article>`;
+$('#voicesStage').innerHTML = VOICES.map(voiceCard).join('');
+voicesDots.innerHTML = VOICES.map((v,i)=>`<button type="button" data-voice="${i}" aria-label="${i+1}번째 후기 보기"></button>`).join('');
+let voiceIndex = 0;
+function showVoice(i){
+  voiceIndex = i;
+  voicesEl.querySelectorAll('.voice').forEach((el,n)=>{ el.classList.toggle('on', n===i); el.inert = n!==i; });
+  voicesDots.querySelectorAll('[data-voice]').forEach((el,n)=>{ el.classList.toggle('on', n===i); el.setAttribute('aria-pressed', String(n===i)); });
+}
+showVoice(0);
+voicesDots.addEventListener('click', e=>{ const b = e.target.closest('[data-voice]'); if (b) showVoice(Number(b.dataset.voice)); });
+// 움직임 줄이기 설정이면 자동으로 넘기지 않고 점 버튼으로만 넘긴다
+if (!matchMedia('(prefers-reduced-motion:reduce)').matches)
+  setInterval(()=>{ if (!voicesEl.matches(':hover,:focus-within')) showVoice((voiceIndex+1)%VOICES.length); }, 5000);
 
 /* ===== 홍보 배너 =====
    관리자가 '메인 홍보 배너'로 고른 앱을 보여주고, 고른 앱이 없으면 인기 1위를 보여준다. */
