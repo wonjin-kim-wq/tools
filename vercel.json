@@ -9,6 +9,12 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "tools-one-nu.vercel.app" }],
+      "destination": "https://www.chamssaem.kr/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "tools-one-nu.vercel.app" }],
       "destination": "https://www.chamssaem.kr/:path*",
