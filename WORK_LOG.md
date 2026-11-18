@@ -6,7 +6,8 @@
 
 - 에이전트 요청에서 **새 토큰 만들기**를 눌렀을 때만 토큰을 발급한다. 발급 후 같은 자리에서 **설정 프롬프트 복사**를 사용할 수 있다.
 - 확인: 정적 빌드, 구문과 diff 검사를 통과했다. 격리 Chrome에서 새 토큰 만들기만 발급 요청을 보내고, 복사·반복 복사·복사 실패·창을 닫았다가 열 때 토큰 수가 늘지 않는 것을 확인했다.
-- 운영 기준: GitHub `origin/main` `12780b44e9a883cf866edfb68b7ed516f86fd9eb`의 Vercel Production 성공, 운영 홈·공개 목록 API 200. 이번 변경은 로컬 검증을 마쳤다.
+- 운영 기준: GitHub `origin/main` `12780b44e9a883cf866edfb68b7ed516f86fd9eb`의 Vercel Production 성공, 운영 홈·공개 목록 API 200.
+- 운영 반영: GitHub `main`에 `e6616a5da018dcfb5660c18167b3738755ee5c0d`를 푸시했다. 해당 SHA의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/DaTXe58GJviYs6B3N3oUCDXg8hsu)가 성공했다. 운영 홈과 공개 목록 API는 HTTP 200을 반환했고, 운영 `tools.js`는 배포 커밋과 일치했다.
 
 ## 상단 프로필 버튼 (2026-11-18)
 
