@@ -47,7 +47,7 @@ global.fetch=async(input,options={})=>{
   else if(url.pathname.startsWith('/auth/v1/admin/users/')&&options.method==='PUT')data={id:url.pathname.split('/').pop(),app_metadata:body.app_metadata};
   else if(url.pathname===`/auth/v1/admin/users/${fixtureMember.id}`)data=fixtureMember;
   else if(url.pathname==='/rest/v1/rpc/tools_issue_api_token'){
-    if(tokens.filter(token=>token.member_id===body.p_member_id&&!token.revoked_at).length>=3)data=null;
+    if(tokens.some(token=>token.member_id===body.p_member_id&&!token.revoked_at))data=null;
     else {
       const record={id:randomUUID(),name:body.p_name,prefix:body.p_prefix,created_at:new Date().toISOString(),last_used_at:null,revoked_at:null};
       tokens.push({...record,token_hash:body.p_token_hash,member_id:body.p_member_id});

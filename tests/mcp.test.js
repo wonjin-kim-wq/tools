@@ -73,7 +73,7 @@ test('MCP member API and tools enforce token, upload, ownership and submission c
       return response(!blockRate && count <= body.p_limit);
     }
     if (url.pathname === '/rest/v1/rpc/tools_issue_api_token') {
-      if (tokens.filter(r => r.member_id === body.p_member_id && !r.revoked_at).length >= 3) return response(null);
+      if (tokens.some(r => r.member_id === body.p_member_id && !r.revoked_at)) return response(null);
       const row = { id: randomUUID(), member_id: body.p_member_id, name: body.p_name, token_hash: body.p_token_hash,
         prefix: body.p_prefix, revoked_at: null, created_at: new Date().toISOString(), last_used_at: null };
       tokens.push(row);
@@ -138,11 +138,9 @@ test('MCP member API and tools enforce token, upload, ownership and submission c
   assert.match(token, /^chm_live_[A-Za-z0-9_-]{43}$/);
   assert.equal(tokens[0].token_hash, createHash('sha256').update(token).digest('hex'));
   assert.equal(record.token_hash, undefined);
-  const second = (await create('Claude Code')).body;
-  const third = (await create('노트북')).body;
-  assert.equal((await create('4번째')).status, 409);
+  assert.equal((await create('두 번째 연결')).status, 409);
   const listed = (await memberApi('mcp-tokens')).body.tokens;
-  assert.equal(listed.length, 3);
+  assert.equal(listed.length, 1);
   assert.ok(!JSON.stringify(listed).includes(token));
   assert.equal(listed[0].token_hash, undefined);
 
@@ -160,7 +158,10 @@ test('MCP member API and tools enforce token, upload, ownership and submission c
   assert.equal(invalid.body.result.isError, true);
   assert.equal(result(invalid).field, 'cat');
   assert.ok(result(invalid).allowed.includes('교과 교육'));
-  assert.equal(result(await tool('register_app', { ...app, dry_run: true }, second.token)).status, 403);
+  memberCookie = other;
+  const stranger = (await create('다른 회원')).body.token;
+  memberCookie = account;
+  assert.equal(result(await tool('register_app', { ...app, dry_run: true }, stranger)).status, 403);
   assert.equal(result(await tool('register_app', app, token)).field, 'confirm_own_work');
   assert.equal(result(await tool('register_app', { ...app, confirm_own_work: true }, token)).field, 'confirmation_id');
   const preview = result(await tool('register_app', { ...app, dry_run: true }, token));
@@ -181,27 +182,33 @@ test('MCP member API and tools enforce token, upload, ownership and submission c
   assert.deepEqual(result(await tool('search_apps', { category: '교과 교육', q: '모둠' })).apps, []);
 
   memberCookie = other;
-  const stranger = (await create('다른 회원')).body.token;
   assert.deepEqual(result(await tool('list_my_apps', {}, stranger)).apps, []);
   assert.equal(result(await tool('update_app', { id: created.app.id, version: 1, name: '타인 수정' }, stranger)).status, 404);
   assert.equal((await memberApi('mcp-token', 'PATCH', { id: record.id })).status, 404);
 
+  memberCookie = account;
+  assert.equal((await memberApi('mcp-token', 'PATCH', { id: record.id })).status, 200);
+  assert.equal((await rpc('tools/list', {}, token)).status, 401);
+  const replacement = await create('폐기 후 다시 발급');
+  assert.equal(replacement.status, 201);
+  const nextToken = replacement.body.token;
+
   const row = apps.find(r => r.id === created.app.id);
   row.status = 'changes_requested';
   row.review_note = '설명을 보완해 주세요.';
-  const own = result(await tool('list_my_apps', {}, second.token)).apps.find(r => r.id === row.id);
+  const own = result(await tool('list_my_apps', {}, nextToken)).apps.find(r => r.id === row.id);
   assert.equal(own.review_note, row.review_note);
   raceUpdate = true;
-  assert.equal(result(await tool('update_app', { id: row.id, version: 1, name: '다른 창에서 저장' }, second.token)).status, 409);
+  assert.equal(result(await tool('update_app', { id: row.id, version: 1, name: '다른 창에서 저장' }, nextToken)).status, 409);
   raceUpdate = false;
-  const updated = result(await tool('update_app', { id: row.id, version: 1, name: '수정 앱' }, second.token));
+  const updated = result(await tool('update_app', { id: row.id, version: 1, name: '수정 앱' }, nextToken));
   assert.equal(updated.app.version, 2);
   assert.equal(updated.app.status, 'pending');
   assert.equal(updated.app.name, '수정 앱');
   assert.equal(row.screenshots[0].path, shot.path);
-  assert.equal(result(await tool('update_app', { id: row.id, version: 1, name: '이전 버전' }, token)).status, 409);
+  assert.equal(result(await tool('update_app', { id: row.id, version: 1, name: '이전 버전' }, nextToken)).status, 409);
   row.status = 'approved';
-  assert.equal(result(await tool('update_app', { id: row.id, version: 2, name: '승인 후 수정' }, token)).status, 409);
+  assert.equal(result(await tool('update_app', { id: row.id, version: 2, name: '승인 후 수정' }, nextToken)).status, 409);
   const publicApp = result(await tool('get_app', { id: row.id })).app;
   for (const key of ['contact_email', 'review_note', 'member_id', 'mcp_member_name', 'own_work_confirmed_at', 'submitted_session']) {
     assert.equal(publicApp[key], undefined);
@@ -210,17 +217,14 @@ test('MCP member API and tools enforce token, upload, ownership and submission c
   assert.equal(publicApp.screenshots[0].path, undefined);
 
   blockRate = true;
-  const capped = await tool('upload_screenshot', img, token);
+  const capped = await tool('upload_screenshot', img, nextToken);
   assert.equal(capped.body.result.isError, true);
   assert.equal(result(capped).status, 429);
   blockRate = false;
   account.app_metadata.chamcoding_member = false;
-  assert.equal((await rpc('tools/list', {}, token)).status, 401);
+  assert.equal((await rpc('tools/list', {}, nextToken)).status, 401);
   account.app_metadata.chamcoding_member = true;
-  memberCookie = account;
-  assert.equal((await memberApi('mcp-token', 'PATCH', { id: record.id })).status, 200);
-  assert.equal((await rpc('tools/list', {}, token)).status, 401);
-  assert.equal((await create('폐기 후 다시 발급')).status, 201);
+  assert.equal((await create('중복 1')).status, 409);
+  assert.equal((await create('중복 2')).status, 409);
   assert.equal((await create('시간당 6번째')).status, 429);
-  assert.equal((await memberApi('mcp-token', 'PATCH', { id: third.record.id })).status, 200);
 });

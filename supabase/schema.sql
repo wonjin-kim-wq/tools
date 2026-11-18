@@ -340,8 +340,8 @@ declare issued public.tools_api_tokens%rowtype;
 begin
   -- Serialize issuance for one account across all Vercel instances.
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('tools_api_tokens:' || p_member_id::text, 0));
-  if (select count(*) from public.tools_api_tokens
-      where member_id = p_member_id and revoked_at is null) >= 3 then
+  if exists (select 1 from public.tools_api_tokens
+      where member_id = p_member_id and revoked_at is null) then
     return null;
   end if;
 
