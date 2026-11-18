@@ -91,7 +91,17 @@
   }
   function syncChrome(){
     $('#adminMenuButton').hidden=state.role!=='admin';
-    $('#memberButton').textContent=state.member?'내 계정':'로그인';
+    const button=$('#memberButton'), signedIn=Boolean(state.member);
+    button.classList.toggle('profile-button',signedIn);
+    $('#memberButtonLabel').hidden=signedIn;
+    $('#memberProfileIcon').toggleAttribute('hidden',!signedIn);
+    if(signedIn){
+      button.setAttribute('aria-label','내 프로필 열기');
+      button.title='내 프로필';
+    }else{
+      button.removeAttribute('aria-label');
+      button.removeAttribute('title');
+    }
   }
   function loadingShell(title,active='loading'){
     const revision=openShell(title,'잠시만 기다려 주세요.',active);

@@ -383,3 +383,20 @@ a.btn.solid,
   .field :is(textarea, select), .grade-row select, .review-form textarea { font-size: 16px; }
   .grade-row select { padding-inline: 6px; }
 }
+
+
+/* Signed-in account control in the top bar. */
+.topbar .profile-button {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  padding: 0;
+  border-color: var(--brand-border);
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.topbar .profile-button:hover { background: var(--brand-highlight); }
+.topbar .profile-button:active { border-color: var(--brand); }
+.topbar .profile-button:focus-visible { outline: .125rem solid var(--focus-ring); outline-offset: .125rem; }
+#memberProfileIcon { inline-size: 1.375rem; block-size: 1.375rem; }

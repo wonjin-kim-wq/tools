@@ -542,7 +542,12 @@ body{padding-left:var(--side)}
 <main class="wrap">
   <div class="topbar">
     <p class="visit-stats" aria-label="방문 통계"><span>오늘 방문자 <b id="visitToday">—</b></span><span>전체 방문자 <b id="visitTotal">—</b></span><small id="visitStatus" hidden></small></p>
-    <button class="btn line" id="memberButton" type="button">로그인</button>
+    <button class="btn line" id="memberButton" type="button" aria-haspopup="dialog">
+      <span id="memberButtonLabel">로그인</span>
+      <svg id="memberProfileIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+        <circle cx="12" cy="8" r="3.2"/><path d="M5 20v-1.2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5V20"/>
+      </svg>
+    </button>
   </div>
   <section class="hero" id="hero" aria-label="추천 웹앱" hidden></section>
   <section class="voices" aria-labelledby="voicesTitle">
