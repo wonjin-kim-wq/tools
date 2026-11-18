@@ -7,13 +7,14 @@
 - 로그인한 회원에게 상단 **내 계정** 텍스트 대신 원형 사람 모양 프로필 버튼을 표시한다. 이 버튼으로 기존 계정 창을 열며, 비회원에게는 **로그인**을 표시한다.
 - 확인: 빌드·구문·diff 통과. 격리 Chrome 375px에서 로그인 전후 버튼 표시, 프로필 접근성 이름, 계정 창 열기, 로그아웃 후 원복을 확인했다.
 - 작업 시작 기준: GitHub `origin/main` `9f3b86dacd34dfb388895efda3f77540cb243cd9`의 Vercel Production 성공, 운영 홈·공개 목록 API 200.
+- 운영 반영: GitHub `main`에 `a9d876fcae5df075dc47fe80626843897463fe38`를 푸시했다. 같은 SHA의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/DbHJrYer5PEVbaYqLNLdtqRmDb9B)가 성공했고, 운영 홈·공개 목록 API 모두 HTTP 200, HTML·스크립트·스타일은 커밋과 일치했다.
 
 ## MCP 연결 안내와 업로드 버튼 개선 (2026-11-18)
 
 - [Tuilders 연결 안내](https://tuilders.com/agents)를 참고해 에이전트 요청 첫 화면을 **설정 프롬프트 붙여 넣기**, **앱 주소와 함께 등록 부탁하기**로 줄였다. 로그인 후 주 버튼 한 번으로 이름 입력 없이 토큰을 발급하고 설정 프롬프트를 복사한다. 같은 창에서 다시 누르면 이미 발급한 토큰을 쓴다. 자동 복사에 실패하면 직접 복사할 수 있다.
 - 아이콘과 선택 상태를 넣어 세 탭을 구분하고, 등록 요청 예시 복사 버튼을 추가했다. 직접 연결과 토큰 관리는 접힌 메뉴에 두었다.
 - 확인: Node 24 테스트 33개·빌드·구문·diff 통과. 격리 Chrome에서 데스크톱·375px, 키보드 탭, 로그인 후 복귀, 실제 클립보드 복사, 재복사 시 토큰 재사용, 복사 실패 대안, 예시 복사와 토큰 폐기를 확인했다.
-- 운영 기준: GitHub `origin/main` `9f3b86dacd34dfb388895efda3f77540cb243cd9`의 Vercel Production 성공, 운영 홈·공개 목록 API 200. 이번 변경은 로컬 검증까지 완료했다.
+- 운영 기준: GitHub `origin/main` `9f3b86dacd34dfb388895efda3f77540cb243cd9`의 Vercel Production 성공, 운영 홈·공개 목록 API 200. 변경 커밋 `3cd4ec781f8dda0b7210a9e6c9a024f78b4c6282`를 GitHub `main`에 푸시했고, 위 `a9d876f`의 Vercel Production 배포에 함께 반영된 것을 확인했다.
 
 ## 회원 업로드 요청 통합 (2026-11-18)
 
