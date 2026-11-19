@@ -403,7 +403,7 @@ a.btn.solid,
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: thin;
-    padding: 2px;
+    padding: 0 2px;
   }
   .subj button { height: 34px; }
 }
