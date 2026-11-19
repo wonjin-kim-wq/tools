@@ -28,6 +28,9 @@
 <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&amp;display=swap&amp;text=%EC%B0%B8%EC%BD%94%EB%94%A9">
 <link rel="stylesheet" href="/assets/astryx-neutral.css">
 <style>
 :root{
@@ -51,7 +54,7 @@ button{cursor:pointer}
 body{padding-left:var(--side)}
 .side{position:fixed;left:0;top:0;bottom:0;width:var(--side);z-index:6;display:flex;flex-direction:column;gap:16px;padding:22px 14px 16px;
   background:rgba(255,255,255,.94);backdrop-filter:saturate(1.6) blur(12px);-webkit-backdrop-filter:saturate(1.6) blur(12px);border-right:1px solid var(--line);overflow-y:auto;overscroll-behavior:contain}
-.side .logo{padding:0 6px}
+.side .logo{padding:0 6px;justify-content:center}
 .menu-toggle{display:none}
 .side-panel{display:flex;flex-direction:column;flex:1;gap:14px}
 .side-nav,.side-section{display:flex;flex-direction:column;gap:2px}
@@ -84,7 +87,11 @@ body{padding-left:var(--side)}
 .logo .mark{width:40px;height:33px;flex:none}
 .char{position:relative;display:inline-block}
 .char img{position:absolute;inset:0;width:100%;height:100%;user-select:none}
-.logo b{display:block;font-size:30px;font-weight:800;line-height:1.1;letter-spacing:-.045em;white-space:nowrap}   /* 설명 줄 없이 이름만 크게 */
+.logo b{--logo-blue:#1264cd;--logo-ink:#192a45;display:inline-flex;align-items:baseline;gap:.035em;font-family:"Jua",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;font-size:30px;font-weight:400;line-height:1.2;letter-spacing:-.025em;white-space:nowrap}   /* 통통 리듬: 캐릭터와 함께 가운데 정렬 */
+.logo b>span{display:inline-block}
+.logo b>span:nth-child(1){transform:rotate(-7deg) translateY(.03em);color:var(--logo-blue)}
+.logo b>span:nth-child(2){transform:rotate(5deg) translateY(-.065em);color:var(--logo-ink)}
+.logo b>span:nth-child(3){transform:rotate(-4deg) translateY(.03em);color:var(--logo-blue)}
 .btn{border:0;border-radius:10px;height:38px;padding:0 16px;font-size:14px;font-weight:600;transition:background .15s,color .15s;white-space:nowrap}
 .btn.ghost{background:transparent;color:var(--sub)}
 .btn.ghost:hover{background:var(--chip);color:var(--ink)}
@@ -281,7 +288,7 @@ body{padding-left:var(--side)}
 @media (max-width:900px){
   body{padding-left:0}
   .side{position:sticky;top:0;bottom:auto;width:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 20px;border-right:0;border-bottom:1px solid var(--line);overflow:visible}
-  .side .logo{padding:0}
+  .side .logo{padding:0;flex-basis:100%}
   .side .search{order:3;flex-basis:100%}
   .hero{height:260px;margin-top:20px}
   .hero-copy{padding:24px}
@@ -535,7 +542,7 @@ body{padding-left:var(--side)}
 </head>
 <body>
 <aside class="side" id="side" aria-label="참코딩 메뉴">
-  <div class="logo" id="logo"><div><b>참코딩</b></div></div>
+  <div class="logo" id="logo"><div><b aria-label="참코딩"><span>참</span><span>코</span><span>딩</span></b></div></div>
   <label class="search" role="search">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     <input id="q" type="search" placeholder="어떤 도구를 찾으세요?" aria-label="도구 검색" autocomplete="off">
