@@ -223,7 +223,14 @@ a.btn.solid,
   letter-spacing: -.025em;
 }
 
+/* 웹앱 개수 배지는 옆 교과 버튼(28px)과 같은 높이로 맞춰 위쪽 끝을 나란히 둔다 */
 .head .total {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 11px;
+  align-self: flex-start;
   background: var(--brand-soft);
   color: var(--brand-ink);
   box-shadow: inset 0 0 0 1px var(--brand-border);
