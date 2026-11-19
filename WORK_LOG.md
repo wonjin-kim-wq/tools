@@ -8,7 +8,7 @@
 - 결과는 `assets/backgrounds/chamcoding-background-winter-v1.png`, 최종 프롬프트는 같은 폴더의 `chamcoding-background-winter-v1-prompt.md`에 저장했다. 기존 기본 배경 파일과 홈페이지 연결은 유지한다.
 - 확인: PNG 크기·알파 채널, 폴더 사본, 정적 빌드·JavaScript 구문·diff 검사 통과. 로컬 1440×900·375×812에서 겨울 배경 로딩과 가로 넘침 없음을 확인했다. 기존 README 로컬 변경은 보존했다.
 - 작업 시작 기준: pull 후 HEAD와 `origin/main`은 `8c15f0665538b0adcf3064bf12852c9965d7a45b`로 일치했다. 동일 SHA의 Vercel·Production success, 운영 홈·공개 목록 API HTTP 200을 확인했다.
-- 후속 요청: `참코딩 배경그림/` 폴더를 만들고 기본·겨울 PNG를 알아보기 쉬운 한글 이름으로 복사했다. 홈페이지 배경을 겨울 PNG로 변경하고 빌드·개발 서버 경로를 추가했다. 기존 하늘 그라데이션과 데스크톱·모바일 배치는 유지한다. 사용자 요청에 따라 검증 후 커밋·푸시 및 운영 반영을 확인한다.
+- 후속 요청: `참코딩 배경그림/` 폴더를 만들고 기본·겨울 PNG를 알아보기 쉬운 한글 이름으로 복사했다. 홈페이지 배경을 겨울 PNG로 변경하고 빌드·개발 서버 경로를 추가했다. 기존 하늘 그라데이션과 데스크톱·모바일 배치는 유지한다. 운영 반영: `84bff5aaeab085419242b063060afe5a0a50969c`를 GitHub main에 푸시했다. 같은 SHA의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/2G5bVifaySLBktsWc2LjQ4n9gvmQ)는 success이며 운영 홈·공개 목록 API·겨울 PNG는 HTTP 200, 운영 CSS와 겨울 PNG는 커밋과 바이트까지 일치한다. 남은 작업 없음.
 
 ## 홈 디자인·학교급 펼침·에이전트 요청 단계 개선 (2026-11-19)
 
