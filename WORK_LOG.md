@@ -8,6 +8,7 @@
 - 사이드바·모바일 상단 로고에서 '참쌤스쿨이 만든 코딩 수업 도구' 설명 줄을 지우고 '참코딩'을 크게(데스크톱 30px·800, 640px 이하 22px, 480px 이하 21px) 표시한다.
 - 확인: 로컬 격리 UI 서버에서 1440px 업로드 요청 창의 본문 스크롤(머리글 고정, 스크롤바가 머리글 아래에서 시작), 오른쪽 아래 모서리, 375px 전체 화면 창의 끝까지 스크롤·가로 넘침 없음, 닫기·다시 열기(회원 로그인 창)를 확인했다. 로고는 1000px·375px에서 확인했다. 정적 빌드·테스트 33개·diff 검사 통과, 콘솔 오류 없음.
 - 작업 시작 기준: HEAD와 `origin/main`이 `1cb04c19dd3c3cbef17fdd4fcf3db3a4eb4e868f`로 일치(Vercel success 확인됨).
+- 운영 반영: `c2542f9c205233ae4820b59e1d0ce67dc87eb63b`를 GitHub main에 푸시했다. 같은 SHA의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/CGo2AJgt66utBtbH7ntFiEJcN1SD)는 success, 운영 홈·공개 목록 API HTTP 200, 운영 `index.html`·`tools.css`가 커밋과 바이트까지 일치한다. 남은 작업 없음.
 
 ## 겨울 눈 내리기·쌓이기·캐릭터 눈 치우기, 후기 '예시 후기' 표시 삭제 (2026-11-19)
 
