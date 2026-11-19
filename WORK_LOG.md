@@ -8,7 +8,7 @@
 - 캐릭터와 글자를 한 묶음으로 사이드바 가운데 정렬하고, 900px 이하에서는 모바일 헤더 한 줄 전체를 사용해 함께 가운데 배치한다. 기존 글자 크기(30px·640px 이하 22px·480px 이하 21px)와 본문 글꼴을 유지했다. 주아체는 Google Fonts에서 세 글자만 불러오며 연결 사전 준비·display=swap·대체 글꼴을 설정했다.
 - 확인: Node 24 정적 빌드·기존 테스트 33개·diff 검사 통과. 격리 UI 서버 1440px·375px·320px에서 글꼴·색·회전·캐릭터를 포함한 중앙 정렬을 확인했고 콘솔 오류가 없다.
 - 작업 시작 기준: HEAD·origin/main `9f645640ff03d4e3518a028b2e5f3da7663a3123` 일치, 같은 SHA의 Vercel·Production success, 운영 홈·공개 목록 API HTTP 200.
-- 사용자에게 커밋·푸시 승인을 받았다. 관련 코드·문서만 반영하고 기존 README 로컬 전용 변경과 `output/`는 보존한다. 운영 배포 확인은 푸시 후 이어서 기록한다.
+- 운영 반영: 사용자 승인 후 코드·문서를 `edb097eb9b7aa6c0a0d75e36277f4c49d2b57069`로 GitHub main에 푸시했다. 같은 SHA의 Vercel 상태·[Production 배포](https://tools-7a3zjgt1i-konw7377-1627s-projects.vercel.app)는 모두 success이며 운영 홈·공개 목록 API HTTP 200, 운영 HTML이 해당 커밋의 `index.html`과 바이트까지 일치함을 확인했다. 기존 README 로컬 전용 변경과 `output/`는 보존했다. 남은 작업 없음.
 
 ## 화면 비율에 따라 눈이 밀려 잘려 보이던 문제 수정 (2026-11-19)
 
