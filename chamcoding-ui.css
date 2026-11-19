@@ -37,7 +37,7 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    url('/assets/backgrounds/chamcoding-background-v1.png') center bottom / 100% auto no-repeat,
+    url('/assets/backgrounds/chamcoding-background-winter-v1.png') center bottom / 100% auto no-repeat,
     linear-gradient(180deg, var(--sky-top) 0%, var(--sky-horizon) 56%, var(--bg) 100%) center / 100% 100% no-repeat;
   opacity: .8;
 }

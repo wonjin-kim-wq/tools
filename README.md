@@ -4,7 +4,7 @@
 
 최근 변경 사항과 카드·캐릭터의 현재 동작 설정은 [작업 기록](WORK_LOG.md)에 정리했습니다. 작업을 마칠 때마다 `WORK_LOG.md` 맨 위에 날짜별 항목(바뀐 점·확인·남은 일)을 추가하고, 이 README의 관련 절도 함께 고칩니다.
 
-최종 내용 갱신: 2026-11-19 (홈 배경·학교급 펼침·에이전트 단계 안내). 운영 사이트는 https://www.chamssaem.kr/ (기존 https://tools-one-nu.vercel.app/ 는 www.chamssaem.kr로 자동 이동)이며, GitHub `main`에 푸시하면 연결된 Vercel에서 자동 배포합니다. 함수 실행 지역은 서울 `icn1`입니다.
+최종 내용 갱신: 2026-11-19 (겨울 모드 적용·배경그림 폴더 정리). 운영 사이트는 https://www.chamssaem.kr/ (기존 https://tools-one-nu.vercel.app/ 는 www.chamssaem.kr로 자동 이동)이며, GitHub `main`에 푸시하면 연결된 Vercel에서 자동 배포합니다. 함수 실행 지역은 서울 `icn1`입니다.
 
 ## 업로드 요청
 
@@ -158,7 +158,8 @@ quiz-games 프로젝트에 함께 있던 참코딩 데이터를 전용 프로젝
 
 ## 이미지 권장 규격
 
-- 홈페이지 배경: [투명 PNG](assets/backgrounds/chamcoding-background-v1.png)와 [생성 프롬프트](assets/backgrounds/chamcoding-background-v1-prompt.md). 책·연필·코딩 블록을 가장자리와 하단에 배치한 1672×941 RGBA 일러스트입니다. `chamcoding-ui.css`에서 사이드바를 제외한 본문 뒤 하단에 고정하며 불투명도는 데스크톱 0.8, 900px 이하는 0.6입니다. 하늘은 구름 없이 연파랑 CSS 그라데이션(`--sky-top`, `--sky-horizon`)으로 채웠습니다. 빌드 복사와 개발 서버 허용 경로에 포함됩니다.
+- 겨울 모드: 홈페이지는 `assets/backgrounds/chamcoding-background-winter-v1.png`의 눈사람·트리·빨강·초록 겨울 일러스트를 사용하며, 구름 없는 연파랑 하늘 그라데이션과 기존 반응형 배치를 유지합니다. 기본 배경과 겨울 배경 사본은 프로젝트의 `참코딩 배경그림/` 폴더에 모았습니다. [겨울 이미지 생성 프롬프트](assets/backgrounds/chamcoding-background-winter-v1-prompt.md).
+- 기본 배경 보관: [투명 PNG](assets/backgrounds/chamcoding-background-v1.png)와 [생성 프롬프트](assets/backgrounds/chamcoding-background-v1-prompt.md). 책·연필·코딩 블록을 가장자리와 하단에 배치한 1672×941 RGBA 일러스트입니다. `chamcoding-ui.css`에서 사이드바를 제외한 본문 뒤 하단에 고정하며 불투명도는 데스크톱 0.8, 900px 이하는 0.6입니다. 하늘은 구름 없이 연파랑 CSS 그라데이션(`--sky-top`, `--sky-horizon`)으로 채웠습니다. 빌드 복사와 개발 서버 허용 경로에 포함됩니다.
 - 대표 썸네일: **1000×1000px** 정사각형. 카드에서는 `object-fit: cover`로 채우므로 중요한 내용은 중앙에 배치합니다.
 - 상세 스크린샷: **900×1020px** 권장. 현재 300×340px 표시 영역에 맞춘 비율입니다. 가로 화면도 원래 비율로 올릴 수 있으며 상세에서는 `object-fit: contain`으로 표시합니다.
 - PNG·JPG·WebP를 사용하고 작은 글자는 확대해 주세요. 업로드 시 최대 1800px로 조정하며 서버에서 파일당 2MB를 검사합니다.
