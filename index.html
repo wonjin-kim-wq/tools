@@ -65,12 +65,18 @@ body{padding-left:var(--side)}
 .side-item.on{background:#e8ebf0;color:var(--ink)}
 .side-item.on .ic{background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.08)}
 .side-item:focus-visible,.menu-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
-.side-sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 38px;padding-left:10px;border-left:2px solid var(--line);animation:side-open .18s ease-out}
+.side-sub-shell{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .3s ease,opacity .2s ease}
+.side-sub-shell.open{grid-template-rows:1fr;opacity:1}
+.side-sub-clip{min-height:0;overflow:hidden;visibility:hidden;transition:visibility 0s .3s}
+.side-sub-shell.open .side-sub-clip{visibility:visible;transition-delay:0s}
+.side-sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 38px;padding-left:10px;border-left:2px solid var(--line)}
+.side-chevron{width:.45rem;height:.45rem;flex:none;margin:0 .25rem; border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .3s ease}
+.side-item[aria-expanded="true"] .side-chevron{transform:rotate(45deg)}
+@media(prefers-reduced-motion:reduce){.side-sub-shell,.side-sub-clip,.side-chevron{transition:none}}
 .side-sub button{display:flex;align-items:center;width:100%;border:0;background:none;text-align:left;padding:6px 10px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--sub)}
 .side-sub button small{margin-left:auto;font-size:12px;color:var(--mute);font-weight:500}
 .side-sub button:hover{background:var(--chip);color:var(--ink)}
 .side-sub button.on{background:var(--ink);color:#fff}.side-sub button.on small{color:rgba(255,255,255,.7)}
-@keyframes side-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .side-foot{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px}
 .side-foot .btn{width:100%}
 .side-foot .buddy-toggle{justify-content:space-between}
@@ -636,6 +642,7 @@ $('#logo').insertAdjacentHTML('afterbegin', mark());
 /* ===== 카드 ===== */
 const grid = $('#grid'), seg = $('#seg'), knob = seg.querySelector('.knob');
 let key = 'popular', cat = 'all', level = 'all', subject = 'all', query = '';
+let expandedCat = 'all';
 // 적용 학교급: 적용 학년 글자 앞의 학교급으로 판단한다(예: '중학교 1-3학년'). 학교급이 없는 기존 값은 초등학교로 본다.
 const LEVELS = [{k:'초', name:'초등학교'}, {k:'중', name:'중학교'}, {k:'고', name:'고등학교'}];
 const levelOf = a => /^\s*중학교/.test(a.grade||'') ? '중' : /^\s*고등학교/.test(a.grade||'') ? '고' : '초';
@@ -651,17 +658,20 @@ $('#total').textContent = apps.length;   // 업로드된 웹앱 전체 개수
 const catsEl = $('#cats'), sideCats = $('#sideCats'), sidePanel = $('#sidePanel'), menuToggle = $('#menuToggle');
 // 사이드바 목록과 모바일 칩은 같은 카테고리 상태를 함께 보여준다
 // 분류를 고르면 사이드바에서 그 분류 아래로 학교급(초·중·고)이 펼쳐진다
-function setCat(next){
-  if (next !== cat){
+function setCat(next, toggle = false){
+  const changed = next !== cat;
+  expandedCat = !changed && toggle && expandedCat === next ? null : next;
+  if (changed){
     cat = next; level = 'all';
     catsEl.querySelectorAll('[data-cat]').forEach(x=>{ const on = x.dataset.cat===cat; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
-    renderSideCats(); layout();
-  } else setMenu(false);
+  }
+  renderSideCats();
+  if (changed) layout();
 }
 // 학교급만 바꿀 때는 목록을 다시 그리지 않고 표시만 바꾼다(다시 그리면 펼침 애니메이션이 반복되어 다른 항목이 깜빡인다)
 function setLevel(next){
   level = level === next ? 'all' : next;
-  sideCats.querySelectorAll('[data-level]').forEach(b=>{ const on = b.dataset.level===level; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  renderSideCats();
   layout(); setMenu(false);
 }
 catsEl.addEventListener('click', e=>{ const b = e.target.closest('[data-cat]'); if (b) setCat(b.dataset.cat); });
@@ -670,7 +680,7 @@ sideCats.addEventListener('click', e=>{
   const b = e.target.closest('[data-cat]');
   if (!b) return;
   const hadFocus = document.activeElement === b;
-  setCat(b.dataset.cat);
+  setCat(b.dataset.cat, true);
   if (hadFocus && !b.isConnected) sideCats.querySelector('.on')?.focus({preventScroll:true});
 });
 // 모바일 하단 메뉴는 본문과 별도로 열리고, 바깥을 눌러도 본문 동작을 막지 않는다.
@@ -733,11 +743,29 @@ const matches = a => baseMatches(a) && hasSubject(a);
 
 function renderSideCats(){
   const count = n => appsLoading ? '' : n;
-  sideCats.innerHTML = CATS.map(c=>{
-    const inCat = apps.filter(a=>c.k==='all' || a.cat===c.k), open = c.k===cat;
-    return `<button class="side-item${open?' on':''}" type="button" data-cat="${c.k}" role="tab" aria-selected="${open}" aria-expanded="${open}"><span class="ic">${c.icon}</span>${c.name}<small>${count(inCat.length)}</small></button>`
-      + (open ? `<div class="side-sub" role="group" aria-label="${escapeHtml(c.name)} 학교급">${LEVELS.map(l=>`<button type="button" class="${level===l.k?'on':''}" data-level="${l.k}" aria-pressed="${level===l.k}">${l.name}<small>${count(inCat.filter(a=>levelOf(a)===l.k).length)}</small></button>`).join('')}</div>` : '');
-  }).join('');
+  if (!sideCats.children.length) sideCats.innerHTML = CATS.map((c,i)=>`
+    <div class="side-category">
+      <button class="side-item" type="button" data-cat="${c.k}" role="tab" aria-selected="false" aria-expanded="false" aria-controls="side-levels-${i}"><span class="ic">${c.icon}</span>${c.name}<small></small><span class="side-chevron" aria-hidden="true"></span></button>
+      <div class="side-sub-shell" id="side-levels-${i}" inert><div class="side-sub-clip">
+        <div class="side-sub" role="group" aria-label="${escapeHtml(c.name)} 학교급">${LEVELS.map(l=>`<button type="button" data-level="${l.k}" aria-pressed="false">${l.name}<small></small></button>`).join('')}</div>
+      </div></div>
+    </div>`).join('');
+  sideCats.querySelectorAll('.side-category').forEach((row,i)=>{
+    const c=CATS[i], selected=c.k===cat, open=c.k===expandedCat;
+    const inCat=apps.filter(a=>c.k==='all'||a.cat===c.k);
+    const button=row.querySelector('[data-cat]'), panel=row.querySelector('.side-sub-shell');
+    button.classList.toggle('on',selected);
+    button.setAttribute('aria-selected',String(selected));
+    button.setAttribute('aria-expanded',String(open));
+    button.querySelector('small').textContent=count(inCat.length);
+    panel.classList.toggle('open',open);
+    panel.inert=!open;
+    row.querySelectorAll('[data-level]').forEach(b=>{
+      const on=selected&&b.dataset.level===level;
+      b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on));
+      b.querySelector('small').textContent=count(inCat.filter(a=>levelOf(a)===b.dataset.level).length);
+    });
+  });
 }
 function renderCatalog(){
   grid.replaceChildren();

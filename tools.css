@@ -123,6 +123,20 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 .request-footer { display: flex; justify-content: flex-end; margin-block-start: 1.25rem; }
 .request-footer:empty { display: none; }
 .mcp-setup { display: grid; gap: .75rem; min-width: 0; }
+.mcp-steps { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.mcp-steps h4 { display: flex; align-items: center; gap: .625rem; }
+.mcp-step-number {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--brand-on);
+  font-size: .875rem;
+  font-weight: 750;
+}
 .mcp-setup .request-intro, .mcp-setup .request-intro p { margin: 0; }
 .mcp-setup .request-intro h3 { font-size: 1.3rem; font-weight: 750; }
 .mcp-tag, .mcp-card .mcp-kicker { color: var(--brand-ink); font-size: .75rem; font-weight: 750; }
@@ -143,8 +157,8 @@ a.btn{display:inline-flex;align-items:center;justify-content:center;text-decorat
 #mcpControls { width: 100%; min-width: 0; margin-block-start: .25rem; }
 .mcp-token-entry { display: grid; justify-items: start; gap: .625rem; width: 100%; }
 .mcp-token-entry .field { width: 100%; margin: 0; }
-#mcpControls .btn { min-height: 2.75rem; height: auto; padding-block: .6rem; }
-#mcpControls .btn.mcp-copy-locked {
+.mcp-steps .btn { min-height: 2.75rem; height: auto; padding-block: .6rem; }
+.mcp-steps .btn.mcp-copy-locked {
   background: var(--chip);
   border: 1px solid var(--line2);
   color: var(--sub);

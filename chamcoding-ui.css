@@ -11,6 +11,8 @@
   --brand-on: var(--color-on-info, #fff);
   --brand-ink: var(--color-on-info-muted, #003978);
   --brand-highlight: var(--color-info-muted, #b9d7ff);
+  --sky-top: color-mix(in srgb, var(--brand-highlight) 76%, var(--card));
+  --sky-horizon: color-mix(in srgb, var(--brand-highlight) 28%, var(--card));
   --brand-surface: color-mix(in srgb, var(--brand) 4%, var(--card));
   --brand-soft: color-mix(in srgb, var(--brand) 11%, var(--card));
   --brand-border: color-mix(in srgb, var(--brand) 27%, var(--line2));
@@ -21,6 +23,31 @@
   --focus-ring: var(--color-info, #0074e2);
   --shadow: 0 1px 2px color-mix(in srgb, var(--color-shadow, #0000001a) 45%, transparent);
   --shadow-h: var(--shadow-low, 0 4px 12px #0000001a);
+}
+
+/* Keep the illustration behind content, fixed to the visible page area. */
+body {
+  isolation: isolate;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 0 var(--side);
+  z-index: -1;
+  pointer-events: none;
+  background:
+    url('/assets/backgrounds/chamcoding-background-v1.png') center bottom / 100% auto no-repeat,
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-horizon) 56%, var(--bg) 100%) center / 100% 100% no-repeat;
+  opacity: .8;
+}
+
+@media (max-width: 900px) {
+  body::before {
+    left: 0;
+    background-size: auto 55svh, 100% 100%;
+    opacity: .6;
+  }
 }
 
 /* Side Nav, Text Input, Button */

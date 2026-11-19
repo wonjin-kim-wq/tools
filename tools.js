@@ -271,21 +271,30 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
       <section id="request-panel-agent" role="tabpanel" aria-labelledby="request-tab-agent" tabindex="0" hidden>
         <section class="mcp-setup" aria-label="MCP로 업로드 요청하기">
           <header class="request-intro"><span class="mcp-tag">MCP 연결</span><h3>AI에게 앱 등록 맡기기</h3><p>Claude Code나 Codex가 앱 소개와 스크린샷을 준비해요.</p></header>
-          <section class="mcp-card mcp-connect" aria-labelledby="mcpConnectTitle">
+          <ol class="mcp-steps" aria-label="에이전트 요청 3단계">
+          <li class="mcp-card mcp-connect" aria-labelledby="mcpTokenTitle">
             <p class="mcp-kicker">처음 한 번만</p>
-            <h4 id="mcpConnectTitle">새 에이전트 연결하기</h4>
-            <p>토큰을 발급한 뒤 설정 프롬프트를 복사해 Claude Code나 Codex에 붙여 넣으세요.</p>
+            <h4 id="mcpTokenTitle"><span class="mcp-step-number"><span class="sr-only">단계 </span>1</span>토큰 준비하기</h4>
+            <p>로그인한 뒤 토큰을 발급하세요. 이미 발급했다면 저장한 토큰을 붙여 넣으세요.</p>
             <section id="mcpControls" aria-label="연결 준비"><p role="status">로그인 상태를 확인하고 있어요…</p></section>
+          </li>
+          <li class="mcp-card mcp-connect" aria-labelledby="mcpConnectTitle">
+            <p class="mcp-kicker">토큰을 준비했다면</p>
+            <h4 id="mcpConnectTitle"><span class="mcp-step-number"><span class="sr-only">단계 </span>2</span>에이전트 연결하기</h4>
+            <p>설정 프롬프트를 복사해 Claude Code나 Codex 채팅에 붙여 넣으세요.</p>
+            <button type="button" class="btn line mcp-copy-locked" data-mcp-copy="prompt" aria-disabled="true" aria-describedby="mcpFeedback">${requestIcon('copy')} 설정 프롬프트 복사</button>
             <p class="mcp-feedback" id="mcpFeedback" role="status"></p>
             <label class="field mcp-fallback" hidden><span>설정 프롬프트 직접 복사</span><textarea readonly rows="4" autocomplete="off" spellcheck="false"></textarea></label>
-          </section>
-          <section class="mcp-card mcp-request" aria-labelledby="mcpRequestTitle">
+          </li>
+          <li class="mcp-card mcp-request" aria-labelledby="mcpRequestTitle">
             <p class="mcp-kicker">연결했다면</p>
-            <h4 id="mcpRequestTitle">앱 주소와 함께 등록 부탁하기</h4>
+            <h4 id="mcpRequestTitle"><span class="mcp-step-number"><span class="sr-only">단계 </span>3</span>앱 등록 요청하기</h4>
+            <p>에이전트에게 앱 주소와 함께 등록을 부탁하세요.</p>
             <div class="mcp-example"><code>${requestExample}</code><button type="button" class="btn line" data-mcp-copy="example">${requestIcon('copy')} 예시 복사</button></div>
             <p>준비된 내용을 확인하고 직접 만든 앱이라면 동의해 주세요. 동의하면 관리자에게 접수돼요.</p>
             <p class="mcp-example-status" role="status"></p>
-          </section>
+          </li>
+          </ol>
           <details class="mcp-details"><summary>직접 연결하기</summary>
             <section class="mcp-details-body" aria-label="직접 연결 설정">
               <div class="tabs mcp-clients" role="group" aria-label="연결할 AI 선택">
@@ -353,9 +362,10 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
     const issuedToken=list.querySelector('#mcpIssuedToken'), recordStatus=list.querySelector('.mcp-record-status');
     const feedback=root.querySelector('.mcp-feedback'), manualStatus=root.querySelector('.mcp-manual-status');
     const fallback=root.querySelector('.mcp-fallback'), fallbackText=fallback.querySelector('textarea');
-    let tokens=[], issued, issueButton, promptButton, tokenInput;
+    let tokens=[], issued, issueButton, tokenInput;
+    const promptButton=root.querySelector('[data-mcp-copy="prompt"]');
     const clearFallback=()=>{fallback.hidden=true;fallbackText.value='';};
-    const setupToken=()=>issued?.token||tokenInput.value.trim();
+    const setupToken=()=>issued?.token||tokenInput?.value.trim()||'';
     const validSetupToken=token=>/^chm_live_[A-Za-z0-9_-]{43}$/.test(token);
     const updatePromptState=()=>{
       const ready=tokens.length>0&&validSetupToken(setupToken());
@@ -409,10 +419,8 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
         <button type="button" class="btn solid" data-mcp-issue>토큰 발급</button>
         <p class="mcp-capacity" id="mcpCapacity" hidden></p>
         <label class="field"><span>토큰 붙여 넣기</span><input type="password" id="mcpTokenInput" placeholder="chm_live_…" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="mcpFeedback"></label>
-        <button type="button" class="btn line mcp-copy-locked" data-mcp-copy="prompt" aria-disabled="true" aria-describedby="mcpFeedback">${requestIcon('copy')} 설정 프롬프트 복사</button>
       </section>`;
       issueButton=controls.querySelector('[data-mcp-issue]');
-      promptButton=controls.querySelector('[data-mcp-copy="prompt"]');
       tokenInput=controls.querySelector('#mcpTokenInput');
       tokenInput.addEventListener('input',()=>{
         tokenInput.removeAttribute('aria-invalid');
@@ -444,7 +452,7 @@ register_app의 dry_run으로 검증한 내용과 본인 제작 확인 질문을
     }
     async function copySetup(){
       if(!tokens.length){
-        feedback.textContent='토큰을 먼저 발급해 주세요.';
+        feedback.textContent='1단계에서 로그인하고 토큰을 준비해 주세요.';
         return;
       }
       const token=setupToken();
