@@ -392,7 +392,8 @@ body{padding-left:var(--side)}
 @keyframes ray{from{transform:rotate(var(--a)) translateY(6px) scaleY(.3);opacity:1}to{transform:rotate(var(--a)) translateY(26px) scaleY(1);opacity:0}}
 
 /* 겨울 눈: 화면 전체에 내리고 배너·웹앱 카드 위에 쌓인다 (캐릭터가 밀면 치워진다) */
-.snow{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:5}   /* 사이드바·모바일 상단 바(6) 아래, 카드 위 */
+/* 크기는 100vw가 아니라 화면(스크롤바 제외) 기준 100%. 브라우저마다 100vw에 스크롤바 칸이 들어가는지가 달라 그림이 늘어나거나 밀리던 문제 */
+.snow{position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:5}   /* 사이드바·모바일 상단 바(6) 아래, 카드 위 */
 /* ㅊ 캐릭터 (데스크톱 전용) */
 #buddy{position:fixed;left:0;top:0;width:58px;height:48px;pointer-events:none;z-index:9;opacity:0;transition:opacity .1s;will-change:transform}
 #buddy.on{opacity:1}
@@ -1315,9 +1316,12 @@ const Snow = (()=>{
   const els = [hero, voices];
 
   function resize(){
-    const dpr = Math.min(2, devicePixelRatio || 1);
-    W = innerWidth; H = innerHeight;
-    cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+    // 캔버스가 실제로 보이는 크기·위치를 재서 그대로 그린다 (요소 좌표 getBoundingClientRect와 1:1로 맞춘다)
+    const dpr = Math.min(2, devicePixelRatio || 1), box = cv.getBoundingClientRect();
+    W = box.width || innerWidth; H = box.height || innerHeight;
+    cv.width = Math.max(1, Math.round(W*dpr)); cv.height = Math.max(1, Math.round(H*dpr));
+    const sx = cv.width/W, sy = cv.height/H;
+    ctx.setTransform(sx, 0, 0, sy, -box.left*sx, -box.top*sy);
     const n = reduce ? 0 : Math.round(clamp(W*H/11000, 30, 110));
     while (flakes.length < n) flakes.push(flake(true));
     flakes.length = n;
@@ -1435,7 +1439,7 @@ const Snow = (()=>{
 
   function tick(t){
     const k = last ? Math.min(3, (t - last)/16.7) : 1; last = t;
-    ctx.clearRect(0, 0, W, H);
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
     const b = Buddy.pos?.();
     // 화면에 보이는 배너·후기만 계산한다
     const live = [];
@@ -1494,6 +1498,7 @@ const Snow = (()=>{
     requestAnimationFrame(tick);
   }
   addEventListener('resize', resize);
+  if ('ResizeObserver' in window) new ResizeObserver(resize).observe(cv);   // 스크롤바가 생기거나 없어져 화면 폭만 바뀔 때도 다시 맞춘다
   resize();
   requestAnimationFrame(tick);
   return { piles };
