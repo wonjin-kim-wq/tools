@@ -8,6 +8,7 @@
 - 수정: 캔버스를 화면(스크롤바 제외) 기준 `width/height:100%`로 두고, 실제로 보이는 크기·위치(`getBoundingClientRect`)를 재서 그 비율로 변환한다. 화면 폭만 바뀌어도 맞추도록 `ResizeObserver`를 붙였고, 매 프레임 전체 버퍼를 지운다.
 - 확인: 로컬 격리 UI 서버 1440px에서 17px 일반 스크롤바를 넣고 캔버스 표시 폭을 1423px로 강제한 상태(문제 상황 재현)에서, 후기 왼쪽·오른쪽 끝과 배너 오른쪽 끝의 눈이 요소 가장자리와 정확히 맞는 것을 5배 확대로 확인했다. 기존 계산으로는 같은 조건에서 x≈1070 위치가 약 12.6px 밀려 제보 화면과 같다. 정적 빌드·테스트 33개·diff 검사 통과, 콘솔 오류 없음.
 - 작업 시작 기준: HEAD와 `origin/main`이 `76f6a285dfc3c5f4cd9879b9c74277703de0350f`로 일치(Vercel success 확인됨).
+- 운영 반영: `4f99b5245ca6e9493c69df5342e3c3a516ede88a`를 GitHub main에 푸시했다. 같은 SHA의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/2JtmdJhjtdgpHCnvvLtTgqZs6fCz)는 success, 운영 홈·공개 목록 API HTTP 200, 운영 `index.html`이 커밋과 바이트까지 일치한다. 일반 스크롤바가 보이는 실제 Windows 화면에서의 확인은 사용자 몫으로 남는다.
 
 ## 작업 창 스크롤바 삐져나옴 수정·로고 설명 줄 삭제 (2026-11-19)
 
