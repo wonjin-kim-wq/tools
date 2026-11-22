@@ -529,8 +529,6 @@ html:has(.event-dialog[open]) { overflow: hidden; }
 }
 .event-dialog[open] { display: flex; flex-direction: column; }
 .event-dialog::backdrop { background: rgb(17 24 39 / .65); }
-.event-dialog-header { flex: none; padding: .75rem 1rem; }
-.event-dialog-header h2 { font-size: 1rem; }
 .event-dialog-content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .event-dialog-content img { display: block; width: 100%; height: auto; }
 .event-dialog-notice {
