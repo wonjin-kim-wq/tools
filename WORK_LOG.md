@@ -13,6 +13,7 @@
 - 후속 운영 반영: GitHub main `2e3f0dc7767c071b5c878d8fba8ba0e3b60c5ad7`의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/C6VQyZPzpXUTTMgLXp3YxwA4dwBy) 성공. 운영 홈·공개 목록·두 이미지 HTTP 200과 HTML·이미지 일치를 확인했다. 운영 Chrome 데스크톱·휴대폰에서 자동 응모 안내, 하단 닫기와 체크박스, 같은 날 새 탭 숨김, 배너 재열기를 확인했다.
 - 팝업 상단의 흰색 제목 줄을 제거해 파란 자동 응모 안내로 시작하도록 정리했다. 스크린리더용 대화상자 이름은 유지했다. 시작 기준 `58915a19aff6544c6cf3a0efd26c3481ca5ac299`의 Vercel Production 성공과 홈·공개 목록 HTTP 200을 확인했다. Node 24 테스트 33개·빌드·diff 검사 통과, 격리 Chrome 데스크톱·휴대폰·소형·가로 화면에서 상단 배치와 하단 조작을 확인했다.
 - 제목 줄 제거 운영 반영: GitHub main `c05bf04729b01007da8c3264771fd67835277652`의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/EGyRzWrRLWNZjRZXAE14tig3pvoD) 성공. 운영 홈·공개 목록 HTTP 200과 HTML 일치를 확인했다. 데스크톱·휴대폰에서 자동 응모 안내가 맨 위에 표시되고, 하단 닫기·당일 숨김과 배너 재열기가 동작했다.
+- 팝업 위쪽의 하늘색 안내 칸과 테두리를 제거해 포스터가 둥근 모서리 안에서 바로 시작하도록 했다. 시작 기준 `32b278c8649312b2d52623d5a480afc2ac4185a9` Vercel Production 성공, 운영 홈·공개 목록 HTTP 200. Node 24 테스트 33개·정적 빌드·diff 검사 통과. 격리 Chrome 데스크톱·휴대폰·소형·가로 화면에서 이미지가 상단에 맞닿는 위치와 둥근 모서리, 하단 닫기·숨김 동작을 확인했다.
 - 남은 일: 이벤트가 끝나면 회원별 3건까지 대상 후기를 집계한다.
 
 

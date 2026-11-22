@@ -518,7 +518,7 @@ html:has(.event-dialog[open]) { overflow: hidden; }
 .event-dialog {
   background: var(--card);
   color: var(--ink);
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--panel-radius);
   box-shadow: var(--shadow-h);
   width: min(32rem, calc(100% - 2rem));
@@ -531,14 +531,6 @@ html:has(.event-dialog[open]) { overflow: hidden; }
 .event-dialog::backdrop { background: rgb(17 24 39 / .65); }
 .event-dialog-content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .event-dialog-content img { display: block; width: 100%; height: auto; }
-.event-dialog-notice {
-  flex: none;
-  padding: .5rem 1rem;
-  background: var(--brand-soft);
-  color: var(--brand-ink);
-  font-size: .875rem;
-  word-break: keep-all;
-}
 .event-dialog-footer {
   display: flex;
   flex: none;
