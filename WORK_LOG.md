@@ -10,6 +10,7 @@
 - 운영 반영: GitHub main `bdda62acb2e9364f2a01792a713cdf79971ffedf`의 Vercel 상태와 [Production 배포](https://vercel.com/konw7377-1627s-projects/tools/6x8YgRcHxrg91iRP3Q14zsJXq6cc) 성공을 확인했다. 운영 홈·공개 목록·두 이미지 HTTP 200, HTML과 이미지가 커밋과 동일하다. 운영 Chrome의 데스크톱·휴대폰에서 최초 팝업, 닫기, 배너 재열기, 기존 앱 상세까지 확인했다.
 - 이어서 자동 응모 안내와 팝업 하단을 수정했다. 응모 기간에 저장한 30자 이상 회원 후기 자체를 응모로 받는다. 왼쪽 **오늘 하루 동안 보지 않기**는 같은 브라우저의 새 탭에도 적용되고 한국 시간 자정에 초기화된다. 오른쪽 **닫기**를 사용하거나 배너에서 직접 열 수 있다.
 - 후속 확인: 시작 기준 SHA `4efec014933cef462f0f81fe34616c451fa9d4f3`의 Vercel Production 성공과 운영 홈·공개 목록 HTTP 200을 확인했다. Node 24 테스트 33개·정적 빌드·diff 검사 통과. 격리 Chrome에서 팝업 하단 좌우 배치, 키보드 체크, 새 탭 숨김, 한국 시간 자정 이후 표시, 기존 앱 배너를 확인했다.
+- 후속 운영 반영: GitHub main `2e3f0dc7767c071b5c878d8fba8ba0e3b60c5ad7`의 [Vercel Production 배포](https://vercel.com/konw7377-1627s-projects/tools/C6VQyZPzpXUTTMgLXp3YxwA4dwBy) 성공. 운영 홈·공개 목록·두 이미지 HTTP 200과 HTML·이미지 일치를 확인했다. 운영 Chrome 데스크톱·휴대폰에서 자동 응모 안내, 하단 닫기와 체크박스, 같은 날 새 탭 숨김, 배너 재열기를 확인했다.
 - 남은 일: 이벤트가 끝나면 회원별 3건까지 대상 후기를 집계한다.
 
 
