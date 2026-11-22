@@ -22,7 +22,7 @@ http.createServer(async (req, res) => {
     try { req.body = body ? JSON.parse(body) : {}; } catch { return res.status(400).json({error:'잘못된 요청이에요.'}); }
     return handler(req, res);
   }
-  const allowed = new Set(['/index.html','/tools.js','/tools.css','/chamcoding-ui.css','/recommend.js','/assets/astryx-neutral.css','/assets/chamssaem.png','/assets/share/chamcoding-og-v1.png','/assets/backgrounds/chamcoding-background-v1.png','/assets/backgrounds/chamcoding-background-winter-v1.png','/favicon.ico','/assets/favicon.svg','/assets/favicon-32.png','/assets/favicon-192.png','/assets/apple-touch-icon.png']);
+  const allowed = new Set(['/index.html','/tools.js','/tools.css','/chamcoding-ui.css','/recommend.js','/assets/astryx-neutral.css','/assets/chamssaem.png','/assets/share/chamcoding-og-v1.png','/assets/backgrounds/chamcoding-background-v1.png','/assets/backgrounds/chamcoding-background-winter-v1.png','/assets/events/semester-review-2026-banner.png','/assets/events/semester-review-2026-popup.png','/favicon.ico','/assets/favicon.svg','/assets/favicon-32.png','/assets/favicon-192.png','/assets/apple-touch-icon.png']);
   const file = pathname === '/' ? '/index.html' : pathname;
   if (!allowed.has(file)) { res.statusCode=404; return res.end('Not found'); }
   const extension = path.extname(file);

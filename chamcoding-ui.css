@@ -489,3 +489,60 @@ a.btn.solid,
 .topbar .profile-button:active { border-color: var(--brand); }
 .topbar .profile-button:focus-visible { outline: .125rem solid var(--focus-ring); outline-offset: .125rem; }
 #memberProfileIcon { inline-size: 1.375rem; block-size: 1.375rem; }
+
+/* 학기말 후기 이벤트 */
+.hero-slide.event-slide {
+  background: linear-gradient(90deg, #0d253a, #1a4651);
+  color: var(--brand-on);
+  border: 0;
+  width: 100%;
+  display: grid;
+  align-content: center;
+  gap: .5rem;
+  padding-block: 1.5rem;
+}
+.event-slide::before { content: none; }
+.event-slide img { display: block; width: 100%; height: auto; max-height: 100%; object-fit: contain; }
+.event-slide-caption { display: none; }
+.event-slide-cta { font-size: .875rem; font-weight: 700; }
+.event-slide:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -4px; }
+
+@media (max-width: 640px) {
+  .hero-slide.event-slide { padding-block: 2rem 1rem; }
+  .event-slide-caption { display: grid; gap: .35rem; font-size: .875rem; }
+  .event-slide-caption b { font-size: 1rem; }
+  .event-slide-cta { display: none; }
+}
+
+html:has(.event-dialog[open]) { overflow: hidden; }
+.event-dialog {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--shadow-h);
+  width: min(32rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+}
+.event-dialog[open] { display: flex; flex-direction: column; }
+.event-dialog::backdrop { background: rgb(17 24 39 / .65); }
+.event-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .75rem 1rem;
+}
+.event-dialog-header h2 { font-size: 1rem; }
+.event-dialog-header .btn { height: 2.25rem; white-space: nowrap; }
+.event-dialog-content { overflow: auto; overscroll-behavior: contain; }
+.event-dialog-content img { display: block; width: 100%; height: auto; }
+.event-dialog-notice {
+  padding: .5rem 1rem;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-size: .875rem;
+}

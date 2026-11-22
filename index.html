@@ -611,6 +611,16 @@ body{padding-left:var(--side)}
   <p class="empty" id="empty" hidden>찾는 도구가 없어요. 다른 검색어나 카테고리를 골라 보세요.</p>
 </main>
 
+<dialog class="event-dialog" id="semesterReviewDialog" aria-labelledby="semesterReviewTitle" aria-describedby="semesterReviewNotice">
+  <header class="event-dialog-header">
+    <h2 id="semesterReviewTitle">학기말 수업 후기 이벤트</h2>
+    <form method="dialog"><button class="btn line" type="submit" autofocus>닫기</button></form>
+  </header>
+  <p class="event-dialog-notice" id="semesterReviewNotice">이벤트 응모 기능은 준비 중입니다.</p>
+  <section class="event-dialog-content" aria-label="이벤트 안내">
+    <img data-src="/assets/events/semester-review-2026-popup.png" width="1080" height="1350" alt="참코딩 회원 전용. 올리브영 기프티콘 1만원권을 베스트 후기 5명과 추첨 20명에게 드립니다. 12월 1일부터 19일까지 학기말 수업에 참코딩 앱을 활용하고, 로그인 후 앱 상세에서 30자 이상 후기를 작성해 이벤트 응모를 체크하세요. 후기당 응모권 1장, 최대 3장, 1인 1회 당첨. 12월 25일 발표.">
+  </section>
+</dialog>
 <div class="dim" id="dim"></div>
 <div class="sheet app-sheet" id="appSheet" role="dialog" aria-modal="true"></div>
 <div class="sheet auth-sheet" id="authSheet" role="dialog" aria-modal="true"></div>
@@ -825,8 +835,36 @@ if (!matchMedia('(prefers-reduced-motion:reduce)').matches)
 
 /* ===== 홍보 배너 =====
    관리자가 '메인 홍보 배너'로 고른 앱을 보여주고, 고른 앱이 없으면 인기 1위를 보여준다. */
-const hero = $('#hero');
+const hero = $('#hero'), semesterReviewDialog = $('#semesterReviewDialog');
+const semesterReviewDeadline = Date.parse('2026-12-20T00:00:00+09:00');
+const semesterReviewSessionKey = 'semester-review-2026-popup-seen';
 let heroTimer = 0, heroIndex = 0;
+let semesterReviewTrigger = null;
+
+function showSemesterReview(trigger = null){
+  if (Date.now() >= semesterReviewDeadline || semesterReviewDialog.open) return;
+  semesterReviewTrigger = trigger;
+  const poster = semesterReviewDialog.querySelector('img');
+  if (!poster.hasAttribute('src')) poster.src = poster.dataset.src;
+  semesterReviewDialog.showModal();
+  try { sessionStorage.setItem(semesterReviewSessionKey, '1'); } catch { /* 저장이 막혀도 팝업은 열 수 있다. */ }
+}
+function showFirstVisitSemesterReview(){
+  // 인증 메일과 관리자 설정은 자체 대화상자에서 처리한다.
+  if (location.hash || new URLSearchParams(location.search).has('email-confirmed')) return;
+  try { if (sessionStorage.getItem(semesterReviewSessionKey)) return; } catch { /* 저장소가 차단된 경우 */ }
+  showSemesterReview();
+}
+semesterReviewDialog.addEventListener('click', e=>{
+  if (e.target !== semesterReviewDialog) return;
+  const {left,right,top,bottom} = semesterReviewDialog.getBoundingClientRect();
+  if (e.clientX < left || e.clientX > right || e.clientY < top || e.clientY > bottom) semesterReviewDialog.close();
+});
+semesterReviewDialog.addEventListener('close', ()=>{
+  // 목록 응답이 팝업을 열어 둔 사이 배너를 다시 그렸을 수 있다.
+  if (semesterReviewTrigger && !semesterReviewTrigger.isConnected) hero.querySelector('[data-semester-review]')?.focus({preventScroll:true});
+  semesterReviewTrigger = null;
+});
 // 맨 위 배너: 참코딩 추천 · 인기 1위 · 최근 업데이트 · 가장 최신, 4개를 6초마다 돌린다.
 // 같은 앱이 여러 자리에 걸리면 그 자리의 다음 앱을 쓴다. 관리자가 고른 추천 앱(featured)이 없으면 남은 앱 중 인기순으로 채운다.
 function heroApps(){
@@ -848,33 +886,49 @@ function heroApps(){
 }
 function renderHero(){
   clearInterval(heroTimer);
-  const list = heroApps();
-  hero.hidden = !list.length;
-  if (!list.length) return;
-  heroIndex = Math.min(heroIndex, list.length-1);
   const thumb = a => a.screenshots?.[0]?.url ? `<img src="${escapeHtml(a.screenshots[0].url)}" alt="" loading="lazy">` : '';
-  hero.innerHTML = list.map(({app:a, label})=>`<article class="hero-slide" data-open-app="${escapeHtml(a.id)}" style="--c:${escapeHtml(a.color)}" aria-label="${escapeHtml(label)} · ${escapeHtml(a.name)}">
+  const slides = heroApps().map(({app:a, label})=>`<article class="hero-slide" data-open-app="${escapeHtml(a.id)}" style="--c:${escapeHtml(a.color)}" aria-label="${escapeHtml(label)} · ${escapeHtml(a.name)}">
       <div class="hero-art">${thumb(a) || `<span class="hero-emoji">${escapeHtml(a.icon||'🧩')}</span>`}</div>
       <div class="hero-copy"><span class="hero-eyebrow">${escapeHtml(label)}</span><h2>${escapeHtml(a.name)}</h2><p>${escapeHtml(a.short)}</p>
         <div class="hero-app"><span class="hero-thumb">${thumb(a) || escapeHtml(a.icon||'🧩')}</span><div><b>${escapeHtml(a.name)}</b><small>${escapeHtml([a.author_name,a.cat].filter(Boolean).join(' · '))}</small></div><button class="hero-open" type="button">보기</button></div></div>
-    </article>`).join('') + (list.length>1 ? `<div class="hero-dots">${list.map((a,i)=>`<button type="button" data-hero="${i}" aria-label="${i+1}번째 배너 보기"></button>`).join('')}</div>` : '');
+    </article>`);
+  const hasSemesterReview = Date.now() < semesterReviewDeadline;
+  if (hasSemesterReview) slides.unshift(`
+    <button type="button" class="hero-slide event-slide" data-semester-review aria-haspopup="dialog" aria-controls="semesterReviewDialog" aria-label="학기말 수업 후기 이벤트 자세히 보기">
+      <img src="/assets/events/semester-review-2026-banner.png" width="1200" height="300" alt="">
+      <span class="event-slide-caption" aria-hidden="true"><b>올리브영 기프티콘 1만원권 · 25명</b><span>12.1(화) ~ 12.19(토) · 자세히 보기</span></span>
+      <span class="event-slide-cta" aria-hidden="true">이벤트 자세히 보기</span>
+    </button>`);
+  hero.hidden = !slides.length;
+  if (!slides.length) return;
+  heroIndex = Math.min(heroIndex, slides.length-1);
+  hero.innerHTML = slides.join('') + (slides.length>1 ? `<div class="hero-dots">${slides.map((_,i)=>`<button type="button" data-hero="${i}" aria-label="${hasSemesterReview && !i ? '후기 이벤트 배너 보기' : `${i+1}번째 배너 보기`}"></button>`).join('')}</div>` : '');
   showHero(heroIndex);
-  if (list.length>1) heroTimer = setInterval(()=>{ if (!hero.matches(':hover')) showHero((heroIndex+1)%list.length); }, 6000);
+  if (slides.length>1 && !matchMedia('(prefers-reduced-motion:reduce)').matches)
+    heroTimer = setInterval(()=>{
+      if (!semesterReviewDialog.open && !hero.matches(':hover,:focus-within')) showHero((heroIndex+1)%slides.length);
+    }, 6000);
 }
 function showHero(i){
   heroIndex = i;
   hero.querySelectorAll('.hero-slide').forEach((el,n)=>{ el.classList.toggle('on', n===i); el.inert = n!==i; });
-  hero.querySelectorAll('[data-hero]').forEach((el,n)=>el.classList.toggle('on', n===i));
+  hero.querySelectorAll('[data-hero]').forEach((el,n)=>{
+    el.classList.toggle('on', n===i);
+    el.setAttribute('aria-pressed', String(n===i));
+  });
 }
 hero.addEventListener('click', e=>{
   const dot = e.target.closest('[data-hero]');
   if (dot) return showHero(Number(dot.dataset.hero));
+  const eventSlide = e.target.closest('[data-semester-review]');
+  if (eventSlide) return showSemesterReview(eventSlide);
   const slide = e.target.closest('[data-open-app]');
   if (slide) openApp(slide.dataset.openApp);
 });
 
 function escapeHtml(value){return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 renderCatalog();
+showFirstVisitSemesterReview();
 
 const periodEl = $('#period');
 let period = 'week';

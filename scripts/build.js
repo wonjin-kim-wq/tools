@@ -7,6 +7,8 @@ fs.mkdirSync('public/assets/share', {recursive:true});
 fs.copyFileSync('assets/share/chamcoding-og-v1.png','public/assets/share/chamcoding-og-v1.png');
 fs.mkdirSync('public/assets/backgrounds', {recursive:true});
 for (const name of ['chamcoding-background-v1.png','chamcoding-background-winter-v1.png']) fs.copyFileSync(`assets/backgrounds/${name}`,`public/assets/backgrounds/${name}`);
+fs.mkdirSync('public/assets/events', {recursive:true});
+for (const name of ['semester-review-2026-banner.png','semester-review-2026-popup.png']) fs.copyFileSync(`assets/events/${name}`,`public/assets/events/${name}`);
 fs.copyFileSync('favicon.ico','public/favicon.ico');
 for (const name of ['favicon.svg','favicon-32.png','favicon-192.png','apple-touch-icon.png']) fs.copyFileSync(`assets/${name}`,`public/assets/${name}`);
 console.log('Static site built. Server API is bundled separately by Vercel.');
