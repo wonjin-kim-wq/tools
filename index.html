@@ -614,12 +614,15 @@ body{padding-left:var(--side)}
 <dialog class="event-dialog" id="semesterReviewDialog" aria-labelledby="semesterReviewTitle" aria-describedby="semesterReviewNotice">
   <header class="event-dialog-header">
     <h2 id="semesterReviewTitle">학기말 수업 후기 이벤트</h2>
-    <form method="dialog"><button class="btn line" type="submit" autofocus>닫기</button></form>
   </header>
-  <p class="event-dialog-notice" id="semesterReviewNotice">이벤트 응모 기능은 준비 중입니다.</p>
+  <p class="event-dialog-notice" id="semesterReviewNotice">응모 기간에 로그인하고 30자 이상 후기를 남기면 <strong>자동으로 응모됩니다.</strong></p>
   <section class="event-dialog-content" aria-label="이벤트 안내">
-    <img data-src="/assets/events/semester-review-2026-popup.png" width="1080" height="1350" alt="참코딩 회원 전용. 올리브영 기프티콘 1만원권을 베스트 후기 5명과 추첨 20명에게 드립니다. 12월 1일부터 19일까지 학기말 수업에 참코딩 앱을 활용하고, 로그인 후 앱 상세에서 30자 이상 후기를 작성해 이벤트 응모를 체크하세요. 후기당 응모권 1장, 최대 3장, 1인 1회 당첨. 12월 25일 발표.">
+    <img data-src="/assets/events/semester-review-2026-popup.png?v=2" width="1080" height="1350" alt="참코딩 회원 전용. 올리브영 기프티콘 1만원권을 베스트 후기 5명과 추첨 20명에게 드립니다. 12월 1일부터 19일까지 학기말 수업에 참코딩 앱을 활용하고, 로그인 후 앱 상세에서 30자 이상 후기를 저장하면 자동 응모됩니다. 후기당 응모권 1장, 최대 3장, 1인 1회 당첨. 12월 25일 발표.">
   </section>
+  <form class="event-dialog-footer" method="dialog">
+    <label><input id="semesterReviewHideToday" type="checkbox"> 오늘 하루 동안 보지 않기</label>
+    <button class="btn line" type="submit" autofocus>닫기</button>
+  </form>
 </dialog>
 <div class="dim" id="dim"></div>
 <div class="sheet app-sheet" id="appSheet" role="dialog" aria-modal="true"></div>
@@ -838,21 +841,39 @@ if (!matchMedia('(prefers-reduced-motion:reduce)').matches)
 const hero = $('#hero'), semesterReviewDialog = $('#semesterReviewDialog');
 const semesterReviewDeadline = Date.parse('2026-12-20T00:00:00+09:00');
 const semesterReviewSessionKey = 'semester-review-2026-popup-seen';
+const semesterReviewHiddenKey = 'semester-review-2026-popup-hidden-day';
+const semesterReviewCalendar = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'short'});
+const semesterReviewDay = () => semesterReviewCalendar.format(new Date());
+const semesterReviewHideToday = $('#semesterReviewHideToday');
 let heroTimer = 0, heroIndex = 0;
 let semesterReviewTrigger = null;
 
+function semesterReviewHiddenToday(day){
+  try { return localStorage.getItem(semesterReviewHiddenKey) === day; }
+  catch { return false; }
+}
+semesterReviewHideToday.addEventListener('change', ()=>{
+  try {
+    if (semesterReviewHideToday.checked) localStorage.setItem(semesterReviewHiddenKey, semesterReviewDay());
+    else localStorage.removeItem(semesterReviewHiddenKey);
+  } catch { /* 저장이 막혀도 팝업은 닫을 수 있다. */ }
+});
 function showSemesterReview(trigger = null){
   if (Date.now() >= semesterReviewDeadline || semesterReviewDialog.open) return;
+  const day = semesterReviewDay();
   semesterReviewTrigger = trigger;
+  semesterReviewHideToday.checked = semesterReviewHiddenToday(day);
   const poster = semesterReviewDialog.querySelector('img');
   if (!poster.hasAttribute('src')) poster.src = poster.dataset.src;
   semesterReviewDialog.showModal();
-  try { sessionStorage.setItem(semesterReviewSessionKey, '1'); } catch { /* 저장이 막혀도 팝업은 열 수 있다. */ }
+  try { sessionStorage.setItem(semesterReviewSessionKey, day); } catch { /* 저장이 막혀도 팝업은 열 수 있다. */ }
 }
 function showFirstVisitSemesterReview(){
   // 인증 메일과 관리자 설정은 자체 대화상자에서 처리한다.
   if (location.hash || new URLSearchParams(location.search).has('email-confirmed')) return;
-  try { if (sessionStorage.getItem(semesterReviewSessionKey)) return; } catch { /* 저장소가 차단된 경우 */ }
+  const day = semesterReviewDay();
+  if (semesterReviewHiddenToday(day)) return;
+  try { if (sessionStorage.getItem(semesterReviewSessionKey) === day) return; } catch { /* 저장소가 차단된 경우 */ }
   showSemesterReview();
 }
 semesterReviewDialog.addEventListener('click', e=>{
@@ -894,9 +915,9 @@ function renderHero(){
     </article>`);
   const hasSemesterReview = Date.now() < semesterReviewDeadline;
   if (hasSemesterReview) slides.unshift(`
-    <button type="button" class="hero-slide event-slide" data-semester-review aria-haspopup="dialog" aria-controls="semesterReviewDialog" aria-label="학기말 수업 후기 이벤트 자세히 보기">
-      <img src="/assets/events/semester-review-2026-banner.png" width="1200" height="300" alt="">
-      <span class="event-slide-caption" aria-hidden="true"><b>올리브영 기프티콘 1만원권 · 25명</b><span>12.1(화) ~ 12.19(토) · 자세히 보기</span></span>
+    <button type="button" class="hero-slide event-slide" data-semester-review aria-haspopup="dialog" aria-controls="semesterReviewDialog" aria-label="학기말 수업 후기 이벤트 · 30자 이상 후기 자동 응모 · 자세히 보기">
+      <img src="/assets/events/semester-review-2026-banner.png?v=2" width="1200" height="300" alt="">
+      <span class="event-slide-caption" aria-hidden="true"><b>올리브영 기프티콘 1만원권 · 25명</b><span>30자 이상 후기 자동 응모</span><span>12.1(화) ~ 12.19(토) · 자세히 보기</span></span>
       <span class="event-slide-cta" aria-hidden="true">이벤트 자세히 보기</span>
     </button>`);
   hero.hidden = !slides.length;
